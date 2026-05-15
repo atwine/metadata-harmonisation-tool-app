@@ -176,6 +176,13 @@ export interface MappingUpdateRequest {
 
 export const api = {
   // Codebook
+  getCodebookMeta: (): Promise<{
+    exists: boolean;
+    filename?: string;
+    row_count?: number;
+    uploaded_at?: string;
+  }> => get("/api/codebook/meta"),
+
   uploadCodebook: async (file: File): Promise<CodebookUploadResponse> => {
     const fd = new FormData();
     fd.append("file", file);
@@ -275,9 +282,11 @@ export function triggerDownload(blob: Blob, filename: string) {
 
 export const QUERY_KEYS = {
   codebook: ["codebook"] as const,
+  codebookMeta: ["codebook-meta"] as const,
   studies: ["studies"] as const,
   initialiseStatus: ["initialise-status"] as const,
   providers: ["providers"] as const,
+  ollamaModels: (baseUrl: string) => ["ollama-models", baseUrl] as const,
   mappings: (study: string, status?: string) =>
     ["mappings", study, status] as const,
   variableDetail: (study: string, variable: string) =>
@@ -291,6 +300,13 @@ export function useCodebook() {
   return useQuery({
     queryKey: QUERY_KEYS.codebook,
     queryFn: api.getCodebook,
+  });
+}
+
+export function useCodebookMeta() {
+  return useQuery({
+    queryKey: QUERY_KEYS.codebookMeta,
+    queryFn: api.getCodebookMeta,
   });
 }
 
@@ -312,6 +328,16 @@ export function useProviders() {
   return useQuery({
     queryKey: QUERY_KEYS.providers,
     queryFn: api.getProviders,
+  });
+}
+
+export function useOllamaModels(baseUrl: string, enabled = true) {
+  return useQuery({
+    queryKey: QUERY_KEYS.ollamaModels(baseUrl),
+    queryFn: () => api.getOllamaModels(baseUrl),
+    enabled,
+    staleTime: 30_000,
+    retry: false,
   });
 }
 
@@ -343,7 +369,10 @@ export function useUploadCodebook() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (file: File) => api.uploadCodebook(file),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.codebook }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.codebook });
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.codebookMeta });
+    },
   });
 }
 

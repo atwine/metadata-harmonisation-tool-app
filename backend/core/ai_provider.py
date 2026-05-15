@@ -173,28 +173,13 @@ class AIProviderWrapper:
 
             if provider == AIProvider.OLLAMA:
                 models_resp = client.list()
-                available   = [m["name"] for m in (models_resp.get("models") or [])]
-                chat_ok  = any(m.startswith(self.model_config.chat_model)       for m in available)
-                embed_ok = (
-                    any(m.startswith(self.model_config.embedding_model) for m in available)
-                    if self.model_config.embedding_model
-                    else True
-                )
-                if not chat_ok:
-                    return False, (
-                        f"Chat model '{self.model_config.chat_model}' not found. "
-                        f"Available: {available}"
-                    )
-                if not embed_ok:
-                    return False, (
-                        f"Embedding model '{self.model_config.embedding_model}' not found. "
-                        f"Available: {available}"
-                    )
-                return True, (
-                    f"Connected to Ollama. "
-                    f"Chat: {self.model_config.chat_model}. "
-                    f"Embedding: {self.model_config.embedding_model}."
-                )
+                items = models_resp.get("models") if isinstance(models_resp, dict) else getattr(models_resp, "models", None) or []
+                available: list[str] = []
+                for m in (items or []):
+                    n = (m.get("model") or m.get("name")) if isinstance(m, dict) else (getattr(m, "model", None) or getattr(m, "name", None))
+                    if n:
+                        available.append(str(n))
+                return True, f"Connected to Ollama. {len(available)} model(s) available."
 
             elif provider in (AIProvider.OPENAI, AIProvider.AZURE_OPENAI):
                 self._do_embed_single("test")

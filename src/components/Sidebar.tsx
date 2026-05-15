@@ -11,7 +11,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useAIConfigStore } from "@/stores/aiConfigStore";
-import { useTestConnection } from "@/api/client";
+import { useTestConnection, useOllamaModels } from "@/api/client";
 
 const NAV = [
   { to: "/", label: "Home", icon: Home },
@@ -24,7 +24,7 @@ const NAV = [
 
 function BrandDots() {
   return (
-    <div className="grid grid-cols-3 gap-[3px] w-[26px] h-[26px]">
+    <div className="grid grid-cols-3 gap-[3px] w-[30px] h-[30px]">
       {[
         "var(--primary)",
         "var(--accent)",
@@ -54,7 +54,7 @@ const PROVIDER_DEFAULTS: Record<string, { chat_model: string; embedding_model: s
 };
 
 function AIConfigPanel() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const { config, setConfig, connectionStatus, setConnectionStatus } = useAIConfigStore();
   const testConn = useTestConnection();
 
@@ -63,47 +63,49 @@ function AIConfigPanel() {
   const showApiKey = provider !== "ollama";
   const showBaseUrl = provider === "ollama" || provider === "azure_openai";
 
+  const ollamaBaseUrl = config?.base_url ?? "http://localhost:11434";
+  const { data: ollamaModelsData, refetch: refetchOllamaModels } = useOllamaModels(
+    ollamaBaseUrl,
+    provider === "ollama",
+  );
+  const ollamaModels = ollamaModelsData?.models ?? [];
+
   const update = (patch: Partial<typeof config>) =>
-    setConfig({ ...(config ?? { provider: "ollama", chat_model: "", embedding_model: "", request_timeout: 60 }), ...patch } as NonNullable<typeof config>);
+    setConfig({ ...(config ?? { provider: "ollama", chat_model: "", embedding_model: "", request_timeout: 30 }), ...patch } as NonNullable<typeof config>);
 
   const handleTest = () => {
     if (!config) return;
     setConnectionStatus("unconfigured");
     testConn.mutate(config, {
-      onSuccess: (res) => setConnectionStatus(res.connected ? "connected" : "failed"),
+      onSuccess: (res) => {
+        setConnectionStatus(res.connected ? "connected" : "failed");
+        if (res.connected && provider === "ollama") {
+          refetchOllamaModels();
+        }
+      },
       onError: () => setConnectionStatus("failed"),
     });
   };
 
-  const statusLabel =
-    connectionStatus === "connected"
-      ? `Connected — ${config?.chat_model ?? ""}`
-      : connectionStatus === "failed"
-        ? "Connection failed"
-        : "Not configured";
-
-  const statusColor =
-    connectionStatus === "connected"
-      ? "bg-success"
-      : connectionStatus === "failed"
-        ? "bg-danger"
-        : "bg-primary";
+  const useOllamaDropdowns = provider === "ollama" && ollamaModels.length > 0;
 
   return (
     <div className="px-3 py-3">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between text-[10px] font-medium tracking-widest text-text-secondary uppercase px-1 hover:text-text-primary"
+        className="w-full flex items-center justify-between text-[13px] font-medium tracking-widest text-text-secondary uppercase px-1 hover:text-text-primary"
       >
         <span>AI Configuration</span>
         {open ? (
-          <ChevronDown className="size-3" />
+          <ChevronDown className="size-4" />
         ) : (
-          <ChevronRight className="size-3" />
+          <ChevronRight className="size-4" />
         )}
       </button>
+
       {open && (
-        <div className="mt-3 space-y-2">
+        <div className="mt-3 space-y-3">
+          {/* Provider */}
           <div>
             <label className="label-caption">Provider</label>
             <select
@@ -113,7 +115,7 @@ function AIConfigPanel() {
                 const defs = PROVIDER_DEFAULTS[p] ?? { chat_model: "", embedding_model: "" };
                 update({ provider: p, ...defs });
               }}
-              className="mt-0.5 w-full h-8 text-xs px-2 rounded-md border bg-surface"
+              className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
             >
               <option value="ollama">Ollama (Local)</option>
               <option value="openai">OpenAI</option>
@@ -121,26 +123,69 @@ function AIConfigPanel() {
               <option value="azure_openai">Azure OpenAI</option>
             </select>
           </div>
-          <div>
-            <label className="label-caption">Chat model</label>
-            <input
-              value={config?.chat_model ?? ""}
-              onChange={(e) => update({ chat_model: e.target.value })}
-              placeholder="llama3.1:8b"
-              className="mt-0.5 w-full h-8 text-xs px-2 rounded-md border bg-surface"
-            />
-          </div>
-          {showEmbedding && (
+
+          {/* Base URL (Ollama / Azure) */}
+          {showBaseUrl && (
             <div>
-              <label className="label-caption">Embedding model</label>
+              <label className="label-caption">Base URL</label>
               <input
-                value={config?.embedding_model ?? ""}
-                onChange={(e) => update({ embedding_model: e.target.value })}
-                placeholder="nomic-embed-text"
-                className="mt-0.5 w-full h-8 text-xs px-2 rounded-md border bg-surface"
+                value={config?.base_url ?? ""}
+                onChange={(e) => update({ base_url: e.target.value })}
+                placeholder="http://localhost:11434"
+                className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
               />
             </div>
           )}
+
+          {/* Chat model — dropdown for Ollama when models are loaded */}
+          <div>
+            <label className="label-caption">Chat model</label>
+            {useOllamaDropdowns ? (
+              <select
+                value={config?.chat_model ?? ""}
+                onChange={(e) => update({ chat_model: e.target.value })}
+                className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
+              >
+                {ollamaModels.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                value={config?.chat_model ?? ""}
+                onChange={(e) => update({ chat_model: e.target.value })}
+                placeholder="llama3.1:8b"
+                className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
+              />
+            )}
+          </div>
+
+          {/* Embedding model — dropdown for Ollama when models are loaded */}
+          {showEmbedding && (
+            <div>
+              <label className="label-caption">Embedding model</label>
+              {useOllamaDropdowns ? (
+                <select
+                  value={config?.embedding_model ?? ""}
+                  onChange={(e) => update({ embedding_model: e.target.value })}
+                  className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
+                >
+                  {ollamaModels.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  value={config?.embedding_model ?? ""}
+                  onChange={(e) => update({ embedding_model: e.target.value })}
+                  placeholder="nomic-embed-text"
+                  className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
+                />
+              )}
+            </div>
+          )}
+
+          {/* API Key (non-Ollama) */}
           {showApiKey && (
             <div>
               <label className="label-caption">API Key</label>
@@ -149,34 +194,82 @@ function AIConfigPanel() {
                 value={config?.api_key ?? ""}
                 onChange={(e) => update({ api_key: e.target.value })}
                 placeholder="sk-..."
-                className="mt-0.5 w-full h-8 text-xs px-2 rounded-md border bg-surface"
+                className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
               />
             </div>
           )}
-          {showBaseUrl && (
-            <div>
-              <label className="label-caption">Base URL</label>
+
+          {/* ── Request Timeout ─────────────────────────────── */}
+          <div className="pt-2 border-t">
+            <div className="text-[13px] font-medium tracking-widest text-text-secondary uppercase mb-2">
+              ⏱ Request Timeout
+            </div>
+            <label className="label-caption">Timeout (seconds)</label>
+            <div className="mt-1 flex items-center gap-1.5">
+              <button
+                onClick={() => update({ request_timeout: Math.max(5, (config?.request_timeout ?? 30) - 5) })}
+                className="size-9 rounded border text-text-secondary hover:bg-[#F5F0EE] text-base font-bold flex items-center justify-center"
+              >
+                −
+              </button>
               <input
-                value={config?.base_url ?? ""}
-                onChange={(e) => update({ base_url: e.target.value })}
-                placeholder="http://localhost:11434"
-                className="mt-0.5 w-full h-8 text-xs px-2 rounded-md border bg-surface"
+                type="number"
+                min={5}
+                max={120}
+                value={config?.request_timeout ?? 30}
+                onChange={(e) => {
+                  const v = Math.min(120, Math.max(5, Number(e.target.value)));
+                  update({ request_timeout: v });
+                }}
+                className="flex-1 h-9 text-center text-[14px] rounded border bg-surface"
               />
+              <button
+                onClick={() => update({ request_timeout: Math.min(120, (config?.request_timeout ?? 30) + 5) })}
+                className="size-9 rounded border text-text-secondary hover:bg-[#F5F0EE] text-base font-bold flex items-center justify-center"
+              >
+                +
+              </button>
             </div>
-          )}
-          <button
-            onClick={handleTest}
-            disabled={testConn.isPending}
-            className="w-full h-8 text-xs rounded-md border border-primary text-primary font-medium hover:bg-primary-light transition-colors disabled:opacity-50"
-          >
-            {testConn.isPending ? "Testing…" : "Test Connection"}
-          </button>
-          {testConn.isSuccess && testConn.data && !testConn.data.connected && (
-            <div className="text-[11px] text-danger">{testConn.data.message}</div>
-          )}
-          <div className="flex items-center gap-2 text-[11px] pt-1">
-            <span className={`size-2 rounded-full ${statusColor}`} />
-            <span className="text-text-secondary">{statusLabel}</span>
+          </div>
+
+          {/* ── Connection Test ──────────────────────────────── */}
+          <div className="pt-2 border-t">
+            <div className="text-[13px] font-medium tracking-widest text-text-secondary uppercase mb-2">
+              🔍 Connection Test
+            </div>
+            <button
+              onClick={handleTest}
+              disabled={testConn.isPending}
+              className="w-full h-11 text-[14px] rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+            >
+              {testConn.isPending ? "Testing connection…" : "Test Connection"}
+            </button>
+
+            {/* Result feedback */}
+            {testConn.isSuccess && testConn.data && (
+              <div className={`mt-2 text-[13px] font-medium flex items-start gap-1.5 ${
+                testConn.data.connected ? "text-success" : "text-danger"
+              }`}>
+                <span>{testConn.data.connected ? "✅" : "❌"}</span>
+                <span>
+                  {testConn.data.connected ? "Connection verified" : "Connection failed"}
+                  {testConn.data.message && (
+                    <span className="font-normal opacity-80"> — {testConn.data.message}</span>
+                  )}
+                </span>
+              </div>
+            )}
+            {testConn.isError && (
+              <div className="mt-2 text-[13px] text-danger">
+                ❌ {(testConn.error as Error).message}
+              </div>
+            )}
+            {connectionStatus === "connected" && !testConn.isPending && (
+              <div className="mt-1.5 flex items-center gap-1.5 text-[13px] text-text-secondary">
+                <span className="size-2 rounded-full bg-success inline-block" />
+                Connected — {config?.chat_model}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -187,21 +280,21 @@ function AIConfigPanel() {
 export function Sidebar() {
   const location = useLocation();
   return (
-    <aside className="fixed top-0 left-0 h-screen w-60 bg-surface border-r flex flex-col z-30">
+    <aside className="fixed top-0 left-0 h-screen w-80 bg-surface border-r flex flex-col z-30">
       <div className="px-4 py-3 flex items-center gap-3">
         <BrandDots />
         <div className="leading-tight">
-          <div className="text-[14px] font-semibold text-text-primary">
+          <div className="text-[17px] font-semibold text-text-primary">
             Metadata Harmonisation
           </div>
-          <div className="text-[10px] text-text-secondary">
+          <div className="text-[13px] text-text-secondary">
             eLwazi Open Data Science Platform
           </div>
         </div>
       </div>
       <div className="border-t" />
       <div className="px-3 pt-3 pb-1">
-        <span className="text-[10px] font-medium tracking-widest text-text-secondary uppercase">
+        <span className="text-[13px] font-medium tracking-widest text-text-secondary uppercase">
           Workflow
         </span>
       </div>
@@ -215,22 +308,24 @@ export function Sidebar() {
             <Link
               key={to}
               to={to}
-              className={`flex items-center gap-2.5 text-[13px] px-3 py-2 rounded-md transition-colors border-l-[3px] ${
+              className={`flex items-center gap-2.5 text-[15px] px-3 py-2 rounded-md transition-colors border-l-[3px] ${
                 active
                   ? "bg-primary-light border-primary text-primary font-medium"
                   : "border-transparent text-text-primary hover:bg-[#F5F0EE]"
               }`}
             >
-              <Icon className="size-4" />
+              <Icon className="size-5" />
               <span>{label}</span>
             </Link>
           );
         })}
       </nav>
       <div className="border-t" />
-      <AIConfigPanel />
+      <div className="overflow-y-auto flex-shrink-0 max-h-[60vh]">
+        <AIConfigPanel />
+      </div>
       <div className="border-t" />
-      <div className="px-4 py-2 text-[11px] text-text-secondary">v0.5.0</div>
+      <div className="px-4 py-2 text-[13px] text-text-secondary shrink-0">v0.5.0</div>
     </aside>
   );
 }

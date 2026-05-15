@@ -1,3 +1,5 @@
+import datetime
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -8,6 +10,9 @@ from storage.files import read_csv_robust
 from core.validation import validate_codebook_df
 
 router = APIRouter()
+
+_META_PATH = Path("input/target_variables_meta.json")
+_CSV_PATH  = Path("input/target_variables.csv")
 
 
 @router.post("/upload", response_model=CodebookUploadResponse)
@@ -32,7 +37,17 @@ async def upload_codebook(file: UploadFile = File(...)):
         raise HTTPException(400, "; ".join(errors))
 
     Path("input").mkdir(exist_ok=True)
-    df.to_csv("input/target_variables.csv", index=False)
+    df.to_csv(_CSV_PATH, index=False)
+
+    # Persist upload metadata for the info banner
+    _META_PATH.write_text(
+        json.dumps({
+            "filename":    file.filename or "codebook.csv",
+            "row_count":   len(df),
+            "uploaded_at": datetime.datetime.utcnow().isoformat() + "Z",
+        }),
+        encoding="utf-8",
+    )
 
     # Invalidate embeddings cache so the next Initialise re-embeds
     emb_path = Path("input/target_variables_with_embeddings.csv")
@@ -47,14 +62,33 @@ async def upload_codebook(file: UploadFile = File(...)):
     )
 
 
+@router.get("/meta")
+async def get_codebook_meta():
+    if not _CSV_PATH.exists():
+        return {"exists": False}
+    meta: dict = {"exists": True}
+    if _META_PATH.exists():
+        try:
+            meta.update(json.loads(_META_PATH.read_text(encoding="utf-8")))
+        except Exception:
+            pass
+    if "row_count" not in meta:
+        try:
+            meta["row_count"] = len(pd.read_csv(_CSV_PATH))
+        except Exception:
+            meta["row_count"] = 0
+    if "filename" not in meta:
+        meta["filename"] = "target_variables.csv"
+    return meta
+
+
 @router.get("/", response_model=list[CodebookVariable])
 async def get_codebook():
-    path = Path("input/target_variables.csv")
-    if not path.exists():
+    if not _CSV_PATH.exists():
         raise HTTPException(404, "No codebook uploaded yet")
 
     try:
-        df = pd.read_csv(path)
+        df = pd.read_csv(_CSV_PATH)
     except Exception as e:
         raise HTTPException(500, f"Could not read codebook: {e}")
 

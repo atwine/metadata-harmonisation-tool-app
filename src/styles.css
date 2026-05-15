@@ -116,7 +116,7 @@
     color: var(--primary);
   }
   .label-caption {
-    font-size: 12px;
+    font-size: 14px;
     color: var(--text-secondary);
   }
 }

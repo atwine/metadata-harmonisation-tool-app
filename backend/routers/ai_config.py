@@ -68,7 +68,12 @@ async def get_ollama_models(base_url: str = Query("http://localhost:11434")):
         import ollama
         client = ollama.Client(host=base_url)
         resp   = client.list()
-        models = [m["name"] for m in (resp.get("models") or [])]
-        return OllamaModelsResponse(models=models)
+        items  = resp.get("models") if isinstance(resp, dict) else getattr(resp, "models", None) or []
+        names: list[str] = []
+        for m in (items or []):
+            n = (m.get("model") or m.get("name")) if isinstance(m, dict) else (getattr(m, "model", None) or getattr(m, "name", None))
+            if n:
+                names.append(str(n))
+        return OllamaModelsResponse(models=sorted(names))
     except Exception:
         return OllamaModelsResponse(models=[])

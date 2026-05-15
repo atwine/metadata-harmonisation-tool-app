@@ -16,7 +16,7 @@ export const useAIConfigStore = create<AIConfigState>((set) => ({
     chat_model: "llama3.1:8b",
     embedding_model: "nomic-embed-text",
     base_url: "http://localhost:11434",
-    request_timeout: 60,
+    request_timeout: 30,
   },
   setConfig: (c) => set({ config: c }),
   connectionStatus: "unconfigured",
