@@ -11,6 +11,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useAIConfigStore } from "@/stores/aiConfigStore";
+import { useTestConnection } from "@/api/client";
 
 const NAV = [
   { to: "/", label: "Home", icon: Home },
@@ -45,14 +46,48 @@ function BrandDots() {
   );
 }
 
+const PROVIDER_DEFAULTS: Record<string, { chat_model: string; embedding_model: string; base_url?: string }> = {
+  ollama: { chat_model: "llama3.1:8b", embedding_model: "nomic-embed-text", base_url: "http://localhost:11434" },
+  openai: { chat_model: "gpt-4o-mini", embedding_model: "text-embedding-3-small" },
+  anthropic: { chat_model: "claude-3-5-haiku-20241022", embedding_model: "" },
+  azure_openai: { chat_model: "", embedding_model: "" },
+};
+
 function AIConfigPanel() {
   const [open, setOpen] = useState(false);
-  const { config, setConfig, connectionStatus } = useAIConfigStore();
-  const provider = config?.provider ?? "ollama";
+  const { config, setConfig, connectionStatus, setConnectionStatus } = useAIConfigStore();
+  const testConn = useTestConnection();
 
+  const provider = config?.provider ?? "ollama";
   const showEmbedding = provider !== "anthropic";
   const showApiKey = provider !== "ollama";
   const showBaseUrl = provider === "ollama" || provider === "azure_openai";
+
+  const update = (patch: Partial<typeof config>) =>
+    setConfig({ ...(config ?? { provider: "ollama", chat_model: "", embedding_model: "", request_timeout: 60 }), ...patch } as NonNullable<typeof config>);
+
+  const handleTest = () => {
+    if (!config) return;
+    setConnectionStatus("unconfigured");
+    testConn.mutate(config, {
+      onSuccess: (res) => setConnectionStatus(res.connected ? "connected" : "failed"),
+      onError: () => setConnectionStatus("failed"),
+    });
+  };
+
+  const statusLabel =
+    connectionStatus === "connected"
+      ? `Connected — ${config?.chat_model ?? ""}`
+      : connectionStatus === "failed"
+        ? "Connection failed"
+        : "Not configured";
+
+  const statusColor =
+    connectionStatus === "connected"
+      ? "bg-success"
+      : connectionStatus === "failed"
+        ? "bg-danger"
+        : "bg-primary";
 
   return (
     <div className="px-3 py-3">
@@ -73,16 +108,11 @@ function AIConfigPanel() {
             <label className="label-caption">Provider</label>
             <select
               value={provider}
-              onChange={(e) =>
-                setConfig({
-                  ...(config ?? {
-                    chat_model: "",
-                    embedding_model: "",
-                    request_timeout: 60,
-                  }),
-                  provider: e.target.value as never,
-                })
-              }
+              onChange={(e) => {
+                const p = e.target.value as typeof provider;
+                const defs = PROVIDER_DEFAULTS[p] ?? { chat_model: "", embedding_model: "" };
+                update({ provider: p, ...defs });
+              }}
               className="mt-0.5 w-full h-8 text-xs px-2 rounded-md border bg-surface"
             >
               <option value="ollama">Ollama (Local)</option>
@@ -94,8 +124,9 @@ function AIConfigPanel() {
           <div>
             <label className="label-caption">Chat model</label>
             <input
+              value={config?.chat_model ?? ""}
+              onChange={(e) => update({ chat_model: e.target.value })}
               placeholder="llama3.1:8b"
-              defaultValue={config?.chat_model}
               className="mt-0.5 w-full h-8 text-xs px-2 rounded-md border bg-surface"
             />
           </div>
@@ -103,8 +134,9 @@ function AIConfigPanel() {
             <div>
               <label className="label-caption">Embedding model</label>
               <input
+                value={config?.embedding_model ?? ""}
+                onChange={(e) => update({ embedding_model: e.target.value })}
                 placeholder="nomic-embed-text"
-                defaultValue={config?.embedding_model}
                 className="mt-0.5 w-full h-8 text-xs px-2 rounded-md border bg-surface"
               />
             </div>
@@ -114,6 +146,8 @@ function AIConfigPanel() {
               <label className="label-caption">API Key</label>
               <input
                 type="password"
+                value={config?.api_key ?? ""}
+                onChange={(e) => update({ api_key: e.target.value })}
                 placeholder="sk-..."
                 className="mt-0.5 w-full h-8 text-xs px-2 rounded-md border bg-surface"
               />
@@ -123,32 +157,26 @@ function AIConfigPanel() {
             <div>
               <label className="label-caption">Base URL</label>
               <input
+                value={config?.base_url ?? ""}
+                onChange={(e) => update({ base_url: e.target.value })}
                 placeholder="http://localhost:11434"
-                defaultValue={config?.base_url}
                 className="mt-0.5 w-full h-8 text-xs px-2 rounded-md border bg-surface"
               />
             </div>
           )}
           <button
-            // TODO: wire up real test connection
-            className="w-full h-8 text-xs rounded-md border border-primary text-primary font-medium hover:bg-primary-light transition-colors"
+            onClick={handleTest}
+            disabled={testConn.isPending}
+            className="w-full h-8 text-xs rounded-md border border-primary text-primary font-medium hover:bg-primary-light transition-colors disabled:opacity-50"
           >
-            Test Connection
+            {testConn.isPending ? "Testing…" : "Test Connection"}
           </button>
+          {testConn.isSuccess && testConn.data && !testConn.data.connected && (
+            <div className="text-[11px] text-danger">{testConn.data.message}</div>
+          )}
           <div className="flex items-center gap-2 text-[11px] pt-1">
-            {connectionStatus === "connected" ? (
-              <>
-                <span className="size-2 rounded-full bg-success" />
-                <span className="text-text-secondary">
-                  Connected — gpt-4o-mini
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="size-2 rounded-full bg-primary" />
-                <span className="text-text-secondary">Not configured</span>
-              </>
-            )}
+            <span className={`size-2 rounded-full ${statusColor}`} />
+            <span className="text-text-secondary">{statusLabel}</span>
           </div>
         </div>
       )}

@@ -1,12 +1,31 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Clock } from "lucide-react";
 import { PageHeader } from "@/components/Sidebar";
 import { useWizardStore } from "@/stores/wizardStore";
+import {
+  useStudies,
+  useMappings,
+  useVariableDetail,
+  useAudit,
+  useSaveMapping,
+  api,
+  type TransformationPreviewResponse,
+  type ValidateExpressionResponse,
+} from "@/api/client";
 
 export const Route = createFileRoute("/map-studies")({
   component: MapStudiesPage,
 });
+
+const MARKINGS = [
+  { label: "To do", color: "#9C9590" },
+  { label: "Successfully mapped", color: "var(--success)" },
+  { label: "Marked to reconsider", color: "var(--accent)" },
+  { label: "Marked unmappable", color: "var(--primary)" },
+] as const;
+
+type Marking = (typeof MARKINGS)[number]["label"];
 
 function MapStudiesPage() {
   const {
@@ -17,26 +36,152 @@ function MapStudiesPage() {
     operatorName,
     setOperatorName,
   } = useWizardStore();
-  const [statusFilter, setStatusFilter] = useState("To do");
+
+  const [statusFilter, setStatusFilter] = useState<string>("To do");
   const [sort, setSort] = useState<"difficulty" | "original">("difficulty");
-  const [marking, setMarking] = useState("Successfully mapped");
+  const [selectedVar, setSelectedVar] = useState<string>("");
   const [transformOpen, setTransformOpen] = useState(true);
   const [auditOpen, setAuditOpen] = useState(false);
+
+  // Form state
+  const [codebookMatch, setCodebookMatch] = useState<string>("");
+  const [marking, setMarking] = useState<Marking>("To do");
+  const [notes, setNotes] = useState("");
+  const [pidVar, setPidVar] = useState("");
+  const [dateVar, setDateVar] = useState("");
+  const [transformType, setTransformType] = useState<"Direct" | "Categorical">("Direct");
+  const [sourceDtype, setSourceDtype] = useState("float");
+  const [targetDtype, setTargetDtype] = useState("float");
+  const [expression, setExpression] = useState("");
+  const [preview, setPreview] = useState<TransformationPreviewResponse | null>(null);
+  const [exprValidation, setExprValidation] = useState<ValidateExpressionResponse | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+
+  const study = currentStudy ?? "";
+
+  const { data: studies = [] } = useStudies();
+  const { data: mappingsData, refetch: refetchMappings } = useMappings(study, statusFilter === "All" ? undefined : statusFilter);
+  const { data: detail, isLoading: detailLoading } = useVariableDetail(study, selectedVar);
+  const { data: auditData } = useAudit(study, 5);
+  const saveMapping = useSaveMapping();
+
+  const records = mappingsData?.records ?? [];
+
+  const sortedRecords = [...records].sort((a, b) => {
+    if (sort === "difficulty") {
+      return (b.best_confidence ?? 0) - (a.best_confidence ?? 0);
+    }
+    return 0;
+  });
+
+  // Auto-select first variable when list changes
+  useEffect(() => {
+    if (sortedRecords.length > 0 && !selectedVar) {
+      setSelectedVar(sortedRecords[0].study_var);
+    }
+  }, [sortedRecords, selectedVar]);
+
+  // Reset form when variable detail loads
+  useEffect(() => {
+    if (!detail) return;
+    const m = detail.existing_mapping;
+    setCodebookMatch(m.codebook_var ?? "");
+    setMarking((m.marked as Marking) ?? "To do");
+    setNotes(m.notes ?? "");
+    setPidVar(m.patient_id_var ?? "");
+    setDateVar(m.date_var ?? "");
+    setTransformType(m.transformation_type ?? "Direct");
+    setSourceDtype(m.source_dtype ?? "float");
+    setTargetDtype(m.target_dtype ?? "float");
+    setExpression(m.transformation_instructions ?? "");
+    setPreview(null);
+    setExprValidation(null);
+  }, [detail]);
+
+  const handleValidateExpr = async () => {
+    if (!expression) return;
+    const res = await api.validateExpression(expression);
+    setExprValidation(res);
+  };
+
+  const handlePreview = async () => {
+    if (!detail || !expression) return;
+    setPreviewing(true);
+    try {
+      const res = await api.previewTransformation({
+        example_data: detail.example_data.slice(0, 10),
+        transformation_type: transformType,
+        transformation_instructions: expression,
+        source_dtype: sourceDtype,
+        target_dtype: targetDtype,
+      });
+      setPreview(res);
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!study || !selectedVar) return;
+    saveMapping.mutate(
+      {
+        study,
+        variable: selectedVar,
+        body: {
+          codebook_var: codebookMatch || undefined,
+          marked: marking,
+          notes: notes || undefined,
+          transformation_type: expression ? transformType : undefined,
+          transformation_instructions: expression || undefined,
+          source_dtype: sourceDtype,
+          target_dtype: targetDtype,
+          patient_id_var: pidVar || undefined,
+          date_var: dateVar || undefined,
+          operator_name: operatorName || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          void refetchMappings();
+        },
+      }
+    );
+  };
+
+  const topConfidence =
+    detail?.recommendations[0]?.confidence ?? 0;
+
+  const confidenceLabel =
+    topConfidence >= 80 ? "Strong" : topConfidence >= 50 ? "Moderate" : "Weak";
+
+  const confidenceColor =
+    topConfidence >= 80
+      ? "var(--success)"
+      : topConfidence >= 50
+        ? "var(--accent)"
+        : "#9C9590";
 
   return (
     <div className="max-w-[1200px]">
       <PageHeader title="Map Studies" />
 
       {/* toolbar */}
-      <div className="flex items-center gap-3 border-b pb-3 mb-4">
+      <div className="flex items-center gap-3 border-b pb-3 mb-4 flex-wrap">
         <label className="text-[13px] text-text-secondary">Study:</label>
         <select
-          value={currentStudy ?? ""}
-          onChange={(e) => setCurrentStudy(e.target.value)}
+          value={study}
+          onChange={(e) => {
+            setCurrentStudy(e.target.value);
+            setSelectedVar("");
+          }}
           className="h-9 w-[220px] px-3 rounded-md border bg-surface text-[13px]"
         >
-          <option value="cohort_2019">cohort_2019</option>
-          <option value="cohort_2021">cohort_2021</option>
+          <option value="">— select study —</option>
+          {studies.map((s) => (
+            <option key={s.name} value={s.name}>
+              {s.name}
+            </option>
+          ))}
         </select>
         <input
           value={operatorName}
@@ -47,7 +192,10 @@ function MapStudiesPage() {
         <div className="flex-1" />
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setSelectedVar("");
+          }}
           className="h-9 px-3 rounded-md border bg-surface text-[13px]"
         >
           <option>To do</option>
@@ -73,344 +221,437 @@ function MapStudiesPage() {
       </div>
 
       {/* progress */}
-      <div className="flex items-center gap-3 mb-4">
-        <span className="text-[13px] text-text-secondary">
-          12 / 47 variables mapped
-        </span>
-        <div className="w-[240px] h-1.5 rounded-full bg-border overflow-hidden">
-          <div
-            className="h-full bg-primary"
-            style={{ width: `${(12 / 47) * 100}%` }}
-          />
+      {mappingsData && (
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-[13px] text-text-secondary">
+            {mappingsData.mapped} / {mappingsData.total} variables mapped
+          </span>
+          <div className="w-[240px] h-1.5 rounded-full bg-border overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${mappingsData.progress * 100}%` }}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* variable selector */}
       <div className="flex items-center gap-3 mb-4">
         <label className="text-[13px] font-medium">Select variable:</label>
         <select
-          defaultValue="age_months"
+          value={selectedVar}
+          onChange={(e) => setSelectedVar(e.target.value)}
           className="h-9 flex-1 max-w-md px-3 rounded-md border bg-surface text-[13px] font-mono"
         >
-          <option>age_months</option>
-          <option>weight_kg</option>
-          <option>sex_01</option>
+          {sortedRecords.length === 0 && (
+            <option value="">— no variables —</option>
+          )}
+          {sortedRecords.map((r) => (
+            <option key={r.study_var} value={r.study_var}>
+              {r.study_var}
+              {r.best_confidence !== undefined
+                ? ` (${r.best_confidence}%)`
+                : ""}
+            </option>
+          ))}
         </select>
       </div>
 
-      {/* variable detail */}
-      <div className="grid grid-cols-2 gap-4 mt-4">
-        <div className="bg-surface border rounded-lg p-4 shadow-sm">
-          <div className="text-[12px] uppercase tracking-wide text-text-secondary font-medium mb-2">
-            Variable
-          </div>
-          <table className="w-full text-[13px]">
-            <tbody>
-              <tr style={{ background: "#FAFAF8" }}>
-                <td className="px-2 h-8 text-text-secondary w-32">
-                  variable_name
-                </td>
-                <td className="px-2 h-8 font-mono">age_months</td>
-              </tr>
-              <tr>
-                <td className="px-2 h-8 text-text-secondary">description</td>
-                <td className="px-2 h-8">Age of participant in months</td>
-              </tr>
-            </tbody>
-          </table>
+      {!study && (
+        <div className="text-[13px] text-text-secondary py-8 text-center">
+          Select a study to begin mapping.
         </div>
-        <div className="bg-surface border rounded-lg p-4 shadow-sm">
-          <div className="text-[12px] uppercase tracking-wide text-text-secondary font-medium mb-2">
-            Example Data
-          </div>
-          <pre
-            className="font-mono text-[12px] p-2.5 rounded text-text-primary"
-            style={{ background: "#F4F0ED" }}
-          >
-            {`24 ; 36 ; 48 ; 60 ; 36
-72 ; 24 ; 48 ; 12 ; 36`}
-          </pre>
-        </div>
-      </div>
+      )}
 
-      {/* mapping form */}
-      <div className="mt-4 bg-surface border rounded-lg p-5 shadow-sm space-y-5">
-        {/* row 1 */}
-        <div>
-          <label className="text-[13px] font-medium block mb-1.5">
-            Codebook match
-          </label>
-          <select className="h-9 w-full px-3 rounded-md border bg-surface text-[13px]">
-            <option>Age (years) - 87%</option>
-            <option>Age at diagnosis - 71%</option>
-            <option>Age at baseline - 64%</option>
-            <option className="text-text-secondary">
-              Weight (kg) - 41% (used)
-            </option>
-          </select>
+      {study && detailLoading && (
+        <div className="text-[13px] text-text-secondary py-8 text-center">
+          Loading…
         </div>
+      )}
 
-        {/* row 2 confidence */}
-        <div className="flex items-center gap-3">
-          <span className="text-[18px] font-semibold bg-primary-light text-primary px-2.5 py-1 rounded-md">
-            87%
-          </span>
-          <div className="w-[200px] h-2 rounded-full bg-border overflow-hidden">
-            <div className="h-full bg-primary" style={{ width: "87%" }} />
+      {study && detail && !detailLoading && (
+        <>
+          {/* variable detail */}
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="bg-surface border rounded-lg p-4 shadow-sm">
+              <div className="text-[12px] uppercase tracking-wide text-text-secondary font-medium mb-2">
+                Variable
+              </div>
+              <table className="w-full text-[13px]">
+                <tbody>
+                  <tr style={{ background: "#FAFAF8" }}>
+                    <td className="px-2 h-8 text-text-secondary w-32">variable_name</td>
+                    <td className="px-2 h-8 font-mono">{detail.variable.variable_name}</td>
+                  </tr>
+                  <tr>
+                    <td className="px-2 h-8 text-text-secondary">description</td>
+                    <td className="px-2 h-8">{detail.variable.description ?? "—"}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="bg-surface border rounded-lg p-4 shadow-sm">
+              <div className="text-[12px] uppercase tracking-wide text-text-secondary font-medium mb-2">
+                Example Data
+              </div>
+              {detail.example_data.length > 0 ? (
+                <pre
+                  className="font-mono text-[12px] p-2.5 rounded text-text-primary"
+                  style={{ background: "#F4F0ED" }}
+                >
+                  {detail.example_data.join(" ; ")}
+                </pre>
+              ) : (
+                <span className="text-[12px] text-text-secondary">No example data available</span>
+              )}
+            </div>
           </div>
-          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium">
-            <span className="size-2 rounded-full bg-success" /> Strong
-          </span>
-        </div>
 
-        {/* row 3 relational */}
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <button
-              onClick={toggleRelationalMode}
-              className={`relative w-9 h-5 rounded-full transition-colors ${
-                relationalModeEnabled ? "bg-primary" : "bg-border"
-              }`}
-              aria-label="toggle relational mode"
-            >
-              <span
-                className={`absolute top-0.5 size-4 rounded-full bg-white transition-all ${
-                  relationalModeEnabled ? "left-4" : "left-0.5"
-                }`}
-              />
-            </button>
-            <span className="text-[13px] font-medium">Relational Mode</span>
-          </div>
-          <div
-            className={`grid grid-cols-2 gap-3 transition-opacity ${
-              relationalModeEnabled
-                ? "opacity-100"
-                : "opacity-40 pointer-events-none"
-            }`}
-          >
+          {/* mapping form */}
+          <div className="mt-4 bg-surface border rounded-lg p-5 shadow-sm space-y-5">
+            {/* codebook match */}
             <div>
-              <label className="text-[12px] text-text-secondary">
-                Patient ID:
+              <label className="text-[13px] font-medium block mb-1.5">
+                Codebook match
               </label>
-              <select className="mt-1 h-9 w-full px-3 rounded-md border bg-surface text-[13px]">
-                <option>participant_id - 94%</option>
-                <option>study_id - 78%</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-[12px] text-text-secondary">Date:</label>
-              <select className="mt-1 h-9 w-full px-3 rounded-md border bg-surface text-[13px]">
-                <option>visit_date - 89%</option>
-                <option>collection_date - 72%</option>
-              </select>
-            </div>
-            <div className="col-span-2 bg-accent-light rounded p-2.5 text-[12px] text-text-primary">
-              Map each variable to the patient identifier and date columns in
-              this study for relational export.
-            </div>
-          </div>
-        </div>
-
-        {/* row 4 mapping */}
-        <div>
-          <label className="text-[14px] font-medium block mb-2">
-            Can this variable be mapped?
-          </label>
-          <div className="flex items-center gap-4 flex-wrap">
-            {[
-              { label: "To do", color: "#9C9590" },
-              { label: "Successfully mapped", color: "var(--success)" },
-              { label: "Marked to reconsider", color: "var(--accent)" },
-              { label: "Marked unmappable", color: "var(--primary)" },
-            ].map((opt) => (
-              <label
-                key={opt.label}
-                className="inline-flex items-center gap-2 text-[13px] cursor-pointer"
+              <select
+                value={codebookMatch}
+                onChange={(e) => {
+                  setCodebookMatch(e.target.value);
+                  setPreview(null);
+                }}
+                className="h-9 w-full px-3 rounded-md border bg-surface text-[13px]"
               >
-                <input
-                  type="radio"
-                  name="marking"
-                  checked={marking === opt.label}
-                  onChange={() => setMarking(opt.label)}
-                  className="accent-primary"
-                />
-                <span
-                  className="size-2 rounded-full"
-                  style={{ background: opt.color }}
-                />
-                {opt.label}
+                <option value="">— none —</option>
+                {detail.recommendations.map((r) => {
+                  const isUsed = detail.already_used_codebook_vars.includes(r.codebook_var);
+                  return (
+                    <option key={r.codebook_var} value={r.codebook_var}>
+                      {r.description} — {r.confidence}%{isUsed ? " (used)" : ""}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* confidence */}
+            {codebookMatch && (
+              <div className="flex items-center gap-3">
+                <span className="text-[18px] font-semibold bg-primary-light text-primary px-2.5 py-1 rounded-md">
+                  {topConfidence}%
+                </span>
+                <div className="w-[200px] h-2 rounded-full bg-border overflow-hidden">
+                  <div
+                    className="h-full transition-all"
+                    style={{ width: `${topConfidence}%`, background: confidenceColor }}
+                  />
+                </div>
+                <span className="inline-flex items-center gap-1.5 text-[12px] font-medium">
+                  <span className="size-2 rounded-full" style={{ background: confidenceColor }} />
+                  {confidenceLabel}
+                </span>
+              </div>
+            )}
+
+            {/* relational mode */}
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <button
+                  onClick={toggleRelationalMode}
+                  className={`relative w-9 h-5 rounded-full transition-colors ${
+                    relationalModeEnabled ? "bg-primary" : "bg-border"
+                  }`}
+                  aria-label="toggle relational mode"
+                >
+                  <span
+                    className={`absolute top-0.5 size-4 rounded-full bg-white transition-all ${
+                      relationalModeEnabled ? "left-4" : "left-0.5"
+                    }`}
+                  />
+                </button>
+                <span className="text-[13px] font-medium">Relational Mode</span>
+              </div>
+              <div
+                className={`grid grid-cols-2 gap-3 transition-opacity ${
+                  relationalModeEnabled ? "opacity-100" : "opacity-40 pointer-events-none"
+                }`}
+              >
+                <div>
+                  <label className="text-[12px] text-text-secondary">Patient ID:</label>
+                  <select
+                    value={pidVar}
+                    onChange={(e) => setPidVar(e.target.value)}
+                    className="mt-1 h-9 w-full px-3 rounded-md border bg-surface text-[13px]"
+                  >
+                    <option value="">— none —</option>
+                    {detail.pid_recommendations.map((r) => (
+                      <option key={r.variable_name} value={r.variable_name}>
+                        {r.variable_name} — {r.confidence}%
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[12px] text-text-secondary">Date:</label>
+                  <select
+                    value={dateVar}
+                    onChange={(e) => setDateVar(e.target.value)}
+                    className="mt-1 h-9 w-full px-3 rounded-md border bg-surface text-[13px]"
+                  >
+                    <option value="">— none —</option>
+                    {detail.date_recommendations.map((r) => (
+                      <option key={r.variable_name} value={r.variable_name}>
+                        {r.variable_name} — {r.confidence}%
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-span-2 bg-accent-light rounded p-2.5 text-[12px] text-text-primary">
+                  Map each variable to the patient identifier and date columns in this study for relational export.
+                </div>
+              </div>
+            </div>
+
+            {/* marking */}
+            <div>
+              <label className="text-[14px] font-medium block mb-2">
+                Can this variable be mapped?
               </label>
-            ))}
+              <div className="flex items-center gap-4 flex-wrap">
+                {MARKINGS.map((opt) => (
+                  <label
+                    key={opt.label}
+                    className="inline-flex items-center gap-2 text-[13px] cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="marking"
+                      checked={marking === opt.label}
+                      onChange={() => setMarking(opt.label)}
+                      className="accent-primary"
+                    />
+                    <span className="size-2 rounded-full" style={{ background: opt.color }} />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* notes */}
+            <div>
+              <label className="text-[13px] font-medium block mb-1.5">Notes</label>
+              <input
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Optional notes about this mapping..."
+                className="h-9 w-full px-3 rounded-md border bg-surface text-[13px]"
+              />
+            </div>
+
+            {/* transformation */}
+            <div className="border rounded-md">
+              <button
+                onClick={() => setTransformOpen((o) => !o)}
+                className="w-full flex items-center justify-between p-3"
+              >
+                <span className="text-[13px] font-medium">Transformation</span>
+                {transformOpen ? (
+                  <ChevronDown className="size-4 text-text-secondary" />
+                ) : (
+                  <ChevronRight className="size-4 text-text-secondary" />
+                )}
+              </button>
+              {transformOpen && (
+                <div className="grid grid-cols-2 gap-5 p-4 border-t">
+                  <div className="space-y-3">
+                    <Field label="Type:">
+                      <select
+                        value={transformType}
+                        onChange={(e) => {
+                          setTransformType(e.target.value as "Direct" | "Categorical");
+                          setPreview(null);
+                          setExprValidation(null);
+                        }}
+                        className="h-8 w-full px-2 rounded-md border bg-surface text-[12px]"
+                      >
+                        <option value="Direct">Direct</option>
+                        <option value="Categorical">Categorical</option>
+                      </select>
+                    </Field>
+                    {transformType === "Direct" && (
+                      <>
+                        <Field label="Source type:">
+                          <select
+                            value={sourceDtype}
+                            onChange={(e) => setSourceDtype(e.target.value)}
+                            className="h-8 w-full px-2 rounded-md border bg-surface text-[12px]"
+                          >
+                            <option value="integer">integer</option>
+                            <option value="float">float</option>
+                            <option value="string">string</option>
+                            <option value="boolean">boolean</option>
+                          </select>
+                        </Field>
+                        <Field label="Target type:">
+                          <select
+                            value={targetDtype}
+                            onChange={(e) => setTargetDtype(e.target.value)}
+                            className="h-8 w-full px-2 rounded-md border bg-surface text-[12px]"
+                          >
+                            <option value="float">float</option>
+                            <option value="integer">integer</option>
+                            <option value="string">string</option>
+                            <option value="boolean">boolean</option>
+                          </select>
+                        </Field>
+                      </>
+                    )}
+                    <Field label={transformType === "Direct" ? "Expression:" : "Mapping:"}>
+                      <input
+                        value={expression}
+                        onChange={(e) => {
+                          setExpression(e.target.value);
+                          setPreview(null);
+                          setExprValidation(null);
+                        }}
+                        onBlur={() => {
+                          if (expression && transformType === "Direct") {
+                            void handleValidateExpr();
+                          }
+                        }}
+                        placeholder={
+                          transformType === "Direct"
+                            ? "e.g. x/12"
+                            : '{"1": "Male", "2": "Female"}'
+                        }
+                        className="h-8 w-full px-2 rounded-md border bg-surface text-[12px] font-mono"
+                      />
+                    </Field>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => void handlePreview()}
+                        disabled={!expression || previewing || detail.example_data.length === 0}
+                        className="h-8 px-3 text-[12px] rounded-md border border-primary text-primary hover:bg-primary-light font-medium disabled:opacity-50"
+                      >
+                        {previewing ? "…" : "Preview"}
+                      </button>
+                      {exprValidation && (
+                        <span
+                          className={`text-[12px] font-medium ${
+                            exprValidation.valid ? "text-success" : "text-danger"
+                          }`}
+                        >
+                          {exprValidation.valid ? "✓ Valid" : `✗ ${exprValidation.message}`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* preview table */}
+                  <div>
+                    <div className="text-[13px] font-medium mb-2">Preview</div>
+                    {preview ? (
+                      <>
+                        <table className="w-full text-[12px] border rounded overflow-hidden">
+                          <thead>
+                            <tr className="bg-primary text-primary-foreground">
+                              <th className="text-left px-2 h-8 font-medium">Original</th>
+                              <th className="text-left px-2 h-8 font-medium">Transformed</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {preview.preview.map((row, i) => (
+                              <tr key={i} style={{ background: i % 2 ? "#FAFAF8" : "#FFFFFF" }}>
+                                <td className="px-2 h-7 font-mono">{row.original}</td>
+                                <td
+                                  className={`px-2 h-7 font-mono ${!row.transformed ? "text-text-secondary" : ""}`}
+                                >
+                                  {row.transformed || "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        <div className="text-[12px] text-text-secondary mt-2">
+                          Transformed {preview.transformed_count}/{preview.preview.length} ·{" "}
+                          {preview.blank_count} blanks
+                        </div>
+                        {!preview.valid && preview.error && (
+                          <div className="text-[12px] text-danger mt-1">{preview.error}</div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-[12px] text-text-secondary italic">
+                        Enter an expression and click Preview.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* submit */}
+            {saveMapping.isError && (
+              <div className="p-2 rounded-md bg-red-50 border border-red-200 text-[12px] text-red-700">
+                {(saveMapping.error as Error).message}
+              </div>
+            )}
+            {saveMapping.isSuccess && (
+              <div className="text-[12px] text-success">Saved successfully.</div>
+            )}
+            <button
+              onClick={handleSubmit}
+              disabled={saveMapping.isPending}
+              className="w-full h-10 rounded-md text-[14px] font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+              style={{ background: "var(--success)" }}
+            >
+              {saveMapping.isPending ? "Saving…" : "Submit"}
+            </button>
           </div>
-        </div>
+        </>
+      )}
 
-        {/* row 5 notes */}
-        <div>
-          <label className="text-[13px] font-medium block mb-1.5">Notes</label>
-          <input
-            placeholder="Optional notes about this mapping..."
-            className="h-9 w-full px-3 rounded-md border bg-surface text-[13px]"
-          />
-        </div>
-
-        {/* row 6 transformation */}
-        <div className="border rounded-md">
+      {/* audit trail */}
+      {study && (
+        <div className="mt-4 bg-surface border rounded-lg shadow-sm">
           <button
-            onClick={() => setTransformOpen((o) => !o)}
+            onClick={() => setAuditOpen((o) => !o)}
             className="w-full flex items-center justify-between p-3"
           >
-            <span className="text-[13px] font-medium">Transformation</span>
-            {transformOpen ? (
+            <span className="flex items-center gap-2 text-[13px] font-medium">
+              <Clock className="size-4 text-text-secondary" />
+              Audit trail (last 5 writes)
+            </span>
+            {auditOpen ? (
               <ChevronDown className="size-4 text-text-secondary" />
             ) : (
               <ChevronRight className="size-4 text-text-secondary" />
             )}
           </button>
-          {transformOpen && (
-            <div className="grid grid-cols-2 gap-5 p-4 border-t">
-              <div className="space-y-3">
-                <Field label="Type:">
-                  <select className="h-8 w-full px-2 rounded-md border bg-surface text-[12px]">
-                    <option>Direct</option>
-                    <option>Categorical</option>
-                  </select>
-                </Field>
-                <Field label="Source type:">
-                  <select className="h-8 w-full px-2 rounded-md border bg-surface text-[12px]">
-                    <option>integer</option>
-                    <option>float</option>
-                    <option>string</option>
-                    <option>boolean</option>
-                  </select>
-                </Field>
-                <Field label="Target type:">
-                  <select className="h-8 w-full px-2 rounded-md border bg-surface text-[12px]">
-                    <option>float</option>
-                    <option>integer</option>
-                    <option>string</option>
-                    <option>boolean</option>
-                  </select>
-                </Field>
-                <Field label="Expression:">
-                  <input
-                    defaultValue="x/12"
-                    className="h-8 w-full px-2 rounded-md border bg-surface text-[12px] font-mono"
-                  />
-                </Field>
-                <Field label="Examples:">
-                  <div className="flex gap-2">
-                    <select className="h-8 flex-1 px-2 rounded-md border bg-surface text-[12px]">
-                      <option>Months → Years (x/12)</option>
-                      <option>Keep as is (x)</option>
-                      <option>Scale up (x*100)</option>
-                    </select>
-                    <button className="h-8 px-3 text-[12px] rounded-md border border-primary text-primary hover:bg-primary-light font-medium">
-                      Apply
-                    </button>
-                  </div>
-                </Field>
-                <span className="inline-flex items-center gap-1 text-[12px] font-medium text-success bg-success-light px-2.5 py-0.5 rounded-full">
-                  ✓ Valid expression
-                </span>
-              </div>
-              <div>
-                <div className="text-[13px] font-medium mb-2">Preview</div>
-                <table className="w-full text-[12px] border rounded overflow-hidden">
-                  <thead>
-                    <tr className="bg-primary text-primary-foreground">
-                      <th className="text-left px-2 h-8 font-medium">
-                        Original
-                      </th>
-                      <th className="text-left px-2 h-8 font-medium">
-                        Transformed
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      [24, 2.0],
-                      [36, 3.0],
-                      [48, 4.0],
-                      [60, 5.0],
-                    ].map(([a, b], i) => (
-                      <tr
-                        key={i}
-                        style={{ background: i % 2 ? "#FAFAF8" : "#FFFFFF" }}
-                      >
-                        <td className="px-2 h-7 font-mono">{a}</td>
-                        <td className="px-2 h-7 font-mono">{b}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="text-[12px] text-text-secondary mt-2">
-                  Transformed 10/10 · 0 blanks
-                </div>
-              </div>
+          {auditOpen && (
+            <div className="px-3 pb-3 space-y-2">
+              {(auditData?.records ?? []).length === 0 ? (
+                <div className="text-[12px] text-text-secondary py-2">No audit entries yet.</div>
+              ) : (
+                (auditData?.records ?? []).map((entry, i) => (
+                  <pre
+                    key={i}
+                    className="font-mono text-[11px] text-white p-2 rounded overflow-auto"
+                    style={{ background: "#1A1A1A", maxHeight: 80 }}
+                  >
+                    {JSON.stringify(entry, null, 2)}
+                  </pre>
+                ))
+              )}
             </div>
           )}
         </div>
-
-        {/* submit */}
-        <button
-          className="w-full h-10 rounded-md text-[14px] font-medium text-white transition-colors hover:opacity-90"
-          style={{ background: "var(--success)" }}
-        >
-          Submit
-        </button>
-      </div>
-
-      {/* audit trail */}
-      <div className="mt-4 bg-surface border rounded-lg shadow-sm">
-        <button
-          onClick={() => setAuditOpen((o) => !o)}
-          className="w-full flex items-center justify-between p-3"
-        >
-          <span className="flex items-center gap-2 text-[13px] font-medium">
-            <Clock className="size-4 text-text-secondary" />
-            Audit trail (last 5 writes)
-          </span>
-          {auditOpen ? (
-            <ChevronDown className="size-4 text-text-secondary" />
-          ) : (
-            <ChevronRight className="size-4 text-text-secondary" />
-          )}
-        </button>
-        {auditOpen && (
-          <div className="px-3 pb-3 space-y-2">
-            {[1, 2].map((i) => (
-              <pre
-                key={i}
-                className="font-mono text-[11px] text-white p-2 rounded overflow-hidden"
-                style={{
-                  background: "#1A1A1A",
-                  maxHeight: 80,
-                }}
-              >
-{`{
-  "timestamp": "2025-05-15T10:24:0${i}Z",
-  "study": "cohort_2019",
-  "study_var": "age_months",
-  "codebook_var": "age_years",
-  "marked": "Successfully mapped",
-  "operator": "j.mokoena"
-}`}
-              </pre>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[110px_1fr] items-center gap-2">
       <label className="text-[12px] text-text-secondary">{label}</label>

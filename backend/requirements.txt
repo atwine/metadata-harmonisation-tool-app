@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+pandas
+numpy
+scipy
+pdfminer.six
+python-dotenv
+openai
+anthropic
+ollama
+clevercsv
+python-multipart
