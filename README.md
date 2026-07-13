@@ -129,6 +129,8 @@ Every mapping save is appended to `logs/mapping_audit.jsonl` with:
 - Uploaded PDFs are validated against their magic bytes before processing.
 - The `logs/`, `input/`, and `results/` directories are excluded from git.
 
+See [SECURITY_AUDIT.md](SECURITY_AUDIT.md) for the full audit of the current codebase, including open findings.
+
 ## License
 
 MIT
