@@ -7,6 +7,7 @@ A web application for mapping study dataset variables onto a canonical target co
 Researchers upload one or more study datasets (CSV files of variable names) alongside a target codebook. An AI model generates natural-language descriptions for cryptic variable names, builds semantic embeddings, and recommends the best codebook matches for each variable. A human operator then reviews and approves each mapping, adds transformation rules, and exports the harmonised data.
 
 **Workflow:**
+
 1. **Upload Codebook** — the canonical target variable list (CSV)
 2. **Upload Studies** — one or more study variable CSVs, with optional example-data CSV and context PDF
 3. **Initialise** — AI generates descriptions → embeddings → semantic recommendations (streamed live)
@@ -15,12 +16,12 @@ Researchers upload one or more study datasets (CSV files of variable names) alon
 
 ## Tech stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 19, TanStack Start + Router, TanStack Query, Zustand, Tailwind v4 |
-| Backend | FastAPI, Python 3.12, Pydantic v2, Pandas |
-| AI providers | Ollama (local), OpenAI, Anthropic, Azure OpenAI |
-| Embeddings | Cosine similarity, weighted 0.8 × description + 0.2 × variable name |
+| Layer        | Technology                                                              |
+| ------------ | ----------------------------------------------------------------------- |
+| Frontend     | React 19, TanStack Start + Router, TanStack Query, Zustand, Tailwind v4 |
+| Backend      | FastAPI, Python 3.12, Pydantic v2, Pandas                               |
+| AI providers | Ollama (local), OpenAI, Anthropic, Azure OpenAI                         |
+| Embeddings   | Cosine similarity, weighted 0.8 × description + 0.2 × variable name     |
 
 ## Project structure
 
@@ -101,23 +102,24 @@ VITE_API_URL=http://localhost:8000
 
 ## API overview
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/codebook/upload` | Upload target codebook CSV |
-| POST | `/api/studies/upload` | Upload a study (variables CSV + optional files) |
-| POST | `/api/initialise/run` | Run AI pipeline (SSE stream) |
-| GET | `/api/mappings/{study}` | List variable mappings with progress |
-| GET | `/api/mappings/{study}/variable/{name}` | Variable detail + recommendations |
-| PUT | `/api/mappings/{study}/variable/{name}` | Save a mapping decision |
-| POST | `/api/mappings/preview-transformation` | Test a transformation expression |
-| GET | `/api/download/{study}/mapping-csv` | Download mapping table |
-| POST | `/api/download/transformed-data` | Download transformed dataset ZIP |
+| Method | Path                                    | Description                                     |
+| ------ | --------------------------------------- | ----------------------------------------------- |
+| POST   | `/api/codebook/upload`                  | Upload target codebook CSV                      |
+| POST   | `/api/studies/upload`                   | Upload a study (variables CSV + optional files) |
+| POST   | `/api/initialise/run`                   | Run AI pipeline (SSE stream)                    |
+| GET    | `/api/mappings/{study}`                 | List variable mappings with progress            |
+| GET    | `/api/mappings/{study}/variable/{name}` | Variable detail + recommendations               |
+| PUT    | `/api/mappings/{study}/variable/{name}` | Save a mapping decision                         |
+| POST   | `/api/mappings/preview-transformation`  | Test a transformation expression                |
+| GET    | `/api/download/{study}/mapping-csv`     | Download mapping table                          |
+| POST   | `/api/download/transformed-data`        | Download transformed dataset ZIP                |
 
 Full interactive docs at `http://localhost:8000/docs` when the backend is running.
 
 ## Audit trail
 
 Every mapping save is appended to `logs/mapping_audit.jsonl` with:
+
 - Timestamp, operator name, study, variable
 - Before/after state
 - SHA-256 hash of transformation instructions

@@ -5,21 +5,21 @@ Scope: full repository (React/TanStack Start frontend, FastAPI backend, npm/bun 
 
 ## Summary
 
-| # | Finding | Category | Severity |
-|---|---------|----------|----------|
-| 1 | No authentication/authorization on any backend API endpoint | Auth gap | High |
-| 2 | SSRF via user-supplied `base_url` for Ollama/Azure OpenAI providers | SSRF | High |
-| 3 | `undici` (transitive, via wrangler/miniflare) — multiple high-severity CVEs | Dependency CVE | High |
-| 4 | `ws` (transitive, via wrangler/miniflare) — DoS via memory exhaustion | Dependency CVE | High |
-| 5 | `vite` — `server.fs.deny` bypass on Windows / arbitrary file read | Dependency CVE | High |
-| 6 | `@cloudflare/vite-plugin` / `wrangler` / `miniflare` — high-severity advisories (dev dependency chain) | Dependency CVE | High |
-| 7 | `js-yaml` — quadratic-complexity DoS via merge-key aliases | Dependency CVE | Medium |
-| 8 | Path-prefix check without separator in `safe_delete_dir`/`safe_delete_file` (`storage/files.py`) | Path traversal (defense-in-depth gap) | Medium |
-| 9 | `esbuild` — arbitrary file read on Windows dev server | Dependency CVE | Low |
-| 10 | `@babel/core` — arbitrary file read via sourceMappingURL | Dependency CVE | Low |
-| 11 | No rate limiting / abuse protection on upload or AI endpoints beyond a per-process 60 req/min AI call limiter | Resource exhaustion | Low |
-| 12 | No CVEs found in current Python dependency set (pip-audit clean) | Info | Info |
-| 13 | No hardcoded secrets/API keys found in source | Info | Info |
+| #   | Finding                                                                                                       | Category                              | Severity |
+| --- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------- | -------- |
+| 1   | No authentication/authorization on any backend API endpoint                                                   | Auth gap                              | High     |
+| 2   | SSRF via user-supplied `base_url` for Ollama/Azure OpenAI providers                                           | SSRF                                  | High     |
+| 3   | `undici` (transitive, via wrangler/miniflare) — multiple high-severity CVEs                                   | Dependency CVE                        | High     |
+| 4   | `ws` (transitive, via wrangler/miniflare) — DoS via memory exhaustion                                         | Dependency CVE                        | High     |
+| 5   | `vite` — `server.fs.deny` bypass on Windows / arbitrary file read                                             | Dependency CVE                        | High     |
+| 6   | `@cloudflare/vite-plugin` / `wrangler` / `miniflare` — high-severity advisories (dev dependency chain)        | Dependency CVE                        | High     |
+| 7   | `js-yaml` — quadratic-complexity DoS via merge-key aliases                                                    | Dependency CVE                        | Medium   |
+| 8   | Path-prefix check without separator in `safe_delete_dir`/`safe_delete_file` (`storage/files.py`)              | Path traversal (defense-in-depth gap) | Medium   |
+| 9   | `esbuild` — arbitrary file read on Windows dev server                                                         | Dependency CVE                        | Low      |
+| 10  | `@babel/core` — arbitrary file read via sourceMappingURL                                                      | Dependency CVE                        | Low      |
+| 11  | No rate limiting / abuse protection on upload or AI endpoints beyond a per-process 60 req/min AI call limiter | Resource exhaustion                   | Low      |
+| 12  | No CVEs found in current Python dependency set (pip-audit clean)                                              | Info                                  | Info     |
+| 13  | No hardcoded secrets/API keys found in source                                                                 | Info                                  | Info     |
 
 ---
 
