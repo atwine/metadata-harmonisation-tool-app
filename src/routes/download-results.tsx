@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FileSpreadsheet,
   Archive,
   ChevronDown,
   ChevronRight,
+  ClipboardList,
 } from "lucide-react";
 import { PageHeader } from "@/components/Sidebar";
 import { useStudies, api, triggerDownload } from "@/api/client";
@@ -18,6 +19,12 @@ function DownloadResultsPage() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [reportOpen, setReportOpen] = useState(true);
   const [downloading, setDownloading] = useState<Record<string, boolean>>({});
+  const [zipError, setZipError] = useState<Record<string, string>>({});
+  const [auditLogAvailable, setAuditLogAvailable] = useState(false);
+
+  useEffect(() => {
+    api.checkAuditLogExists().then(setAuditLogAvailable);
+  }, []);
 
   const toggle = (name: string, on: boolean) =>
     setChecked((c) => ({ ...c, [name]: on }));
@@ -28,11 +35,12 @@ function DownloadResultsPage() {
 
   const handleZip = async (name: string) => {
     setDownloading((d) => ({ ...d, [name]: true }));
+    setZipError((e) => ({ ...e, [name]: "" }));
     try {
       const blob = await api.downloadTransformedData([name]);
       triggerDownload(blob, `${name}_transformed.zip`);
     } catch (err) {
-      alert(`Download failed: ${String(err)}`);
+      setZipError((e) => ({ ...e, [name]: String(err) }));
     } finally {
       setDownloading((d) => ({ ...d, [name]: false }));
     }
@@ -85,40 +93,75 @@ function DownloadResultsPage() {
       </div>
 
       <div className="space-y-4">
-        {selectedStudies.map((s) => (
-          <div key={s.name} className="bg-surface border rounded-lg p-4 shadow-sm">
-            <h3 className="font-semibold text-[14px] font-mono mb-3">{s.name}</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[13px]">Mapping table</span>
-                <button
-                  onClick={() => handleCsv(s.name)}
-                  className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-primary text-primary hover:bg-primary-light text-[13px] font-medium transition-colors"
-                >
-                  <FileSpreadsheet className="size-4" />
-                  Download CSV
-                </button>
-              </div>
-              <div>
+        {selectedStudies.map((s) => {
+          const csvDisabled = !s.has_results;
+          const zipDisabled = !s.has_example_data || !s.has_results;
+          return (
+            <div key={s.name} className="bg-surface border rounded-lg p-4 shadow-sm">
+              <h3 className="font-semibold text-[14px] font-mono mb-3">{s.name}</h3>
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px]">Transformed data</span>
+                  <span className="text-[13px]">Mapping table</span>
                   <button
-                    onClick={() => void handleZip(s.name)}
-                    disabled={downloading[s.name]}
-                    className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-primary text-primary hover:bg-primary-light text-[13px] font-medium transition-colors disabled:opacity-50"
+                    onClick={() => handleCsv(s.name)}
+                    disabled={csvDisabled}
+                    title={csvDisabled ? "No results yet — map at least one variable in Map Studies first" : undefined}
+                    className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-primary text-primary hover:bg-primary-light text-[13px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                   >
-                    <Archive className="size-4" />
-                    {downloading[s.name] ? "Preparing…" : "Download ZIP"}
+                    <FileSpreadsheet className="size-4" />
+                    Download CSV
                   </button>
                 </div>
-                <div className="text-[12px] text-text-secondary mt-1">
-                  Applies transformations defined in Map Studies
+                {csvDisabled && (
+                  <div className="text-[12px] text-text-secondary -mt-2">
+                    No results yet — map at least one variable in Map Studies first.
+                  </div>
+                )}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px]">Transformed data</span>
+                    <button
+                      onClick={() => void handleZip(s.name)}
+                      disabled={downloading[s.name] || zipDisabled}
+                      title={zipDisabled ? "Requires example data — metadata-only studies can only export the mapping CSV" : undefined}
+                      className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-primary text-primary hover:bg-primary-light text-[13px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    >
+                      <Archive className="size-4" />
+                      {downloading[s.name] ? "Preparing…" : "Download ZIP"}
+                    </button>
+                  </div>
+                  <div className="text-[12px] text-text-secondary mt-1">
+                    {!s.has_example_data
+                      ? "Metadata-only study (no example_data.csv) — use \"Download CSV\" instead."
+                      : "Applies transformations defined in Map Studies"}
+                  </div>
+                  {zipError[s.name] && (
+                    <div className="text-[12px] text-danger mt-1">{zipError[s.name]}</div>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {auditLogAvailable && (
+        <div className="mt-4 bg-surface border rounded-lg p-4 shadow-sm flex items-center justify-between">
+          <div>
+            <div className="text-[14px] font-semibold">Audit trail</div>
+            <div className="text-[12px] text-text-secondary mt-0.5">
+              Every mapping write, across all studies — for compliance/traceability.
+            </div>
+          </div>
+          <a
+            href={api.getAuditLogUrl()}
+            className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-primary text-primary hover:bg-primary-light text-[13px] font-medium transition-colors"
+          >
+            <ClipboardList className="size-4" />
+            Download audit log
+          </a>
+        </div>
+      )}
 
       <div className="mt-6 bg-surface border rounded-lg shadow-sm">
         <button
@@ -135,14 +178,15 @@ function DownloadResultsPage() {
         {reportOpen && (
           <div className="px-4 pb-4 text-[13px] text-text-secondary space-y-2">
             <p>
-              The ZIP file contains one transformed CSV per study. Variables
-              marked <strong>Successfully mapped</strong> or{" "}
-              <strong>Marked to reconsider</strong> with transformation
-              instructions will have the expression applied row-by-row.
+              The ZIP file contains one transformed CSV per study. Only
+              variables marked <strong>Successfully mapped</strong> with
+              transformation instructions have the expression applied
+              row-by-row.
             </p>
             <p>
-              Variables with no transformation or marked{" "}
-              <strong>Unmappable</strong> are excluded from the output.
+              Variables with no transformation, or marked{" "}
+              <strong>Marked to reconsider</strong> or{" "}
+              <strong>Marked unmappable</strong>, are excluded from the output.
             </p>
           </div>
         )}

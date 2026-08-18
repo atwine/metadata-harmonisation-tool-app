@@ -266,6 +266,7 @@ export const api = {
   // Download
   getMappingCsvUrl: (study: string): string =>
     `${BASE}/api/download/${study}/mapping-csv`,
+  getAuditLogUrl: (): string => `${BASE}/api/download/audit-log`,
   downloadTransformedData: async (studies: string[]): Promise<Blob> => {
     const r = await fetch(`${BASE}/api/download/transformed-data`, {
       method: "POST",
@@ -274,6 +275,10 @@ export const api = {
     });
     if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
     return r.blob();
+  },
+  checkAuditLogExists: async (): Promise<boolean> => {
+    const r = await fetch(`${BASE}/api/download/audit-log`, { method: "HEAD" });
+    return r.ok;
   },
 };
 

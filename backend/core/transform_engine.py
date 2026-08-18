@@ -1,5 +1,8 @@
 """
 Applies confirmed mappings + transformations to example data and returns a ZIP of CSVs.
+Mirrors the reference Streamlit app's download package (app/components/transform_engine.py
+and download.py): per study, the ZIP contains original_data.csv, {study}_transformed.csv,
+mapping_summary.csv and validation_report.txt/summary.txt — not just the transformed CSV.
 """
 from __future__ import annotations
 import io
@@ -14,39 +17,56 @@ from core.transformation_utils import direct_convert, categorical_convert, dtype
 
 def apply_transformations(studies: list[str]) -> tuple[bytes, list[dict]]:
     """
-    Returns (zip_bytes, metrics_list).
-    metrics_list contains one dict per study with per-variable success/error counts.
+    Returns (zip_bytes, results_list).
+    results_list contains one dict per study: {"study", "status", "reason"?, "metrics"?}.
+    status is "ok" or "skipped" (with a human-readable "reason").
+    A study is namespaced under its own folder in the ZIP so multiple studies can be
+    exported together without filename collisions.
     """
     zip_buffer = io.BytesIO()
-    all_metrics: list[dict] = []
+    results: list[dict] = []
 
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for study in studies:
-            metrics, csv_bytes = _transform_study(study)
-            all_metrics.append({"study": study, "metrics": metrics})
-            if csv_bytes:
-                zf.writestr(f"{study}_transformed.csv", csv_bytes)
+            outcome = _transform_study(study)
+            results.append({k: v for k, v in outcome.items() if k != "files"})
+            for filename, content in outcome.get("files", {}).items():
+                zf.writestr(f"{study}/{filename}", content)
+
+        skipped = [r for r in results if r["status"] == "skipped"]
+        if skipped:
+            lines = ["Studies skipped from this export:", ""]
+            for r in skipped:
+                lines.append(f"- {r['study']}: {r['reason']}")
+            zf.writestr("SKIPPED.txt", "\n".join(lines))
 
     zip_buffer.seek(0)
-    return zip_buffer.read(), all_metrics
+    return zip_buffer.read(), results
 
 
-def _transform_study(study: str) -> tuple[list[dict], str | None]:
+def _transform_study(study: str) -> dict:
     example_path = Path("input") / study / "example_data.csv"
     mapping_path = Path("results") / f"{study}.csv"
-    metrics: list[dict] = []
 
-    if not example_path.exists() or not mapping_path.exists():
-        return metrics, None
+    if not mapping_path.exists():
+        return {"study": study, "status": "skipped", "reason": "No mapping results yet"}
+    if not example_path.exists():
+        return {
+            "study": study,
+            "status": "skipped",
+            "reason": "No example_data.csv (metadata-only study) — use the mapping CSV export instead",
+        }
 
     try:
         source_df = pd.read_csv(example_path)
         mapping_df = pd.read_csv(mapping_path)
-    except Exception:
-        return metrics, None
+    except Exception as e:
+        return {"study": study, "status": "skipped", "reason": f"Could not read source/mapping CSV: {e}"}
 
-    mapped_rows = mapping_df[mapping_df["marked"] == "Successfully mapped"]
+    mapped_rows = mapping_df[mapping_df["marked"].astype(str).str.strip() == "Successfully mapped"]
     output_cols: dict[str, list] = {}
+    metrics: list[dict] = []
+    warnings: list[str] = []
 
     for _, row in mapped_rows.iterrows():
         study_var    = row.get("study_var")
@@ -57,42 +77,82 @@ def _transform_study(study: str) -> tuple[list[dict], str | None]:
         tgt_dtype    = str(row.get("target_dtype") or "string")
 
         if not study_var or study_var not in source_df.columns:
-            metrics.append({
-                "variable": study_var,
-                "successes": 0,
-                "errors": 1,
-                "warning": "Source column not found in example data",
-            })
+            warnings.append(f"Source column missing: {study_var}")
+            metrics.append({"variable": study_var, "successes": 0, "errors": 1, "warning": "Source column not found in example data"})
             continue
 
-        results: list = []
+        results_col: list = []
         errors = 0
+        has_instr = isinstance(t_instr, str) and t_instr.strip()
+
+        if not has_instr:
+            warnings.append(f"No transformation for {study_var} -> {codebook_var}; copied through.")
 
         for val in source_df[study_var]:
             try:
                 if pd.isna(val):
-                    results.append(np.nan)
+                    results_col.append(np.nan)
                     continue
-                if t_type == "Direct" and t_instr:
-                    results.append(direct_convert(val, str(t_instr), src_dtype, tgt_dtype))
-                elif t_type == "Categorical" and t_instr:
-                    results.append(categorical_convert(val, str(t_instr)))
+                if not has_instr:
+                    results_col.append(dtype_cast(val, tgt_dtype))
+                elif t_type == "Direct":
+                    results_col.append(direct_convert(val, str(t_instr), src_dtype, tgt_dtype))
+                elif t_type == "Categorical":
+                    results_col.append(categorical_convert(val, str(t_instr)))
                 else:
-                    results.append(dtype_cast(val, tgt_dtype))
+                    warnings.append(f"Unknown transformation type for {study_var}: {t_type}; copied through.")
+                    results_col.append(dtype_cast(val, tgt_dtype))
             except Exception:
-                results.append(np.nan)
+                results_col.append(np.nan)
                 errors += 1
 
         col_name = str(codebook_var) if codebook_var else str(study_var)
-        output_cols[col_name] = results
+        output_cols[col_name] = results_col
         metrics.append({
             "variable": study_var,
-            "successes": len(results) - errors,
+            "successes": len(results_col) - errors,
             "errors": errors,
         })
 
     if not output_cols:
-        return metrics, None
+        return {"study": study, "status": "skipped", "reason": "No variables marked 'Successfully mapped' with usable data"}
 
-    out_df = pd.DataFrame(output_cols)
-    return metrics, out_df.to_csv(index=False)
+    transformed_df = pd.DataFrame(output_cols)
+
+    total_success = sum(m["successes"] for m in metrics)
+    total_errors  = sum(m["errors"] for m in metrics)
+    total_records = total_success + total_errors
+    success_rate  = (100.0 * total_success / total_records) if total_records else 0.0
+
+    summary_lines = [
+        f"Study: {study}",
+        f"Variables processed: {len(metrics)}",
+        f"Total records processed: {total_records}",
+        f"Successes: {total_success}",
+        f"Errors: {total_errors}",
+        f"Success rate: {success_rate:.2f}%",
+    ]
+    if warnings:
+        summary_lines += ["", "Warnings:"] + [f"- {w}" for w in warnings]
+
+    validation_lines = ["Validation Report", "=================", ""]
+    for m in metrics:
+        validation_lines.append(f"- {m['variable']}: success={m['successes']}, errors={m['errors']}")
+    validation_lines += ["", f"Total successes: {total_success}", f"Total errors: {total_errors}"]
+    if warnings:
+        validation_lines += ["", "Warnings:"] + [f"- {w}" for w in warnings]
+
+    summary_cols = [c for c in [
+        "study_var", "codebook_var", "confidence", "marked",
+        "transformation_type", "source_dtype", "target_dtype", "transformation_instructions",
+    ] if c in mapping_df.columns]
+
+    files = {
+        "original_data.csv": source_df.to_csv(index=False),
+        f"{study}_transformed.csv": transformed_df.to_csv(index=False),
+        "mapping_summary.csv": mapping_df[summary_cols].to_csv(index=False),
+        "validation_report.txt": "\n".join(validation_lines),
+        "summary.txt": "\n".join(summary_lines),
+    }
+
+    return {"study": study, "status": "ok", "metrics": metrics, "files": files}

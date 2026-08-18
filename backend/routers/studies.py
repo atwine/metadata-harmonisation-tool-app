@@ -100,6 +100,7 @@ async def list_studies_endpoint():
                 variable_count=var_count,
                 has_example_data=(study_dir / "example_data.csv").exists(),
                 has_context_pdf=(study_dir / "context.pdf").exists(),
+                has_results=(Path("results") / f"{name}.csv").exists(),
                 status=get_study_status(name),
             )
         )

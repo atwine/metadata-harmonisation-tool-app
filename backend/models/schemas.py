@@ -30,6 +30,7 @@ class Study(BaseModel):
     variable_count: int
     has_example_data: bool = False
     has_context_pdf: bool = False
+    has_results: bool = False
     status: Literal["uploaded", "initialised", "mapping", "complete"]
 
 

@@ -23,6 +23,7 @@ export interface Study {
   variable_count: number;
   has_example_data: boolean;
   has_context_pdf: boolean;
+  has_results: boolean;
   status: "uploaded" | "initialised" | "mapping" | "complete";
 }
 
