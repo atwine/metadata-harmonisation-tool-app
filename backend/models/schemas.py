@@ -50,6 +50,9 @@ class MappingRecord(BaseModel):
     patient_id_confidence: Optional[str] = None
     date_var: Optional[str] = None
     date_confidence: Optional[str] = None
+    # AfPO population/ethnicity mapping — JSON strings, mirroring the reference app
+    afpo_values_mapped: Optional[str] = None
+    afpo_values_gaps: Optional[str] = None
     # Computed on-the-fly for the list endpoint (not persisted to CSV)
     best_confidence: Optional[int] = None
 
@@ -94,6 +97,8 @@ class MappingUpdateRequest(BaseModel):
     patient_id_var: Optional[str] = None
     date_var: Optional[str] = None
     operator_name: Optional[str] = Field(None, max_length=100)
+    afpo_values_mapped: Optional[dict[str, str]] = None
+    afpo_values_gaps: Optional[list[str]] = None
 
 
 class TransformationPreviewRequest(BaseModel):
@@ -216,3 +221,30 @@ class AITestResponse(BaseModel):
 
 class OllamaModelsResponse(BaseModel):
     models: list[str]
+
+
+# ─── AfPO population/ethnicity ontology mapping ────────────────────────────
+
+class AfpoLookupRequest(BaseModel):
+    study: str
+    variable_name: str
+    values: list[str]
+
+
+class AfpoLookupResult(BaseModel):
+    input_value: str
+    afpo_id: Optional[str] = None
+    canonical_name: Optional[str] = None
+    matched_via: Optional[str] = None
+    confidence: Optional[int] = None
+    github_issue_url: Optional[str] = None  # present only for unmatched (gap) values
+
+
+class AfpoLookupResponse(BaseModel):
+    results: list[AfpoLookupResult]
+
+
+class AfpoGapSubmittedRequest(BaseModel):
+    study: str
+    variable_name: str
+    value: str

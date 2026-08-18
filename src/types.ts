@@ -39,6 +39,8 @@ export interface MappingRecord {
   target_dtype?: string;
   patient_id_var?: string;
   date_var?: string;
+  afpo_values_mapped?: string;
+  afpo_values_gaps?: string;
 }
 
 export type AIProviderId = "ollama" | "vllm" | "openai" | "anthropic" | "azure_openai";

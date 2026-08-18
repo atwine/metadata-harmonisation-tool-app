@@ -42,3 +42,4 @@ stroke,stroke,string,binary,"positive', 'negative'",positive,NCIT:C3390,http://p
 myocardial_infarct,Myocardial Infarction,string,binary,"positive', 'negative'",positive,NCIT:C27996,http://purl.obolibrary.org/obo/NCIT_C27996,"EFO:0000612, MONDO:0005068, OMIT:0010238, HP:0001658, DOID:5844"
 malaria,Malaria,string,binary,"positive', 'negative'",positive,NCIT:C34797,http://purl.obolibrary.org/obo/NCIT_C34797,"EFO:0001068, GSSO:006352, DOID:12365, MONDO:0005136"
 muac,Mid-Upper Arm Circumference,integer ,cm,,18,NCIT:C124475,http://purl.obolibrary.org/obo/NCIT_C124475,OBI:0003416
+ethnicity,Population group or ethnic identity of the participant,string,AfPO URI,,AfPO:0000403,,http://purl.obolibrary.org/obo/afpo.obo,

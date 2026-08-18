@@ -130,6 +130,8 @@ def _row_to_record(row: pd.Series) -> MappingRecord:
         patient_id_confidence=_none(row.get("patient_id_confidence")),
         date_var=_none(row.get("date_var")),
         date_confidence=_none(row.get("date_confidence")),
+        afpo_values_mapped=_none(row.get("afpo_values_mapped")),
+        afpo_values_gaps=_none(row.get("afpo_values_gaps")),
     )
 
 
@@ -347,6 +349,8 @@ async def save_mapping(
         "patient_id_confidence":       None,
         "date_var":                    body.date_var,
         "date_confidence":             None,
+        "afpo_values_mapped":          json.dumps(body.afpo_values_mapped or {}),
+        "afpo_values_gaps":            json.dumps(body.afpo_values_gaps or []),
     }
 
     # Upsert: drop existing row for this variable, append the new one

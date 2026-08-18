@@ -10,3 +10,4 @@ anthropic
 ollama
 clevercsv
 python-multipart
+rapidfuzz

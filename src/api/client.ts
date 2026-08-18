@@ -176,6 +176,17 @@ export interface MappingUpdateRequest {
   patient_id_var?: string;
   date_var?: string;
   operator_name?: string;
+  afpo_values_mapped?: Record<string, string>;
+  afpo_values_gaps?: string[];
+}
+
+export interface AfpoLookupResult {
+  input_value: string;
+  afpo_id?: string;
+  canonical_name?: string;
+  matched_via?: string;
+  confidence?: number;
+  github_issue_url?: string;
 }
 
 // ── API functions ────────────────────────────────────────────────────────────
@@ -262,6 +273,18 @@ export const api = {
     post("/api/mappings/preview-transformation", body),
   validateExpression: (expression: string): Promise<ValidateExpressionResponse> =>
     post("/api/mappings/validate-expression", { expression }),
+
+  // AfPO population/ethnicity ontology mapping
+  afpoLookup: (body: {
+    study: string;
+    variable_name: string;
+    values: string[];
+  }): Promise<{ results: AfpoLookupResult[] }> => post("/api/afpo/lookup", body),
+  afpoMarkGapSubmitted: (body: {
+    study: string;
+    variable_name: string;
+    value: string;
+  }): Promise<unknown> => post("/api/afpo/gaps/submitted", body),
 
   // Download
   getMappingCsvUrl: (study: string): string =>
@@ -441,6 +464,20 @@ export function useReopenMapping() {
         queryKey: QUERY_KEYS.variableDetail(args.study, args.variable),
       });
     },
+  });
+}
+
+export function useAfpoLookup() {
+  return useMutation({
+    mutationFn: (args: { study: string; variable_name: string; values: string[] }) =>
+      api.afpoLookup(args),
+  });
+}
+
+export function useAfpoMarkGapSubmitted() {
+  return useMutation({
+    mutationFn: (args: { study: string; variable_name: string; value: string }) =>
+      api.afpoMarkGapSubmitted(args),
   });
 }
 
