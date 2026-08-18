@@ -233,6 +233,9 @@ function MapStudiesPage() {
           <option>Marked to reconsider</option>
           <option>Marked unmappable</option>
         </select>
+        <span className="text-[12px] font-medium text-text-secondary bg-[#F5F0EE] px-2 py-1 rounded-full">
+          {sortedRecords.length} in this view
+        </span>
         <div className="inline-flex rounded-md border overflow-hidden">
           {(["difficulty", "original"] as const).map((s) => (
             <button
@@ -254,7 +257,7 @@ function MapStudiesPage() {
       {mappingsData && (
         <div className="flex items-center gap-3 mb-4">
           <span className="text-[13px] text-text-secondary">
-            {mappingsData.mapped} / {mappingsData.total} variables mapped
+            {mappingsData.mapped} / {mappingsData.total} variables mapped overall
           </span>
           <div className="w-[240px] h-1.5 rounded-full bg-border overflow-hidden">
             <div
@@ -266,6 +269,13 @@ function MapStudiesPage() {
       )}
 
       {/* variable selector */}
+      <div className="mb-1">
+        <p className="text-[12px] text-text-secondary">
+          The status filter above changes which variables the dropdown below lists —
+          open it to step through every variable marked{" "}
+          <strong>"{statusFilter}"</strong>.
+        </p>
+      </div>
       <div className="flex items-center gap-3 mb-4">
         <label className="text-[13px] font-medium">Select variable:</label>
         <select
