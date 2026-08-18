@@ -53,15 +53,20 @@ class MappingRecord(BaseModel):
     best_confidence: Optional[int] = None
 
 
-class AIConfig(BaseModel):
-    provider: Literal["ollama", "openai", "anthropic", "azure_openai"]
-    chat_model: str
-    embedding_model: str = ""
+class ProviderSlot(BaseModel):
+    """A single provider+model configuration for one role (chat or embedding)."""
+    provider: Literal["ollama", "vllm", "openai", "anthropic", "azure_openai"]
+    model: str
     api_key: Optional[str] = None
     base_url: Optional[str] = None
-    request_timeout: int = 30
     azure_api_version: Optional[str] = None
     azure_deployment: Optional[str] = None
+
+
+class AIConfig(BaseModel):
+    chat: ProviderSlot
+    embedding: Optional[ProviderSlot] = None
+    request_timeout: int = 30
 
 
 # ─── Request models ───────────────────────────────────────────────────────────
@@ -197,9 +202,15 @@ class ProviderInfo(BaseModel):
     note: Optional[str] = None
 
 
-class AITestResponse(BaseModel):
+class SlotTestResult(BaseModel):
     connected: bool
     message: str
+
+
+class AITestResponse(BaseModel):
+    connected: bool
+    chat: SlotTestResult
+    embedding: Optional[SlotTestResult] = None
 
 
 class OllamaModelsResponse(BaseModel):

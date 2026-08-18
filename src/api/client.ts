@@ -85,9 +85,15 @@ export interface ProviderInfo {
   note?: string;
 }
 
-export interface AITestResponse {
+export interface SlotTestResult {
   connected: boolean;
   message: string;
+}
+
+export interface AITestResponse {
+  connected: boolean;
+  chat: SlotTestResult;
+  embedding?: SlotTestResult | null;
 }
 
 export interface StudyInitStatus {
@@ -216,9 +222,11 @@ export const api = {
   getProviders: (): Promise<ProviderInfo[]> => get("/api/ai-config/providers"),
   testConnection: (config: AIConfig): Promise<AITestResponse> =>
     post("/api/ai-config/test", config),
-  getOllamaModels: (baseUrl?: string): Promise<{ models: string[] }> => {
-    const qs = baseUrl ? `?base_url=${encodeURIComponent(baseUrl)}` : "";
-    return get(`/api/ai-config/ollama-models${qs}`);
+  getProviderModels: (provider: string, baseUrl?: string, apiKey?: string): Promise<{ models: string[] }> => {
+    const params = new URLSearchParams({ provider });
+    if (baseUrl) params.set("base_url", baseUrl);
+    if (apiKey) params.set("api_key", apiKey);
+    return get(`/api/ai-config/models?${params.toString()}`);
   },
 
   // Initialise
@@ -286,7 +294,7 @@ export const QUERY_KEYS = {
   studies: ["studies"] as const,
   initialiseStatus: ["initialise-status"] as const,
   providers: ["providers"] as const,
-  ollamaModels: (baseUrl: string) => ["ollama-models", baseUrl] as const,
+  providerModels: (provider: string, baseUrl: string) => ["provider-models", provider, baseUrl] as const,
   mappings: (study: string, status?: string) =>
     ["mappings", study, status] as const,
   variableDetail: (study: string, variable: string) =>
@@ -331,11 +339,11 @@ export function useProviders() {
   });
 }
 
-export function useOllamaModels(baseUrl: string, enabled = true) {
+export function useProviderModels(provider: string, baseUrl: string, apiKey: string | undefined, enabled: boolean) {
   return useQuery({
-    queryKey: QUERY_KEYS.ollamaModels(baseUrl),
-    queryFn: () => api.getOllamaModels(baseUrl),
-    enabled,
+    queryKey: QUERY_KEYS.providerModels(provider, baseUrl),
+    queryFn: () => api.getProviderModels(provider, baseUrl, apiKey),
+    enabled: enabled && !!baseUrl,
     staleTime: 30_000,
     retry: false,
   });

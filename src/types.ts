@@ -40,12 +40,20 @@ export interface MappingRecord {
   date_var?: string;
 }
 
-export interface AIConfig {
-  provider: "ollama" | "openai" | "anthropic" | "azure_openai";
-  chat_model: string;
-  embedding_model: string;
+export type AIProviderId = "ollama" | "vllm" | "openai" | "anthropic" | "azure_openai";
+
+export interface ProviderSlot {
+  provider: AIProviderId;
+  model: string;
   api_key?: string;
   base_url?: string;
+  azure_api_version?: string;
+  azure_deployment?: string;
+}
+
+export interface AIConfig {
+  chat: ProviderSlot;
+  embedding?: ProviderSlot | null;
   request_timeout: number;
 }
 

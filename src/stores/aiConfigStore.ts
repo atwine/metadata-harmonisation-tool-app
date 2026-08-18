@@ -12,10 +12,16 @@ interface AIConfigState {
 
 export const useAIConfigStore = create<AIConfigState>((set) => ({
   config: {
-    provider: "ollama",
-    chat_model: "llama3.1:8b",
-    embedding_model: "nomic-embed-text",
-    base_url: "http://localhost:11434",
+    chat: {
+      provider: "ollama",
+      model: "llama3.1:8b",
+      base_url: "http://localhost:11434",
+    },
+    embedding: {
+      provider: "ollama",
+      model: "nomic-embed-text",
+      base_url: "http://localhost:11434",
+    },
     request_timeout: 30,
   },
   setConfig: (c) => set({ config: c }),

@@ -129,6 +129,7 @@ function InitialisePage() {
 
   const providerLabel: Record<string, string> = {
     ollama: "Ollama",
+    vllm: "vLLM",
     openai: "OpenAI",
     anthropic: "Anthropic",
     azure_openai: "Azure OpenAI",
@@ -146,9 +147,10 @@ function InitialisePage() {
         <div className="bg-success-light border border-l-4 border-l-success rounded-md p-4 flex items-start gap-3">
           <CheckCircle2 className="size-5 text-success mt-0.5" />
           <div className="text-[13px]">
-            Connected to {providerLabel[config.provider] ?? config.provider} · chat:{" "}
-            {config.chat_model}
-            {config.embedding_model ? ` · embedding: ${config.embedding_model}` : ""}
+            Chat: {config.chat.model} ({providerLabel[config.chat.provider] ?? config.chat.provider})
+            {config.embedding
+              ? ` · Embedding: ${config.embedding.model} (${providerLabel[config.embedding.provider] ?? config.embedding.provider})`
+              : ""}
           </div>
         </div>
       ) : (
