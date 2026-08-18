@@ -31,6 +31,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-danger: var(--danger);
+  --color-danger-light: var(--danger-light);
   --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
@@ -77,6 +78,7 @@
   --destructive: #C0392B;
   --destructive-foreground: #FFFFFF;
   --danger: #C0392B;
+  --danger-light: #FBEAE8;
   --warning: #E8920A;
 
   --border: #EDE8E4;

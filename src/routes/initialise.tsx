@@ -27,6 +27,8 @@ interface LogLine {
   type: "info" | "ok" | "running" | "error";
 }
 
+type RunResult = "idle" | "success" | "error";
+
 function InitialisePage() {
   const [tipsOpen, setTipsOpen] = useState(false);
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
@@ -34,6 +36,8 @@ function InitialisePage() {
   const [running, setRunning] = useState(false);
   const [log, setLog] = useState<LogLine[]>([]);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [runResult, setRunResult] = useState<RunResult>("idle");
+  const [alreadyDoneNotice, setAlreadyDoneNotice] = useState(false);
 
   const { data: statusData, refetch: refetchStatus } = useInitialiseStatus();
   const clearWorkspace = useClearWorkspace();
@@ -41,13 +45,28 @@ function InitialisePage() {
 
   const studies = statusData?.studies ?? [];
 
+  const allAlreadyInitialised =
+    !!statusData?.codebook_embedded &&
+    studies.length > 0 &&
+    studies.every((s) => s.recommendations_ready && s.pid_date_ready);
+
   const appendLog = (line: LogLine) =>
     setLog((prev) => [...prev, line]);
 
   const handleRun = async () => {
     if (!config) return;
+
+    if (!forceRerun && allAlreadyInitialised) {
+      setAlreadyDoneNotice(true);
+      return;
+    }
+    setAlreadyDoneNotice(false);
+
     setRunning(true);
+    setRunResult("idle");
     setLog([]);
+    let sawError = false;
+    let sawComplete = false;
 
     const body = {
       ai_config: config,
@@ -64,7 +83,9 @@ function InitialisePage() {
 
       if (!resp.ok || !resp.body) {
         appendLog({ text: `Error: ${resp.statusText}`, type: "error" });
+        sawError = true;
         setRunning(false);
+        setRunResult("error");
         return;
       }
 
@@ -99,6 +120,8 @@ function InitialisePage() {
                   : ev.status === "running"
                     ? "running"
                     : "info";
+            if (type === "error") sawError = true;
+            if (ev.step === "complete" && ev.status === "done") sawComplete = true;
             appendLog({ text: ev.message, type });
           } catch {
             /* skip malformed SSE */
@@ -107,8 +130,10 @@ function InitialisePage() {
       }
     } catch (err) {
       appendLog({ text: `Connection error: ${String(err)}`, type: "error" });
+      sawError = true;
     } finally {
       setRunning(false);
+      setRunResult(sawError || !sawComplete ? "error" : "success");
       void refetchStatus();
     }
   };
@@ -207,12 +232,26 @@ function InitialisePage() {
           <input
             type="checkbox"
             checked={forceRerun}
-            onChange={(e) => setForceRerun(e.target.checked)}
+            onChange={(e) => {
+              setForceRerun(e.target.checked);
+              if (e.target.checked) setAlreadyDoneNotice(false);
+            }}
             className="rounded"
           />
           Force re-run (overwrite existing results)
         </label>
       </div>
+
+      {alreadyDoneNotice && (
+        <div className="mt-3 bg-danger-light border border-l-4 border-l-danger rounded-md p-4 flex items-start gap-3">
+          <XCircle className="size-5 text-danger mt-0.5" />
+          <div className="text-[13px]">
+            All studies are already initialised — recommendations have already been
+            generated. Check "Force re-run" above if you want to regenerate them, or
+            head to Map Studies to continue.
+          </div>
+        </div>
+      )}
 
       {/* studies table */}
       <div className="mt-6">
@@ -305,6 +344,29 @@ function InitialisePage() {
           ))
         )}
       </div>
+
+      {/* run result banner — the whole point being: don't leave the user guessing
+          once the black log box goes quiet */}
+      {!running && runResult !== "idle" && (
+        <div
+          className={`mt-3 rounded-md p-4 flex items-start gap-3 border border-l-4 ${
+            runResult === "success"
+              ? "bg-success-light border-l-success"
+              : "bg-danger-light border-l-danger"
+          }`}
+        >
+          {runResult === "success" ? (
+            <CheckCircle2 className="size-5 text-success mt-0.5" />
+          ) : (
+            <XCircle className="size-5 text-danger mt-0.5" />
+          )}
+          <div className="text-[13px] font-medium">
+            {runResult === "success"
+              ? "Recommendation engine finished successfully. You can head to Map Studies."
+              : "Recommendation engine failed — see the error above for details."}
+          </div>
+        </div>
+      )}
 
       <div className="border-t my-6" />
 

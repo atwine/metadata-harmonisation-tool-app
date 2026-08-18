@@ -40,7 +40,7 @@ function MapStudiesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("To do");
   const [sort, setSort] = useState<"difficulty" | "original">("difficulty");
   const [selectedVar, setSelectedVar] = useState<string>("");
-  const [transformOpen, setTransformOpen] = useState(true);
+  const [transformOpen, setTransformOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
 
   // Form state
@@ -123,6 +123,14 @@ function MapStudiesPage() {
 
   const handleSubmit = () => {
     if (!study || !selectedVar) return;
+
+    // Figure out which variable to move to next, based on the list as it
+    // stands right now — waiting for the post-save refetch would leave the
+    // user staring at the just-submitted variable in the meantime.
+    const currentIndex = sortedRecords.findIndex((r) => r.study_var === selectedVar);
+    const remaining = sortedRecords.filter((r) => r.study_var !== selectedVar);
+    const nextVar = remaining[currentIndex]?.study_var ?? remaining[0]?.study_var ?? "";
+
     saveMapping.mutate(
       {
         study,
@@ -143,6 +151,9 @@ function MapStudiesPage() {
       {
         onSuccess: () => {
           void refetchMappings();
+          setNotes("");
+          setTransformOpen(false);
+          setSelectedVar(nextVar);
         },
       }
     );
@@ -263,6 +274,13 @@ function MapStudiesPage() {
         </div>
       )}
 
+      {study && !selectedVar && sortedRecords.length === 0 && !detailLoading && (
+        <div className="text-[13px] text-success py-8 text-center font-medium">
+          No variables left in "{statusFilter}" — nice work. Switch the status filter above
+          to review other variables.
+        </div>
+      )}
+
       {study && detailLoading && (
         <div className="text-[13px] text-text-secondary py-8 text-center">
           Loading…
@@ -296,7 +314,7 @@ function MapStudiesPage() {
               </div>
               {detail.example_data.length > 0 ? (
                 <pre
-                  className="font-mono text-[12px] p-2.5 rounded text-text-primary"
+                  className="font-mono text-[12px] p-2.5 rounded text-text-primary whitespace-pre-wrap break-words"
                   style={{ background: "#F4F0ED" }}
                 >
                   {detail.example_data.join(" ; ")}
@@ -454,7 +472,16 @@ function MapStudiesPage() {
                 onClick={() => setTransformOpen((o) => !o)}
                 className="w-full flex items-center justify-between p-3"
               >
-                <span className="text-[13px] font-medium">Transformation</span>
+                <span className="flex items-center gap-2 text-[13px] font-medium">
+                  Transformation
+                  {!transformOpen && (
+                    <span className="text-[12px] font-normal text-text-secondary">
+                      {expression
+                        ? `— ${transformType}: ${expression}`
+                        : "— none configured"}
+                    </span>
+                  )}
+                </span>
                 {transformOpen ? (
                   <ChevronDown className="size-4 text-text-secondary" />
                 ) : (
