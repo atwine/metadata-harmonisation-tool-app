@@ -217,13 +217,31 @@ class AIProviderWrapper:
                     return SlotResult(False, f"Model '{model_config.model}' not served by vLLM. Available: {available}.")
                 return SlotResult(True, f"Connected to vLLM ({model_config.model}).")
 
-            elif provider in (AIProvider.OPENAI, AIProvider.AZURE_OPENAI):
+            elif provider == AIProvider.OPENAI:
+                resp = client.models.list()
+                ids  = [m.id for m in resp.data]
+                if model_config.model not in ids:
+                    return SlotResult(False, f"Model '{model_config.model}' not found on OpenAI ({len(ids)} available).")
+                return SlotResult(True, f"Connected to OpenAI ({model_config.model}).")
+
+            elif provider == AIProvider.AZURE_OPENAI:
+                # Azure deployment names are account-specific and generally don't
+                # appear in models.list() (which lists base models, not deployments),
+                # so a membership check here would false-negative on valid configs.
+                # This confirms the endpoint + key work, not that the deployment exists.
                 client.models.list()
-                name = "OpenAI" if provider == AIProvider.OPENAI else "Azure OpenAI"
-                return SlotResult(True, f"Connected to {name} ({model_config.model}).")
+                return SlotResult(
+                    True,
+                    f"Connected to Azure OpenAI — endpoint and key are valid. "
+                    f"Deployment '{model_config.azure_deployment or model_config.model}' is not verified here; "
+                    f"it will only be confirmed on first use.",
+                )
 
             elif provider == AIProvider.ANTHROPIC:
-                client.models.list()
+                resp = client.models.list()
+                ids  = [m.id for m in resp.data]
+                if model_config.model not in ids:
+                    return SlotResult(False, f"Model '{model_config.model}' not found on Anthropic ({len(ids)} available).")
                 return SlotResult(True, f"Connected to Anthropic ({model_config.model}).")
 
             return SlotResult(False, f"Unsupported provider: {provider}")

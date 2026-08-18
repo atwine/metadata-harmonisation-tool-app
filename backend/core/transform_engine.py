@@ -65,6 +65,7 @@ def _transform_study(study: str) -> dict:
 
     mapped_rows = mapping_df[mapping_df["marked"].astype(str).str.strip() == "Successfully mapped"]
     output_cols: dict[str, list] = {}
+    col_owner: dict[str, str] = {}  # codebook column name -> the study_var that claimed it
     metrics: list[dict] = []
     warnings: list[str] = []
 
@@ -79,6 +80,23 @@ def _transform_study(study: str) -> dict:
         if not study_var or study_var not in source_df.columns:
             warnings.append(f"Source column missing: {study_var}")
             metrics.append({"variable": study_var, "successes": 0, "errors": 1, "warning": "Source column not found in example data"})
+            continue
+
+        col_name = str(codebook_var) if codebook_var else str(study_var)
+        if col_name in output_cols:
+            # Two study variables mapped to the same codebook column would
+            # otherwise silently overwrite each other in the output — keep
+            # whichever was mapped first and surface the conflict instead.
+            warnings.append(
+                f"Skipped '{study_var}': codebook column '{col_name}' is already filled by "
+                f"'{col_owner[col_name]}' — two variables can't map to the same output column."
+            )
+            metrics.append({
+                "variable": study_var,
+                "successes": 0,
+                "errors": 1,
+                "warning": f"Duplicate mapping to '{col_name}' (kept '{col_owner[col_name]}' instead)",
+            })
             continue
 
         results_col: list = []
@@ -106,8 +124,8 @@ def _transform_study(study: str) -> dict:
                 results_col.append(np.nan)
                 errors += 1
 
-        col_name = str(codebook_var) if codebook_var else str(study_var)
         output_cols[col_name] = results_col
+        col_owner[col_name] = study_var
         metrics.append({
             "variable": study_var,
             "successes": len(results_col) - errors,

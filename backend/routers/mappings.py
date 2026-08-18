@@ -331,6 +331,20 @@ async def save_mapping(
     prev_row = df[df["study_var"] == variable_name]
     previous = _row_to_record(prev_row.iloc[0]).model_dump() if not prev_row.empty else None
 
+    # AfPO results are only recomputed when the frontend actually re-ran the
+    # lookup in this request. If the field is omitted (e.g. the user reopened
+    # an already-mapped variable and resubmitted after only touching Notes,
+    # without re-running "Look up in AfPO"), keep whatever was saved before
+    # instead of silently wiping it back to empty.
+    afpo_values_mapped = (
+        json.dumps(body.afpo_values_mapped) if body.afpo_values_mapped is not None
+        else (previous["afpo_values_mapped"] if previous and previous.get("afpo_values_mapped") else json.dumps({}))
+    )
+    afpo_values_gaps = (
+        json.dumps(body.afpo_values_gaps) if body.afpo_values_gaps is not None
+        else (previous["afpo_values_gaps"] if previous and previous.get("afpo_values_gaps") else json.dumps([]))
+    )
+
     new_record = {
         "study_var":                   variable_name,
         "codebook_var":                body.codebook_var,
@@ -349,8 +363,8 @@ async def save_mapping(
         "patient_id_confidence":       None,
         "date_var":                    body.date_var,
         "date_confidence":             None,
-        "afpo_values_mapped":          json.dumps(body.afpo_values_mapped or {}),
-        "afpo_values_gaps":            json.dumps(body.afpo_values_gaps or []),
+        "afpo_values_mapped":          afpo_values_mapped,
+        "afpo_values_gaps":            afpo_values_gaps,
     }
 
     # Upsert: drop existing row for this variable, append the new one
