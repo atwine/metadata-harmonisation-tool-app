@@ -207,9 +207,9 @@ export const api = {
     contextPdf?: File
   ): Promise<StudyUploadResponse> => {
     const fd = new FormData();
-    fd.append("study_name", name);
-    fd.append("variables_csv", variables);
-    if (exampleData) fd.append("example_data_csv", exampleData);
+    fd.append("study_title", name);
+    fd.append("variables_file", variables);
+    if (exampleData) fd.append("example_data_file", exampleData);
     if (contextPdf) fd.append("context_pdf", contextPdf);
     const r = await fetch(`${BASE}/api/studies/upload`, { method: "POST", body: fd });
     if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
