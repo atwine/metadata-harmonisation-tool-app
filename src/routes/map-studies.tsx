@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Clock } from "lucide-react";
+import { ChevronDown, ChevronRight, Clock, Lock } from "lucide-react";
 import { PageHeader } from "@/components/Sidebar";
 import { useWizardStore } from "@/stores/wizardStore";
 import {
@@ -9,6 +9,7 @@ import {
   useVariableDetail,
   useAudit,
   useSaveMapping,
+  useReopenMapping,
   api,
   type TransformationPreviewResponse,
   type ValidateExpressionResponse,
@@ -64,6 +65,7 @@ function MapStudiesPage() {
   const { data: detail, isLoading: detailLoading } = useVariableDetail(study, selectedVar);
   const { data: auditData } = useAudit(study, 5);
   const saveMapping = useSaveMapping();
+  const reopenMapping = useReopenMapping();
 
   const records = mappingsData?.records ?? [];
 
@@ -168,6 +170,20 @@ function MapStudiesPage() {
           setNotes("");
           setTransformOpen(false);
           setSelectedVar(nextVar);
+        },
+      }
+    );
+  };
+
+  const handleReopen = () => {
+    if (!study || !selectedVar) return;
+    reopenMapping.mutate(
+      { study, variable: selectedVar },
+      {
+        onSuccess: () => {
+          // The variable moves back to "To do" server-side — switch the filter
+          // to match so it's visible (and editable) right away, on the same variable.
+          setStatusFilter("To do");
         },
       }
     );
@@ -354,7 +370,64 @@ function MapStudiesPage() {
             </div>
           </div>
 
-          {/* mapping form */}
+          {/* mapping form — editable only while reviewing "To do"; everything
+              else is read-only with a "Reopen for edit" gate, so browsing an
+              already-decided category can't silently overwrite it via a
+              Submit button that's just sitting there. */}
+          {statusFilter !== "To do" ? (
+            <div className="mt-4 bg-surface border rounded-lg p-5 shadow-sm space-y-4">
+              <div className="flex items-center gap-2 text-[13px] font-medium text-text-secondary">
+                <Lock className="size-4" />
+                Marked "{detail.existing_mapping.marked}" — reviewing read-only.
+              </div>
+              <table className="w-full text-[13px] border rounded-md overflow-hidden">
+                <tbody>
+                  <tr style={{ background: "#FAFAF8" }}>
+                    <td className="px-2 h-9 text-text-secondary w-44">Codebook match</td>
+                    <td className="px-2 h-9 font-mono">
+                      {detail.existing_mapping.codebook_var || "—"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-2 h-9 text-text-secondary">Notes</td>
+                    <td className="px-2 h-9">{detail.existing_mapping.notes || "—"}</td>
+                  </tr>
+                  <tr style={{ background: "#FAFAF8" }}>
+                    <td className="px-2 h-9 text-text-secondary">Transformation</td>
+                    <td className="px-2 h-9 font-mono">
+                      {detail.existing_mapping.transformation_instructions
+                        ? `${detail.existing_mapping.transformation_type}: ${detail.existing_mapping.transformation_instructions}`
+                        : "—"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-2 h-9 text-text-secondary">Patient ID / Date</td>
+                    <td className="px-2 h-9 font-mono">
+                      {detail.existing_mapping.patient_id_var || "—"} /{" "}
+                      {detail.existing_mapping.date_var || "—"}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {reopenMapping.isError && (
+                <div className="p-2 rounded-md bg-red-50 border border-red-200 text-[12px] text-red-700">
+                  {(reopenMapping.error as Error).message}
+                </div>
+              )}
+
+              <button
+                onClick={handleReopen}
+                disabled={reopenMapping.isPending}
+                className="w-full h-10 rounded-md text-[14px] font-medium border border-primary text-primary hover:bg-primary-light transition-colors disabled:opacity-50"
+              >
+                {reopenMapping.isPending ? "Reopening…" : "Reopen for edit"}
+              </button>
+              <p className="text-[12px] text-text-secondary text-center">
+                Moves this variable back to "To do" so you can safely change its mapping.
+              </p>
+            </div>
+          ) : (
           <div className="mt-4 bg-surface border rounded-lg p-5 shadow-sm space-y-5">
             {/* codebook match */}
             <div>
@@ -664,6 +737,7 @@ function MapStudiesPage() {
               {saveMapping.isPending ? "Saving…" : "Submit"}
             </button>
           </div>
+          )}
         </>
       )}
 

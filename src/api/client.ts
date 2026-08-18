@@ -430,6 +430,20 @@ export function useSaveMapping() {
   });
 }
 
+export function useReopenMapping() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { study: string; variable: string }) =>
+      api.reopenMapping(args.study, args.variable),
+    onSuccess: (_data, args) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.mappings(args.study) });
+      qc.invalidateQueries({
+        queryKey: QUERY_KEYS.variableDetail(args.study, args.variable),
+      });
+    },
+  });
+}
+
 export function useClearWorkspace() {
   const qc = useQueryClient();
   return useMutation({
