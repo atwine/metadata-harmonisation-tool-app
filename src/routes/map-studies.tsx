@@ -85,7 +85,21 @@ function MapStudiesPage() {
   useEffect(() => {
     if (!detail) return;
     const m = detail.existing_mapping;
-    setCodebookMatch(m.codebook_var ?? "");
+
+    // Mirror the reference app: the codebook-match dropdown has no "none"
+    // placeholder and simply defaults to its first (best-confidence) option,
+    // so a fresh "To do" variable arrives pre-matched to its top recommendation
+    // instead of forcing the user to reopen the dropdown and pick it manually.
+    // Skip recommendations already claimed by another variable, same as the
+    // reference's duplicate filtering — unless it's this variable's own saved match.
+    const topAvailable =
+      detail.recommendations.find(
+        (r) => !detail.already_used_codebook_vars.includes(r.codebook_var)
+      )?.codebook_var ??
+      detail.recommendations[0]?.codebook_var ??
+      "";
+    setCodebookMatch(m.codebook_var || topAvailable);
+
     setMarking((m.marked as Marking) ?? "To do");
     setNotes(m.notes ?? "");
     setPidVar(m.patient_id_var ?? "");
@@ -159,8 +173,13 @@ function MapStudiesPage() {
     );
   };
 
+  // The confidence shown must track whichever codebook_var is actually
+  // selected — not just always the top recommendation — since the user can
+  // override the auto-picked match with a different one from the dropdown.
   const topConfidence =
-    detail?.recommendations[0]?.confidence ?? 0;
+    detail?.recommendations.find((r) => r.codebook_var === codebookMatch)?.confidence ??
+    detail?.recommendations[0]?.confidence ??
+    0;
 
   const confidenceLabel =
     topConfidence >= 80 ? "Strong" : topConfidence >= 50 ? "Moderate" : "Weak";
