@@ -87,7 +87,7 @@ async def download_transformed_data(body: TransformedDataRequest):
     )
 
 
-@router.get("/audit-log")
+@router.api_route("/audit-log", methods=["GET", "HEAD"])
 async def download_audit_log():
     """Streams the append-only mapping audit trail (all studies, all writes)."""
     audit_path = Path("logs/mapping_audit.jsonl")
