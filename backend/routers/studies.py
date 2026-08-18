@@ -94,13 +94,23 @@ async def list_studies_endpoint():
             except Exception:
                 pass
 
+        results_path = Path("results") / f"{name}.csv"
+        has_mapped = False
+        if results_path.exists():
+            try:
+                results_df = pd.read_csv(results_path)
+                has_mapped = bool((results_df["marked"] == "Successfully mapped").any())
+            except Exception:
+                pass
+
         studies.append(
             Study(
                 name=name,
                 variable_count=var_count,
                 has_example_data=(study_dir / "example_data.csv").exists(),
                 has_context_pdf=(study_dir / "context.pdf").exists(),
-                has_results=(Path("results") / f"{name}.csv").exists(),
+                has_results=results_path.exists(),
+                has_mapped_variable=has_mapped,
                 status=get_study_status(name),
             )
         )

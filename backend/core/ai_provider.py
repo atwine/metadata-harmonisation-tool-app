@@ -204,7 +204,7 @@ class AIProviderWrapper:
             if provider == AIProvider.OLLAMA:
                 resp  = client.list()
                 items = resp.get("models") if isinstance(resp, dict) else getattr(resp, "models", None) or []
-                names = _extract_ollama_names(items)
+                names = extract_ollama_names(items)
                 if not any(n == model_config.model or n.startswith(model_config.model) for n in names):
                     return SlotResult(False, f"Model '{model_config.model}' not found on Ollama ({len(names)} available).")
                 return SlotResult(True, f"Connected to Ollama ({model_config.model}).")
@@ -250,7 +250,10 @@ class AIProviderWrapper:
             return SlotResult(False, str(e))
 
 
-def _extract_ollama_names(items) -> list[str]:
+def extract_ollama_names(items) -> list[str]:
+    """Shared by AIProviderWrapper's Ollama validation and the /models
+    dropdown-listing endpoint — one place to keep in sync if Ollama's
+    client.list() response shape ever changes."""
     names: list[str] = []
     for m in (items or []):
         n = (

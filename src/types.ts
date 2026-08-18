@@ -24,6 +24,7 @@ export interface Study {
   has_example_data: boolean;
   has_context_pdf: boolean;
   has_results: boolean;
+  has_mapped_variable: boolean;
   status: "uploaded" | "initialised" | "mapping" | "complete";
 }
 

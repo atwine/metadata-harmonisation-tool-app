@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query
 
+from core.ai_provider import extract_ollama_names
 from models.schemas import AIConfig, AITestResponse, OllamaModelsResponse, ProviderInfo, SlotTestResult
 
 router = APIRouter()
@@ -86,19 +87,6 @@ async def test_connection(config: AIConfig):
     )
 
 
-def _extract_ollama_names(items) -> list[str]:
-    names: list[str] = []
-    for m in (items or []):
-        n = (
-            (m.get("model") or m.get("name"))
-            if isinstance(m, dict)
-            else (getattr(m, "model", None) or getattr(m, "name", None))
-        )
-        if n:
-            names.append(str(n))
-    return names
-
-
 @router.get("/models", response_model=OllamaModelsResponse)
 async def list_models(
     provider: str = Query(...),
@@ -112,7 +100,7 @@ async def list_models(
             client = ollama.Client(host=base_url or "http://localhost:11434")
             resp   = client.list()
             items  = resp.get("models") if isinstance(resp, dict) else getattr(resp, "models", None) or []
-            return OllamaModelsResponse(models=sorted(_extract_ollama_names(items)))
+            return OllamaModelsResponse(models=sorted(extract_ollama_names(items)))
 
         elif provider == "vllm":
             from core.config import normalise_openai_compat_base_url

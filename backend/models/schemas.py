@@ -31,6 +31,7 @@ class Study(BaseModel):
     has_example_data: bool = False
     has_context_pdf: bool = False
     has_results: bool = False
+    has_mapped_variable: bool = False  # at least one "Successfully mapped" row — what /transformed-data actually requires
     status: Literal["uploaded", "initialised", "mapping", "complete"]
 
 

@@ -80,7 +80,12 @@ const SLOT_DEFAULTS: Record<"chat" | "embedding", Partial<Record<AIProviderId, P
 function hasLiveModelList(provider: AIProviderId) {
   return provider === "ollama" || provider === "vllm";
 }
-function needsApiKey(provider: AIProviderId) {
+function showsApiKey(provider: AIProviderId) {
+  // Required for these; vLLM only needs one if the server was launched with
+  // --api-key, so it's shown but optional there.
+  return provider === "openai" || provider === "anthropic" || provider === "azure_openai" || provider === "vllm";
+}
+function apiKeyRequired(provider: AIProviderId) {
   return provider === "openai" || provider === "anthropic" || provider === "azure_openai";
 }
 function needsBaseUrl(provider: AIProviderId) {
@@ -118,7 +123,7 @@ function ProviderSlotEditor({
     const match = models.find((m) => m === slot.model || m.startsWith(`${slot.model}:`));
     if (match) update({ model: match });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useDropdown, models.join("|")]);
+  }, [useDropdown, models.join("|"), slot.model]);
 
   return (
     <div className="border rounded-md bg-surface p-3">
@@ -183,14 +188,16 @@ function ProviderSlotEditor({
         )}
       </div>
 
-      {needsApiKey(slot.provider) && (
+      {showsApiKey(slot.provider) && (
         <div className="mt-2">
-          <label className="label-caption">API Key</label>
+          <label className="label-caption">
+            API Key{!apiKeyRequired(slot.provider) && " (optional)"}
+          </label>
           <input
             type="password"
             value={slot.api_key ?? ""}
             onChange={(e) => update({ api_key: e.target.value })}
-            placeholder="sk-..."
+            placeholder={apiKeyRequired(slot.provider) ? "sk-..." : "leave blank if the server doesn't require one"}
             className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
           />
         </div>

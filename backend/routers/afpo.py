@@ -2,7 +2,7 @@ import csv
 import datetime
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from core.afpo_lookup import lookup
 from core.afpo_gap_reporter import build_github_issue_url
@@ -63,6 +63,18 @@ def _search_issues_url(value: str) -> str:
     seen submitted, since someone could have filed one outside this tool."""
     from urllib.parse import quote
     return f"https://github.com/h3abionet/afpo/issues?q={quote(f'is:issue {value}')}"
+
+
+@router.get("/issue-url")
+async def afpo_issue_url(
+    value: str = Query(...),
+    study: str = Query(...),
+    variable_name: str = Query(...),
+):
+    """Builds the pre-filled GitHub issue URL for a (possibly user-edited) gap
+    term. Kept server-side so the issue title/body template has one source of
+    truth — the frontend calls this instead of re-deriving the template."""
+    return {"url": build_github_issue_url(value, study, variable_name)}
 
 
 @router.post("/lookup", response_model=AfpoLookupResponse)

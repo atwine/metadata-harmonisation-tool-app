@@ -10,12 +10,26 @@ const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://loc
 
 // ── Low-level fetch helpers ──────────────────────────────────────────────────
 
+/** FastAPI error responses are JSON ({"detail": "..."}) — extract that instead
+ * of throwing the raw response body, which would otherwise surface as literal
+ * unparsed JSON text in the UI. Falls back to raw text/statusText for
+ * non-JSON error bodies (e.g. a proxy 502). */
+async function extractErrorMessage(r: Response): Promise<string> {
+  const text = await r.text().catch(() => "");
+  if (text) {
+    try {
+      const parsed = JSON.parse(text) as { detail?: unknown };
+      if (typeof parsed.detail === "string") return parsed.detail;
+    } catch {
+      /* not JSON — fall through to raw text */
+    }
+  }
+  return text || r.statusText;
+}
+
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`);
-  if (!r.ok) {
-    const msg = await r.text().catch(() => r.statusText);
-    throw new Error(msg);
-  }
+  if (!r.ok) throw new Error(await extractErrorMessage(r));
   return r.json() as Promise<T>;
 }
 
@@ -25,10 +39,7 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
     headers: body !== undefined ? { "Content-Type": "application/json" } : {},
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  if (!r.ok) {
-    const msg = await r.text().catch(() => r.statusText);
-    throw new Error(msg);
-  }
+  if (!r.ok) throw new Error(await extractErrorMessage(r));
   return r.json() as Promise<T>;
 }
 
@@ -38,19 +49,13 @@ async function put<T>(path: string, body?: unknown): Promise<T> {
     headers: body !== undefined ? { "Content-Type": "application/json" } : {},
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  if (!r.ok) {
-    const msg = await r.text().catch(() => r.statusText);
-    throw new Error(msg);
-  }
+  if (!r.ok) throw new Error(await extractErrorMessage(r));
   return r.json() as Promise<T>;
 }
 
 async function del<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`, { method: "DELETE" });
-  if (!r.ok) {
-    const msg = await r.text().catch(() => r.statusText);
-    throw new Error(msg);
-  }
+  if (!r.ok) throw new Error(await extractErrorMessage(r));
   return r.json() as Promise<T>;
 }
 
@@ -207,7 +212,7 @@ export const api = {
     const fd = new FormData();
     fd.append("file", file);
     const r = await fetch(`${BASE}/api/codebook/upload`, { method: "POST", body: fd });
-    if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
+    if (!r.ok) throw new Error(await extractErrorMessage(r));
     return r.json();
   },
   getCodebook: (): Promise<CodebookVariable[]> =>
@@ -226,7 +231,7 @@ export const api = {
     if (exampleData) fd.append("example_data_file", exampleData);
     if (contextPdf) fd.append("context_pdf", contextPdf);
     const r = await fetch(`${BASE}/api/studies/upload`, { method: "POST", body: fd });
-    if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
+    if (!r.ok) throw new Error(await extractErrorMessage(r));
     return r.json();
   },
   getStudies: (): Promise<Study[]> => get("/api/studies/"),
@@ -288,6 +293,10 @@ export const api = {
     variable_name: string;
     value: string;
   }): Promise<unknown> => post("/api/afpo/gaps/submitted", body),
+  afpoIssueUrl: (value: string, study: string, variableName: string): Promise<{ url: string }> => {
+    const params = new URLSearchParams({ value, study, variable_name: variableName });
+    return get(`/api/afpo/issue-url?${params.toString()}`);
+  },
 
   // Download
   getMappingCsvUrl: (study: string): string =>
@@ -299,7 +308,7 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ studies }),
     });
-    if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
+    if (!r.ok) throw new Error(await extractErrorMessage(r));
     return r.blob();
   },
   checkAuditLogExists: async (): Promise<boolean> => {

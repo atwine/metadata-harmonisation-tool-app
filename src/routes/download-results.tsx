@@ -95,7 +95,12 @@ function DownloadResultsPage() {
       <div className="space-y-4">
         {selectedStudies.map((s) => {
           const csvDisabled = !s.has_results;
-          const zipDisabled = !s.has_example_data || !s.has_results;
+          const zipDisabled = !s.has_example_data || !s.has_mapped_variable;
+          const zipDisabledReason = !s.has_example_data
+            ? "Requires example data — metadata-only studies can only export the mapping CSV"
+            : !s.has_mapped_variable
+              ? "No variables marked \"Successfully mapped\" yet — nothing to transform"
+              : undefined;
           return (
             <div key={s.name} className="bg-surface border rounded-lg p-4 shadow-sm">
               <h3 className="font-semibold text-[14px] font-mono mb-3">{s.name}</h3>
@@ -123,7 +128,7 @@ function DownloadResultsPage() {
                     <button
                       onClick={() => void handleZip(s.name)}
                       disabled={downloading[s.name] || zipDisabled}
-                      title={zipDisabled ? "Requires example data — metadata-only studies can only export the mapping CSV" : undefined}
+                      title={zipDisabledReason}
                       className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-primary text-primary hover:bg-primary-light text-[13px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
                       <Archive className="size-4" />
@@ -133,7 +138,9 @@ function DownloadResultsPage() {
                   <div className="text-[12px] text-text-secondary mt-1">
                     {!s.has_example_data
                       ? "Metadata-only study (no example_data.csv) — use \"Download CSV\" instead."
-                      : "Applies transformations defined in Map Studies"}
+                      : !s.has_mapped_variable
+                        ? "No variables marked \"Successfully mapped\" yet — nothing to transform."
+                        : "Applies transformations defined in Map Studies"}
                   </div>
                   {zipError[s.name] && (
                     <div className="text-[12px] text-danger mt-1">{zipError[s.name]}</div>
