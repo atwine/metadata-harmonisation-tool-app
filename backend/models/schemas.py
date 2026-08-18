@@ -238,6 +238,9 @@ class AfpoLookupResult(BaseModel):
     matched_via: Optional[str] = None
     confidence: Optional[int] = None
     github_issue_url: Optional[str] = None  # present only for unmatched (gap) values
+    search_issues_url: Optional[str] = None  # present only for unmatched (gap) values
+    already_submitted: bool = False  # true if this value has been submitted to GitHub before, from any study
+    previously_submitted_at: Optional[str] = None
 
 
 class AfpoLookupResponse(BaseModel):

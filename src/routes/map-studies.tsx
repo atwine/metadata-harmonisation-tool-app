@@ -740,27 +740,58 @@ function MapStudiesPage() {
                           independent — submit in any order.
                         </p>
                         <div className="space-y-2">
-                          {afpoResults.filter((r) => !r.afpo_id).map((r) => (
-                            <div key={r.input_value} className="flex items-center gap-2">
-                              <span className="text-[12px] px-2 py-1.5 rounded bg-accent-light text-text-primary font-mono shrink-0">
-                                {r.input_value}
-                              </span>
-                              <input
-                                value={afpoGapEdits[r.input_value] ?? r.input_value}
-                                onChange={(e) =>
-                                  setAfpoGapEdits((prev) => ({ ...prev, [r.input_value]: e.target.value }))
-                                }
-                                className="h-9 flex-1 px-2 rounded-md border bg-surface text-[12px] font-mono"
-                              />
-                              <button
-                                onClick={() => handleAfpoSubmitGap(r.input_value)}
-                                disabled={afpoSubmittedGaps.has(r.input_value)}
-                                className="h-9 px-3 text-[12px] rounded-md border border-primary text-primary hover:bg-primary-light font-medium disabled:opacity-50 disabled:cursor-not-allowed shrink-0 whitespace-nowrap"
-                              >
-                                {afpoSubmittedGaps.has(r.input_value) ? "Submitted ✓" : "Submit to AfPO"}
-                              </button>
-                            </div>
-                          ))}
+                          {afpoResults.filter((r) => !r.afpo_id).map((r) => {
+                            const alreadySubmitted = r.already_submitted || afpoSubmittedGaps.has(r.input_value);
+                            return (
+                              <div key={r.input_value} className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[12px] px-2 py-1.5 rounded bg-accent-light text-text-primary font-mono shrink-0">
+                                    {r.input_value}
+                                  </span>
+                                  <input
+                                    value={afpoGapEdits[r.input_value] ?? r.input_value}
+                                    onChange={(e) =>
+                                      setAfpoGapEdits((prev) => ({ ...prev, [r.input_value]: e.target.value }))
+                                    }
+                                    disabled={alreadySubmitted}
+                                    className="h-9 flex-1 px-2 rounded-md border bg-surface text-[12px] font-mono disabled:opacity-60"
+                                  />
+                                  {r.search_issues_url && (
+                                    <a
+                                      href={r.search_issues_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="h-9 px-3 flex items-center text-[12px] rounded-md border text-text-secondary hover:bg-[#F5F0EE] font-medium shrink-0 whitespace-nowrap"
+                                    >
+                                      Search existing
+                                    </a>
+                                  )}
+                                  <button
+                                    onClick={() => handleAfpoSubmitGap(r.input_value)}
+                                    disabled={alreadySubmitted}
+                                    className="h-9 px-3 text-[12px] rounded-md border border-primary text-primary hover:bg-primary-light font-medium disabled:opacity-50 disabled:cursor-not-allowed shrink-0 whitespace-nowrap"
+                                  >
+                                    {alreadySubmitted ? "Already submitted ✓" : "Submit to AfPO"}
+                                  </button>
+                                </div>
+                                {r.already_submitted && r.previously_submitted_at && !afpoSubmittedGaps.has(r.input_value) && (
+                                  <p className="text-[11px] text-text-secondary pl-1">
+                                    Already submitted to AfPO on{" "}
+                                    {new Date(r.previously_submitted_at).toLocaleDateString()} — check{" "}
+                                    <a
+                                      href={r.search_issues_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline"
+                                    >
+                                      existing issues
+                                    </a>{" "}
+                                    before filing another.
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

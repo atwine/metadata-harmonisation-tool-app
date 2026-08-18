@@ -187,6 +187,9 @@ export interface AfpoLookupResult {
   matched_via?: string;
   confidence?: number;
   github_issue_url?: string;
+  search_issues_url?: string;
+  already_submitted: boolean;
+  previously_submitted_at?: string;
 }
 
 // ── API functions ────────────────────────────────────────────────────────────

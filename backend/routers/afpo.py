@@ -39,10 +39,37 @@ def _log_gaps(study: str, variable_name: str, gaps: list[str]) -> None:
             ])
 
 
+def _load_submitted_values() -> dict[str, str]:
+    """Returns {normalised_value: latest_timestamp} for every gap-log row already
+    marked submitted_to_github=True, across ALL studies and variables — a value
+    submitted once from one study must not look "new" again from another.
+    This is the actual duplicate-submission guard: it's checked at lookup time,
+    before the user ever sees a "Submit to AfPO" button for that value."""
+    if not _GAPS_PATH.exists():
+        return {}
+    submitted: dict[str, str] = {}
+    with open(_GAPS_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            if row.get("submitted_to_github") == "True":
+                key = row["unmatched_value"].strip().lower()
+                ts = row["timestamp"]
+                if key not in submitted or ts > submitted[key]:
+                    submitted[key] = ts
+    return submitted
+
+
+def _search_issues_url(value: str) -> str:
+    """A GitHub issue search link — useful even for values our own log has never
+    seen submitted, since someone could have filed one outside this tool."""
+    from urllib.parse import quote
+    return f"https://github.com/h3abionet/afpo/issues?q={quote(f'is:issue {value}')}"
+
+
 @router.post("/lookup", response_model=AfpoLookupResponse)
 async def afpo_lookup(body: AfpoLookupRequest):
     results: list[AfpoLookupResult] = []
     gaps: list[str] = []
+    submitted_values = _load_submitted_values()
 
     for value in body.values:
         match = lookup(value)
@@ -56,9 +83,13 @@ async def afpo_lookup(body: AfpoLookupRequest):
             ))
         else:
             gaps.append(value)
+            key = value.strip().lower()
             results.append(AfpoLookupResult(
                 input_value=value,
                 github_issue_url=build_github_issue_url(value, body.study, body.variable_name),
+                search_issues_url=_search_issues_url(value),
+                already_submitted=key in submitted_values,
+                previously_submitted_at=submitted_values.get(key),
             ))
 
     _log_gaps(body.study, body.variable_name, gaps)
