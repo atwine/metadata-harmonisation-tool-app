@@ -6,6 +6,7 @@ import pandas as pd
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from models.schemas import Study, StudyUploadResponse
+from storage import db
 from storage.files import (
     get_study_status,
     list_studies,
@@ -94,14 +95,8 @@ async def list_studies_endpoint():
             except Exception:
                 pass
 
-        results_path = Path("results") / f"{name}.csv"
-        has_mapped = False
-        if results_path.exists():
-            try:
-                results_df = pd.read_csv(results_path)
-                has_mapped = bool((results_df["marked"] == "Successfully mapped").any())
-            except Exception:
-                pass
+        has_results = db.study_has_any_mappings(name)
+        has_mapped = db.study_has_mapped_variable(name)
 
         studies.append(
             Study(
@@ -109,7 +104,7 @@ async def list_studies_endpoint():
                 variable_count=var_count,
                 has_example_data=(study_dir / "example_data.csv").exists(),
                 has_context_pdf=(study_dir / "context.pdf").exists(),
-                has_results=results_path.exists(),
+                has_results=has_results,
                 has_mapped_variable=has_mapped,
                 status=get_study_status(name),
             )

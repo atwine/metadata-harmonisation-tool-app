@@ -1,12 +1,13 @@
 import io
-from pathlib import Path
+import json
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 
 from core.transform_engine import apply_transformations
 from models.schemas import TransformedDataRequest
+from storage import db
 from storage.files import sanitise_study_name
 
 router = APIRouter()
@@ -21,33 +22,23 @@ async def download_mapping_csv(study_name: str):
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    results_path = Path("results") / f"{study_name}.csv"
-
-    # Path traversal guard
-    resolved = results_path.resolve()
-    allowed  = Path("results").resolve()
-    if not str(resolved).startswith(str(allowed)):
-        raise HTTPException(400, "Invalid study name")
-
-    if not results_path.exists():
+    rows = db.all_mappings_for_export(study_name)
+    if not rows:
         raise HTTPException(
             404,
             "No results file for this study yet. Map at least one variable in Map Studies first.",
         )
 
-    try:
-        df = pd.read_csv(results_path)
-    except Exception as e:
-        raise HTTPException(500, f"Could not read results file: {e}")
+    df = pd.DataFrame(rows).drop(columns=["id", "study", "updated_at"], errors="ignore")
 
     # Mirror the reference app's export cleaning: drop the '0%' placeholder
     # confidence value, keep core columns first and prune extra columns that
-    # are entirely empty, then show most-recently-mapped rows first.
+    # are entirely empty. Rows are already most-recently-touched first
+    # (all_mappings_for_export orders by updated_at DESC).
     df = df.replace("0%", None)
     core_present = [c for c in _CORE_MAPPING_COLS if c in df.columns]
     extra = df.drop(columns=core_present).dropna(axis=1, how="all")
     df = pd.concat([df[core_present], extra], axis=1)
-    df = df.iloc[::-1]
 
     csv_bytes = df.to_csv(index=False).encode("utf-8")
     return StreamingResponse(
@@ -89,13 +80,14 @@ async def download_transformed_data(body: TransformedDataRequest):
 
 @router.api_route("/audit-log", methods=["GET", "HEAD"])
 async def download_audit_log():
-    """Streams the append-only mapping audit trail (all studies, all writes)."""
-    audit_path = Path("logs/mapping_audit.jsonl")
-    if not audit_path.exists():
+    """Streams the append-only mapping audit trail (all studies, all writes) as JSONL."""
+    records = db.get_all_audit()
+    if not records:
         raise HTTPException(404, "Audit log not found (no mapping writes recorded yet).")
 
-    return FileResponse(
-        path=str(audit_path),
+    jsonl_bytes = ("\n".join(json.dumps(r) for r in records) + "\n").encode("utf-8")
+    return StreamingResponse(
+        io.BytesIO(jsonl_bytes),
         media_type="application/json",
-        filename="mapping_audit.jsonl",
+        headers={"Content-Disposition": "attachment; filename=mapping_audit.jsonl"},
     )

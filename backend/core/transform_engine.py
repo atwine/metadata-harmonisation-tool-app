@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from core.transformation_utils import direct_convert, categorical_convert, dtype_cast
+from storage import db
 
 
 def apply_transformations(studies: list[str]) -> tuple[bytes, list[dict]]:
@@ -46,9 +47,8 @@ def apply_transformations(studies: list[str]) -> tuple[bytes, list[dict]]:
 
 def _transform_study(study: str) -> dict:
     example_path = Path("input") / study / "example_data.csv"
-    mapping_path = Path("results") / f"{study}.csv"
 
-    if not mapping_path.exists():
+    if not db.study_has_any_mappings(study):
         return {"study": study, "status": "skipped", "reason": "No mapping results yet"}
     if not example_path.exists():
         return {
@@ -59,9 +59,9 @@ def _transform_study(study: str) -> dict:
 
     try:
         source_df = pd.read_csv(example_path)
-        mapping_df = pd.read_csv(mapping_path)
+        mapping_df = pd.DataFrame(db.list_mappings(study))
     except Exception as e:
-        return {"study": study, "status": "skipped", "reason": f"Could not read source/mapping CSV: {e}"}
+        return {"study": study, "status": "skipped", "reason": f"Could not read source/mapping data: {e}"}
 
     mapped_rows = mapping_df[mapping_df["marked"].astype(str).str.strip() == "Successfully mapped"]
     output_cols: dict[str, list] = {}

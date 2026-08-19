@@ -4,12 +4,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers import codebook, studies, initialise, mappings, download, ai_config, afpo
+from storage.db import init_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     for d in ["input", "results", "logs"]:
         Path(d).mkdir(exist_ok=True)
+    init_db()
     yield
 
 
