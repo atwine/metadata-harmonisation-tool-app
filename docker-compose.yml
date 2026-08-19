@@ -34,7 +34,8 @@ services:
       - ./harmonisation-data/logs:/app/logs
       - ./harmonisation-data/db:/app/db
     depends_on:
-      - ollama
+      ollama:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:

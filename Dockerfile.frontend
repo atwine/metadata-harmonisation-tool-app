@@ -5,7 +5,13 @@ WORKDIR /app
 COPY package.json package-lock.json* bun.lock* ./
 RUN npm ci
 
-COPY . .
+# Explicit allow-list, not `COPY . .` — this build context is shared with
+# backend/Dockerfile (same `context: .` in docker-compose.yml), so there's
+# no .dockerignore entry that could exclude backend/, data/, docs/, etc.
+# without also breaking the backend image's own COPYs of those paths.
+COPY src/ ./src/
+COPY public/ ./public/
+COPY components.json tsconfig.json vite.config.ts wrangler.jsonc ./
 
 EXPOSE 8080
 
