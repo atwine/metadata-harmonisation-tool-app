@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.7.0] — 2026-08-19
+
+### Added
+- **Docker Compose packaging** (closes #11) — `docker compose up` runs the full stack (frontend, backend, and a bundled Ollama) locally with no separate Python/Node/Ollama install. First run pulls a smaller default model (`llama3.2:3b`) into a persistent volume; every run after that is fast since the model cache survives `docker compose down`/`up`. Uploaded studies, mapping results, the audit trail, and the SQLite database are bind-mounted to `./harmonisation-data/` on the host — a normal folder, not a Docker-managed volume, so `docker compose down -v` can't silently wipe them. See `docs/docker.md`.
+- Ollama's base URL and default chat/embedding models are now overridable via env vars (`OLLAMA_BASE_URL`, `OLLAMA_DEFAULT_CHAT_MODEL`, `OLLAMA_DEFAULT_EMBEDDING_MODEL` backend-side; `VITE_OLLAMA_*` frontend-side) instead of being hardcoded in six-plus places — what the Docker default-value change above needed, generalized to a single source of truth on each side.
+
+### Changed
+- **Mapping records, the audit trail, and the AfPO gap log now live in SQLite** (`db/app.db`) instead of `results/*.csv` / `logs/mapping_audit.jsonl` / `logs/afpo_gaps.csv`. Fixes the O(n) full-file-read-and-rewrite pattern on every mapping save, AfPO dedup check, and studies-list status lookup identified in a scale audit — the app now scales to many studies/variables without slowing down. No migration of old CSV/JSONL data (confirmed as synthetic test data, safe to leave behind untouched on disk).
+
+### Fixed
+- `DELETE /api/studies/{name}` and `POST /api/initialise/clear-workspace` now also clear the study's SQLite rows — previously they only touched `input/`/`results/`/`logs/`, so deleting a study or clearing the workspace could leave stale mapping data behind under a reused study name.
+
 ## [0.6.0] — 2026-08-18
 
 ### Added

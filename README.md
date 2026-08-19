@@ -72,6 +72,21 @@ Variables that look like population/ethnicity data (e.g. mapped to a codebook va
 └── run_backend.py             # Entry point — runs uvicorn from project root
 ```
 
+## Running via Docker Compose
+
+For non-technical end users, or anyone who'd rather not install Python/Node/Ollama
+separately:
+
+```bash
+docker compose up
+```
+
+Runs the full stack (frontend, backend, and a bundled Ollama with models pre-pulled)
+locally — no shared/hosted AI backend, everything stays on the machine. First run is
+slow (downloads the AI models); every run after that is fast. See
+[`docs/docker.md`](docs/docker.md) for details, including where your data lives and how
+to back it up.
+
 ## Running locally
 
 ### Prerequisites

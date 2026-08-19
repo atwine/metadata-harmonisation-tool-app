@@ -1,0 +1,3 @@
+# Shell scripts run inside Linux containers — a CRLF-converted checkout on
+# Windows would break the #!/bin/sh interpreter line.
+*.sh text eol=lf

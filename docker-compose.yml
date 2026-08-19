@@ -1,0 +1,59 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    environment:
+      OLLAMA_DEFAULT_CHAT_MODEL: llama3.2:3b
+      OLLAMA_DEFAULT_EMBEDDING_MODEL: nomic-embed-text
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./docker/ollama-entrypoint.sh:/entrypoint.sh:ro
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_DEFAULT_CHAT_MODEL: llama3.2:3b
+      OLLAMA_DEFAULT_EMBEDDING_MODEL: nomic-embed-text
+    ports:
+      - "8000:8000"
+    volumes:
+      # Bind mounts, not named volumes — deliberately, so this is a normal
+      # host folder the org's technical person can see and back up, and so
+      # `docker compose down -v` can't silently wipe it. See docs/docker.md.
+      - ./harmonisation-data/input:/app/input
+      - ./harmonisation-data/results:/app/results
+      - ./harmonisation-data/logs:/app/logs
+      - ./harmonisation-data/db:/app/db
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    environment:
+      VITE_API_URL: http://localhost:8000
+      VITE_OLLAMA_BASE_URL: http://ollama:11434
+      VITE_OLLAMA_CHAT_MODEL: llama3.2:3b
+      VITE_OLLAMA_EMBEDDING_MODEL: nomic-embed-text
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  # Ollama's model cache — fine to be a named volume: re-downloading a model
+  # on loss is an annoyance, not the data-loss risk the bind mounts above
+  # are guarding against.
+  ollama_data:
