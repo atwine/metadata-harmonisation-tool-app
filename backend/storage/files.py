@@ -57,29 +57,26 @@ def safe_delete_file(path: Path) -> bool:
 
 
 def get_study_status(study_name: str) -> str:
+    from storage import db
+
     study_dir = Path("input") / study_name
-    results_path = Path("results") / f"{study_name}.csv"
     recs_path = study_dir / "dataset_variables_with_PID_date_recommendations.csv"
 
     if not recs_path.exists():
         return "uploaded"
 
-    if not results_path.exists():
-        return "initialised"
-
     try:
-        import pandas as pd
-        df = pd.read_csv(results_path)
-        if len(df) == 0:
-            return "initialised"
-        todo_count = (df["marked"] == "To do").sum()
-        if todo_count == len(df):
-            return "initialised"
-        if todo_count == 0:
-            return "complete"
-        return "mapping"
+        total, todo_count = db.count_todo(study_name)
     except Exception:
         return "initialised"
+
+    if total == 0:
+        return "initialised"
+    if todo_count == total:
+        return "initialised"
+    if todo_count == 0:
+        return "complete"
+    return "mapping"
 
 
 def read_csv_robust(content: str):

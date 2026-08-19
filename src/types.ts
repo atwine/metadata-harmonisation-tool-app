@@ -23,6 +23,8 @@ export interface Study {
   variable_count: number;
   has_example_data: boolean;
   has_context_pdf: boolean;
+  has_results: boolean;
+  has_mapped_variable: boolean;
   status: "uploaded" | "initialised" | "mapping" | "complete";
 }
 
@@ -38,14 +40,24 @@ export interface MappingRecord {
   target_dtype?: string;
   patient_id_var?: string;
   date_var?: string;
+  afpo_values_mapped?: string;
+  afpo_values_gaps?: string;
+}
+
+export type AIProviderId = "ollama" | "vllm" | "openai" | "anthropic" | "azure_openai";
+
+export interface ProviderSlot {
+  provider: AIProviderId;
+  model: string;
+  api_key?: string;
+  base_url?: string;
+  azure_api_version?: string;
+  azure_deployment?: string;
 }
 
 export interface AIConfig {
-  provider: "ollama" | "openai" | "anthropic" | "azure_openai";
-  chat_model: string;
-  embedding_model: string;
-  api_key?: string;
-  base_url?: string;
+  chat: ProviderSlot;
+  embedding?: ProviderSlot | null;
   request_timeout: number;
 }
 

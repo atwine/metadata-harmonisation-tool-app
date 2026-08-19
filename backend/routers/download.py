@@ -1,14 +1,18 @@
 import io
-from pathlib import Path
+import json
 
+import pandas as pd
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 
 from core.transform_engine import apply_transformations
 from models.schemas import TransformedDataRequest
+from storage import db
 from storage.files import sanitise_study_name
 
 router = APIRouter()
+
+_CORE_MAPPING_COLS = ["study_var", "codebook_var", "confidence", "notes", "marked"]
 
 
 @router.get("/{study_name}/mapping-csv")
@@ -18,21 +22,29 @@ async def download_mapping_csv(study_name: str):
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    results_path = Path("results") / f"{study_name}.csv"
+    rows = db.all_mappings_for_export(study_name)
+    if not rows:
+        raise HTTPException(
+            404,
+            "No results file for this study yet. Map at least one variable in Map Studies first.",
+        )
 
-    # Path traversal guard
-    resolved = results_path.resolve()
-    allowed  = Path("results").resolve()
-    if not str(resolved).startswith(str(allowed)):
-        raise HTTPException(400, "Invalid study name")
+    df = pd.DataFrame(rows).drop(columns=["id", "study", "updated_at"], errors="ignore")
 
-    if not results_path.exists():
-        raise HTTPException(404, "No results file for this study")
+    # Mirror the reference app's export cleaning: drop the '0%' placeholder
+    # confidence value, keep core columns first and prune extra columns that
+    # are entirely empty. Rows are already most-recently-touched first
+    # (all_mappings_for_export orders by updated_at DESC).
+    df = df.replace("0%", None)
+    core_present = [c for c in _CORE_MAPPING_COLS if c in df.columns]
+    extra = df.drop(columns=core_present).dropna(axis=1, how="all")
+    df = pd.concat([df[core_present], extra], axis=1)
 
-    return FileResponse(
-        path=str(results_path),
+    csv_bytes = df.to_csv(index=False).encode("utf-8")
+    return StreamingResponse(
+        io.BytesIO(csv_bytes),
         media_type="text/csv",
-        filename=f"{study_name}_mappings.csv",
+        headers={"Content-Disposition": f"attachment; filename={study_name}_mapping_results.csv"},
     )
 
 
@@ -49,9 +61,13 @@ async def download_transformed_data(body: TransformedDataRequest):
             raise HTTPException(400, f"Invalid study name: {s}")
 
     try:
-        zip_bytes, _metrics = apply_transformations(safe_studies)
+        zip_bytes, results = apply_transformations(safe_studies)
     except Exception as e:
         raise HTTPException(500, f"Transformation failed: {e}")
+
+    if all(r["status"] == "skipped" for r in results):
+        reasons = "; ".join(f"{r['study']}: {r['reason']}" for r in results)
+        raise HTTPException(422, f"Nothing to export — {reasons}")
 
     return StreamingResponse(
         io.BytesIO(zip_bytes),
@@ -59,4 +75,19 @@ async def download_transformed_data(body: TransformedDataRequest):
         headers={
             "Content-Disposition": "attachment; filename=transformed_data.zip"
         },
+    )
+
+
+@router.api_route("/audit-log", methods=["GET", "HEAD"])
+async def download_audit_log():
+    """Streams the append-only mapping audit trail (all studies, all writes) as JSONL."""
+    records = db.get_all_audit()
+    if not records:
+        raise HTTPException(404, "Audit log not found (no mapping writes recorded yet).")
+
+    jsonl_bytes = ("\n".join(json.dumps(r) for r in records) + "\n").encode("utf-8")
+    return StreamingResponse(
+        io.BytesIO(jsonl_bytes),
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=mapping_audit.jsonl"},
     )

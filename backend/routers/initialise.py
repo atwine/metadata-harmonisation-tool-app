@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from models.schemas import InitialiseRequest, InitialiseStatusResponse, StudyInitStatus
+from storage import db
 from storage.files import list_studies
 
 router = APIRouter()
@@ -145,5 +146,7 @@ async def clear_workspace():
             shutil.rmtree(path)
             path.mkdir(exist_ok=True)
             cleared.append(d)
+
+    db.clear_all()
 
     return {"status": "cleared", "directories": cleared}

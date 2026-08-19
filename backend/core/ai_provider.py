@@ -1,5 +1,7 @@
 """
-AIProviderWrapper — thin adapter over Ollama/OpenAI/Anthropic/Azure.
+AIProviderWrapper — thin adapter over Ollama/vLLM/OpenAI/Anthropic/Azure.
+Chat and embeddings are independent slots: each can point at a different
+provider and server (e.g. chat via vLLM, embeddings via Ollama).
 Rate limiting: 60 req/min sliding window.
 Retry: exponential backoff, 3 attempts.
 Embedding cache: module-level dict (reset on process restart).
@@ -8,7 +10,7 @@ from __future__ import annotations
 import time
 import threading
 from collections import deque
-from typing import Optional
+from typing import NamedTuple, Optional
 
 from core.config import ModelConfig, AIProvider
 
@@ -17,13 +19,23 @@ class AIProviderError(Exception):
     pass
 
 
+class SlotResult(NamedTuple):
+    connected: bool
+    message: str
+
+
 class AIProviderWrapper:
     # Module-level cache — shared across all instances in the same process.
     _EMBED_CACHE: dict[str, list[float]] = {}
 
     def __init__(self, config):
-        """config is an AIConfig Pydantic model."""
-        self.model_config    = ModelConfig.from_ai_config(config)
+        """config is an AIConfig Pydantic model with `.chat` and optional `.embedding` slots."""
+        self.chat_config = ModelConfig.from_slot(config.chat, config.request_timeout)
+        self.embedding_config = (
+            ModelConfig.from_slot(config.embedding, config.request_timeout)
+            if config.embedding is not None
+            else None
+        )
         self.request_timeout = config.request_timeout
         self._rate_limit_window = 60
         self._rate_limit_max    = 60
@@ -31,14 +43,22 @@ class AIProviderWrapper:
         self._lock = threading.Lock()
         self.max_retries  = 3
         self.retry_delay  = 1.0
-        self._client      = None
+        self._chat_client  = None
+        self._embed_client = None
 
-    # ── client ──────────────────────────────────────────────────────────────
+    # ── clients ─────────────────────────────────────────────────────────────
 
-    def _get_client(self):
-        if self._client is None:
-            self._client = self.model_config.get_client()
-        return self._client
+    def _get_chat_client(self):
+        if self._chat_client is None:
+            self._chat_client = self.chat_config.get_client()
+        return self._chat_client
+
+    def _get_embed_client(self):
+        if self.embedding_config is None:
+            raise AIProviderError("No embedding model configured")
+        if self._embed_client is None:
+            self._embed_client = self.embedding_config.get_client()
+        return self._embed_client
 
     # ── rate limiting ────────────────────────────────────────────────────────
 
@@ -71,22 +91,22 @@ class AIProviderWrapper:
         return self._retry(self._do_chat, messages)
 
     def _do_chat(self, messages: list[dict]) -> str:
-        client   = self._get_client()
-        provider = self.model_config.provider
+        client   = self._get_chat_client()
+        provider = self.chat_config.provider
 
         if provider == AIProvider.OLLAMA:
             response = client.chat(
-                model=self.model_config.chat_model,
+                model=self.chat_config.model,
                 messages=messages,
                 options={"num_predict": 200},
             )
             return response["message"]["content"].strip()
 
-        elif provider in (AIProvider.OPENAI, AIProvider.AZURE_OPENAI):
+        elif provider in (AIProvider.OPENAI, AIProvider.AZURE_OPENAI, AIProvider.VLLM):
             model = (
-                self.model_config.azure_deployment
-                if provider == AIProvider.AZURE_OPENAI and self.model_config.azure_deployment
-                else self.model_config.chat_model
+                self.chat_config.azure_deployment
+                if provider == AIProvider.AZURE_OPENAI and self.chat_config.azure_deployment
+                else self.chat_config.model
             )
             response = client.chat.completions.create(
                 model=model, messages=messages, max_tokens=200
@@ -99,7 +119,7 @@ class AIProviderWrapper:
             )
             user_messages = [m for m in messages if m["role"] != "system"]
             kwargs: dict = {
-                "model": self.model_config.chat_model,
+                "model": self.chat_config.model,
                 "max_tokens": 200,
                 "messages": user_messages,
             }
@@ -120,11 +140,11 @@ class AIProviderWrapper:
         return result
 
     def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
-        """Single API call for OpenAI/Azure; per-item loop for Ollama."""
+        """Single API call for OpenAI/Azure/vLLM; per-item loop for Ollama."""
         uncached = [t for t in texts if t not in self._EMBED_CACHE]
         if uncached:
-            provider = self.model_config.provider
-            if provider in (AIProvider.OPENAI, AIProvider.AZURE_OPENAI):
+            provider = self.embedding_config.provider if self.embedding_config else None
+            if provider in (AIProvider.OPENAI, AIProvider.AZURE_OPENAI, AIProvider.VLLM):
                 embeddings = self._retry(self._do_embed_batch_openai, uncached)
                 for t, emb in zip(uncached, embeddings):
                     self._EMBED_CACHE[t] = emb
@@ -134,70 +154,113 @@ class AIProviderWrapper:
         return [self._EMBED_CACHE[t] for t in texts]
 
     def _do_embed_single(self, text: str) -> list[float]:
-        client   = self._get_client()
-        provider = self.model_config.provider
+        client   = self._get_embed_client()
+        provider = self.embedding_config.provider
 
         if provider == AIProvider.OLLAMA:
             response = client.embeddings(
-                model=self.model_config.embedding_model, prompt=text
+                model=self.embedding_config.model, prompt=text
             )
             return response["embedding"]
 
-        elif provider in (AIProvider.OPENAI, AIProvider.AZURE_OPENAI):
+        elif provider in (AIProvider.OPENAI, AIProvider.AZURE_OPENAI, AIProvider.VLLM):
             response = client.embeddings.create(
-                model=self.model_config.embedding_model, input=[text]
+                model=self.embedding_config.model, input=[text]
             )
             return response.data[0].embedding
 
         elif provider == AIProvider.ANTHROPIC:
             raise NotImplementedError(
                 "Anthropic does not have an embeddings API. "
-                "Configure a separate OpenAI or Ollama provider for embeddings."
+                "Configure a separate provider for embeddings."
             )
 
         raise AIProviderError(f"Embeddings not supported for provider: {provider}")
 
     def _do_embed_batch_openai(self, texts: list[str]) -> list[list[float]]:
-        client   = self._get_client()
+        client   = self._get_embed_client()
         response = client.embeddings.create(
-            model=self.model_config.embedding_model, input=texts
+            model=self.embedding_config.model, input=texts
         )
         return [e.embedding for e in response.data]
 
     # ── connection validation ────────────────────────────────────────────────
 
-    def validate_connection(self) -> tuple[bool, str]:
+    def validate_connection(self) -> dict[str, Optional[SlotResult]]:
+        """Independently tests the chat slot and (if configured) the embedding slot."""
+        chat_result = self._validate_slot(self.chat_config, self._get_chat_client)
+        embed_result = (
+            self._validate_slot(self.embedding_config, self._get_embed_client)
+            if self.embedding_config is not None
+            else None
+        )
+        return {"chat": chat_result, "embedding": embed_result}
+
+    def _validate_slot(self, model_config: ModelConfig, get_client_fn) -> SlotResult:
         try:
-            client   = self._get_client()
-            provider = self.model_config.provider
+            client   = get_client_fn()
+            provider = model_config.provider
 
             if provider == AIProvider.OLLAMA:
-                models_resp = client.list()
-                items = models_resp.get("models") if isinstance(models_resp, dict) else getattr(models_resp, "models", None) or []
-                available: list[str] = []
-                for m in (items or []):
-                    n = (m.get("model") or m.get("name")) if isinstance(m, dict) else (getattr(m, "model", None) or getattr(m, "name", None))
-                    if n:
-                        available.append(str(n))
-                return True, f"Connected to Ollama. {len(available)} model(s) available."
+                resp  = client.list()
+                items = resp.get("models") if isinstance(resp, dict) else getattr(resp, "models", None) or []
+                names = extract_ollama_names(items)
+                if not any(n == model_config.model or n.startswith(model_config.model) for n in names):
+                    return SlotResult(False, f"Model '{model_config.model}' not found on Ollama ({len(names)} available).")
+                return SlotResult(True, f"Connected to Ollama ({model_config.model}).")
 
-            elif provider in (AIProvider.OPENAI, AIProvider.AZURE_OPENAI):
-                self._do_embed_single("test")
-                name = "OpenAI" if provider == AIProvider.OPENAI else "Azure OpenAI"
-                return True, (
-                    f"Connected to {name}. "
-                    f"Chat model: {self.model_config.chat_model}. "
-                    f"Embedding model: {self.model_config.embedding_model}."
+            elif provider == AIProvider.VLLM:
+                resp = client.models.list()
+                ids  = [m.id for m in resp.data]
+                if model_config.model not in ids:
+                    available = ", ".join(ids[:5]) or "none"
+                    return SlotResult(False, f"Model '{model_config.model}' not served by vLLM. Available: {available}.")
+                return SlotResult(True, f"Connected to vLLM ({model_config.model}).")
+
+            elif provider == AIProvider.OPENAI:
+                resp = client.models.list()
+                ids  = [m.id for m in resp.data]
+                if model_config.model not in ids:
+                    return SlotResult(False, f"Model '{model_config.model}' not found on OpenAI ({len(ids)} available).")
+                return SlotResult(True, f"Connected to OpenAI ({model_config.model}).")
+
+            elif provider == AIProvider.AZURE_OPENAI:
+                # Azure deployment names are account-specific and generally don't
+                # appear in models.list() (which lists base models, not deployments),
+                # so a membership check here would false-negative on valid configs.
+                # This confirms the endpoint + key work, not that the deployment exists.
+                client.models.list()
+                return SlotResult(
+                    True,
+                    f"Connected to Azure OpenAI — endpoint and key are valid. "
+                    f"Deployment '{model_config.azure_deployment or model_config.model}' is not verified here; "
+                    f"it will only be confirmed on first use.",
                 )
 
             elif provider == AIProvider.ANTHROPIC:
-                self._do_chat([{"role": "user", "content": "Hi"}])
-                return True, (
-                    f"Connected to Anthropic. "
-                    f"Chat model: {self.model_config.chat_model}."
-                )
+                resp = client.models.list()
+                ids  = [m.id for m in resp.data]
+                if model_config.model not in ids:
+                    return SlotResult(False, f"Model '{model_config.model}' not found on Anthropic ({len(ids)} available).")
+                return SlotResult(True, f"Connected to Anthropic ({model_config.model}).")
+
+            return SlotResult(False, f"Unsupported provider: {provider}")
 
         except Exception as e:
-            return False, f"Connection failed: {e}"
+            return SlotResult(False, str(e))
 
-        return False, "Unknown error during connection test"
+
+def extract_ollama_names(items) -> list[str]:
+    """Shared by AIProviderWrapper's Ollama validation and the /models
+    dropdown-listing endpoint — one place to keep in sync if Ollama's
+    client.list() response shape ever changes."""
+    names: list[str] = []
+    for m in (items or []):
+        n = (
+            (m.get("model") or m.get("name"))
+            if isinstance(m, dict)
+            else (getattr(m, "model", None) or getattr(m, "name", None))
+        )
+        if n:
+            names.append(str(n))
+    return names

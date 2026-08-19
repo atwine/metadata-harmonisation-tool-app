@@ -2,16 +2,20 @@
 
 A web application for mapping study dataset variables onto a canonical target codebook, built for the [eLwazi Open Data Science Platform](https://elwazi.org).
 
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
+
 ## What it does
 
 Researchers upload one or more study datasets (CSV files of variable names) alongside a target codebook. An AI model generates natural-language descriptions for cryptic variable names, builds semantic embeddings, and recommends the best codebook matches for each variable. A human operator then reviews and approves each mapping, adds transformation rules, and exports the harmonised data.
+
+Variables that look like population/ethnicity data (e.g. mapped to a codebook variable named `ethnicity`) get an extra step: values found in the study data are looked up against the [AfPO](https://github.com/h3abionet/afpo) (African Population Ontology), with one-click submission of any unmatched terms as a new-term request on the AfPO GitHub repo.
 
 **Workflow:**
 1. **Upload Codebook** — the canonical target variable list (CSV)
 2. **Upload Studies** — one or more study variable CSVs, with optional example-data CSV and context PDF
 3. **Initialise** — AI generates descriptions → embeddings → semantic recommendations (streamed live)
-4. **Map Studies** — operator reviews each variable, picks a codebook match, sets a transformation, marks it done
-5. **Download Results** — export the mapping table (CSV) or the transformed dataset (ZIP)
+4. **Map Studies** — operator reviews each variable, picks a codebook match, sets a transformation, marks it done; population/ethnicity variables get an AfPO ontology lookup sub-section
+5. **Download Results** — export the mapping table (CSV) or the transformed dataset (ZIP), plus the audit log
 
 ## Tech stack
 
@@ -19,8 +23,9 @@ Researchers upload one or more study datasets (CSV files of variable names) alon
 |---|---|
 | Frontend | React 19, TanStack Start + Router, TanStack Query, Zustand, Tailwind v4 |
 | Backend | FastAPI, Python 3.12, Pydantic v2, Pandas |
-| AI providers | Ollama (local), OpenAI, Anthropic, Azure OpenAI |
+| AI providers | Ollama (local), vLLM (self-hosted, OpenAI-compatible), OpenAI, Anthropic, Azure OpenAI — chat and embedding models are configured independently and can each point at a different provider |
 | Embeddings | Cosine similarity, weighted 0.8 × description + 0.2 × variable name |
+| Ontology matching | Exact → synonym → fuzzy (rapidfuzz) lookup against the AfPO `.obo` ontology file |
 
 ## Project structure
 
@@ -28,14 +33,18 @@ Researchers upload one or more study datasets (CSV files of variable names) alon
 .
 ├── backend/                   # FastAPI application
 │   ├── core/
-│   │   ├── ai_provider.py     # Provider wrapper (Ollama / OpenAI / Anthropic / Azure)
+│   │   ├── ai_provider.py     # Provider wrapper (Ollama / vLLM / OpenAI / Anthropic / Azure)
+│   │   ├── config.py          # Per-slot provider config + client construction
+│   │   ├── afpo_lookup.py     # AfPO .obo parser + exact/synonym/fuzzy lookup
+│   │   ├── afpo_gap_reporter.py  # Pre-filled GitHub issue URL builder
 │   │   ├── descriptions.py    # Phase 2: AI description generation
 │   │   ├── recommendations.py # Phases 1, 3–5: embeddings + semantic search
 │   │   ├── transform_engine.py
 │   │   └── transformation_utils.py  # SafeEvaluator (no eval())
 │   ├── models/schemas.py      # Pydantic request/response models
 │   ├── routers/               # FastAPI routers
-│   │   ├── ai_config.py
+│   │   ├── afpo.py            # AfPO lookup + gap submission
+│   │   ├── ai_config.py       # Providers, connection test, live model listing
 │   │   ├── codebook.py
 │   │   ├── download.py
 │   │   ├── initialise.py      # SSE streaming endpoint
@@ -44,13 +53,16 @@ Researchers upload one or more study datasets (CSV files of variable names) alon
 │   ├── storage/files.py
 │   ├── main.py
 │   └── requirements.txt
+├── data/ontologies/           # AfPO ontology data (afpo-base.obo)
+├── docs/harmonisation_spec.md # Rebuild spec / architecture reference
+├── example_data/              # Sample codebooks + studies for local testing
 ├── src/                       # React frontend
 │   ├── api/client.ts          # Typed API client + TanStack Query hooks
 │   ├── routes/                # File-based routing (TanStack Router)
 │   │   ├── upload-codebook.tsx
 │   │   ├── upload-studies.tsx
 │   │   ├── initialise.tsx
-│   │   ├── map-studies.tsx
+│   │   ├── map-studies.tsx    # Includes the AfPO population-mapping sub-section
 │   │   └── download-results.tsx
 │   ├── stores/                # Zustand stores
 │   │   ├── aiConfigStore.ts
@@ -66,7 +78,7 @@ Researchers upload one or more study datasets (CSV files of variable names) alon
 
 - Python 3.10+
 - Node.js 18+
-- An AI provider: [Ollama](https://ollama.com) (free, local) or an OpenAI / Anthropic API key
+- An AI provider: [Ollama](https://ollama.com) (free, local), a self-hosted vLLM server, or an OpenAI / Anthropic / Azure OpenAI API key
 
 ### Backend
 
@@ -109,9 +121,17 @@ VITE_API_URL=http://localhost:8000
 | GET | `/api/mappings/{study}` | List variable mappings with progress |
 | GET | `/api/mappings/{study}/variable/{name}` | Variable detail + recommendations |
 | PUT | `/api/mappings/{study}/variable/{name}` | Save a mapping decision |
+| PUT | `/api/mappings/{study}/variable/{name}/reopen` | Reopen a decided variable back to "To do" |
 | POST | `/api/mappings/preview-transformation` | Test a transformation expression |
+| GET | `/api/ai-config/providers` | List supported AI providers + capabilities |
+| POST | `/api/ai-config/test` | Test chat + embedding connection (independently) |
+| GET | `/api/ai-config/models` | Live model listing for Ollama / vLLM |
+| POST | `/api/afpo/lookup` | Look up population/ethnicity values against AfPO |
+| POST | `/api/afpo/gaps/submitted` | Mark an AfPO gap as submitted to GitHub |
+| GET | `/api/afpo/issue-url` | Build the pre-filled AfPO GitHub issue URL |
 | GET | `/api/download/{study}/mapping-csv` | Download mapping table |
 | POST | `/api/download/transformed-data` | Download transformed dataset ZIP |
+| GET | `/api/download/audit-log` | Download the append-only mapping audit trail |
 
 Full interactive docs at `http://localhost:8000/docs` when the backend is running.
 
@@ -122,12 +142,22 @@ Every mapping save is appended to `logs/mapping_audit.jsonl` with:
 - Before/after state
 - SHA-256 hash of transformation instructions
 
+AfPO lookups that don't match any ontology term are logged to `logs/afpo_gaps.csv` (timestamp, study, variable, value, whether it's been submitted to GitHub yet) — this is what powers the duplicate-submission guard.
+
+## Branches
+
+- **`main`** — protected; only updated via a reviewed PR from `staging`.
+- **`staging`** — pushed to directly from `development`, no PR required.
+- **`development`** — active work happens here.
+
 ## Security notes
 
 - Transformation expressions are evaluated by a custom AST-walking `SafeEvaluator` — `eval()` is never called.
 - All file paths are sanitised against path traversal before use.
 - Uploaded PDFs are validated against their magic bytes before processing.
 - The `logs/`, `input/`, and `results/` directories are excluded from git.
+- AfPO GitHub issue submission is always a manual click — the app never submits on the user's behalf, and the server-side duplicate-submission guard prevents the same term from being filed twice.
+- ⚠️ A known gap (tracked in [issue #4](../../issues/4)): the API currently has no authentication — don't expose the backend beyond localhost/trusted networks as-is.
 
 ## License
 

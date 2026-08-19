@@ -1,5 +1,7 @@
 """
-AI provider config — exact client construction preserved from the original Streamlit app.
+AI provider config — exact client construction preserved from the original Streamlit app,
+extended with vLLM (OpenAI-compatible self-hosted) support and per-role (chat/embedding)
+provider slots so chat and embeddings can each point at a different provider/server.
 """
 from __future__ import annotations
 import re
@@ -9,17 +11,39 @@ from typing import Optional
 
 class AIProvider(Enum):
     OLLAMA       = "ollama"
+    VLLM         = "vllm"
     OPENAI       = "openai"
     ANTHROPIC    = "anthropic"
     AZURE_OPENAI = "azure_openai"
 
 
+_PROVIDER_MAP = {
+    "ollama":       AIProvider.OLLAMA,
+    "vllm":         AIProvider.VLLM,
+    "openai":       AIProvider.OPENAI,
+    "anthropic":    AIProvider.ANTHROPIC,
+    "azure_openai": AIProvider.AZURE_OPENAI,
+}
+
+
+def normalise_openai_compat_base_url(base_url: str) -> str:
+    """vLLM (and other OpenAI-compatible servers) serve under /v1 — accept either
+    'http://host:8000' or 'http://host:8000/v1' from the user."""
+    base = (base_url or "").rstrip("/")
+    if not base:
+        raise ValueError("Base URL is required")
+    if not base.endswith("/v1"):
+        base += "/v1"
+    return base
+
+
 class ModelConfig:
+    """A single provider+model configuration for one role (chat or embedding)."""
+
     def __init__(
         self,
         provider: AIProvider,
-        chat_model: str,
-        embedding_model: str = "",
+        model: str,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         request_timeout: int = 30,
@@ -27,8 +51,7 @@ class ModelConfig:
         azure_deployment: Optional[str] = None,
     ):
         self.provider          = provider
-        self.chat_model        = chat_model
-        self.embedding_model   = embedding_model
+        self.model              = model
         self.api_key           = api_key
         self.base_url          = base_url or ("http://localhost:11434" if provider == AIProvider.OLLAMA else None)
         self.request_timeout   = request_timeout
@@ -36,22 +59,16 @@ class ModelConfig:
         self.azure_deployment  = azure_deployment
 
     @classmethod
-    def from_ai_config(cls, config) -> ModelConfig:
-        provider_map = {
-            "ollama":       AIProvider.OLLAMA,
-            "openai":       AIProvider.OPENAI,
-            "anthropic":    AIProvider.ANTHROPIC,
-            "azure_openai": AIProvider.AZURE_OPENAI,
-        }
+    def from_slot(cls, slot, request_timeout: int) -> "ModelConfig":
+        """slot is a ProviderSlot Pydantic model."""
         return cls(
-            provider=provider_map[config.provider],
-            chat_model=config.chat_model,
-            embedding_model=config.embedding_model or "",
-            api_key=config.api_key,
-            base_url=config.base_url,
-            request_timeout=config.request_timeout,
-            azure_api_version=config.azure_api_version,
-            azure_deployment=config.azure_deployment,
+            provider=_PROVIDER_MAP[slot.provider],
+            model=slot.model,
+            api_key=slot.api_key,
+            base_url=slot.base_url,
+            request_timeout=request_timeout,
+            azure_api_version=slot.azure_api_version,
+            azure_deployment=slot.azure_deployment,
         )
 
     def get_client(self):
@@ -60,6 +77,12 @@ class ModelConfig:
             client = ollama.Client(host=self.base_url)
             client.list()  # liveness check — raises if Ollama not running
             return client
+
+        elif self.provider == AIProvider.VLLM:
+            import openai
+            base = normalise_openai_compat_base_url(self.base_url or "")
+            # vLLM does not require auth unless launched with --api-key.
+            return openai.OpenAI(api_key=self.api_key or "not-needed", base_url=base)
 
         elif self.provider == AIProvider.OPENAI:
             import openai

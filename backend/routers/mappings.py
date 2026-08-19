@@ -1,8 +1,8 @@
 """
 Mappings router — the most complex part of the API.
 
-Key invariant: results/{study}.csv is auto-initialised on first GET if the study
-has been through Initialise. All rows start as "To do".
+Key invariant: a study's mapping rows are auto-initialised in SQLite on first
+touch if the study has been through Initialise. All rows start as "To do".
 """
 from __future__ import annotations
 import ast
@@ -35,6 +35,7 @@ from models.schemas import (
     ValidateExpressionResponse,
     VariableDetailResponse,
 )
+from storage import db
 from storage.files import sanitise_study_name
 
 router = APIRouter()
@@ -49,14 +50,12 @@ MARKING_OPTIONS = [
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-def _results_path(study: str) -> Path:
-    return Path("results") / f"{study}.csv"
-
-
-def _load_or_init_results(study: str) -> pd.DataFrame:
-    rp = _results_path(study)
-    if rp.exists():
-        return pd.read_csv(rp)
+def _ensure_initialised(study: str) -> None:
+    """Bulk-creates 'To do' rows for every study variable the first time this
+    study is touched, from the Initialise pipeline's PID/date recommendations
+    file. No-op if the study already has mapping rows."""
+    if db.study_has_any_mappings(study):
+        return
 
     pid_date_path = (
         Path("input") / study / "dataset_variables_with_PID_date_recommendations.csv"
@@ -69,26 +68,7 @@ def _load_or_init_results(study: str) -> pd.DataFrame:
         )
 
     vars_df = pd.read_csv(pid_date_path)
-    empty = pd.DataFrame(
-        {
-            "study_var":             vars_df["variable_name"],
-            "codebook_var":          None,
-            "confidence":            None,
-            "notes":                 None,
-            "marked":                "To do",
-            "transformation_instructions": None,
-            "transformation_type":   None,
-            "source_dtype":          None,
-            "target_dtype":          None,
-            "patient_id_var":        None,
-            "patient_id_confidence": None,
-            "date_var":              None,
-            "date_confidence":       None,
-        }
-    )
-    Path("results").mkdir(exist_ok=True)
-    empty.to_csv(rp, index=False)
-    return empty
+    db.init_mappings_for_study(study, vars_df["variable_name"].astype(str).tolist())
 
 
 def _none(val) -> Optional[str]:
@@ -115,13 +95,13 @@ def _parse_list(val) -> list:
     return []
 
 
-def _row_to_record(row: pd.Series) -> MappingRecord:
+def _row_to_record(row: dict) -> MappingRecord:
     return MappingRecord(
         study_var=str(row.get("study_var", "")),
         codebook_var=_none(row.get("codebook_var")),
         confidence=_none(row.get("confidence")),
         notes=_none(row.get("notes")),
-        marked=str(row.get("marked", "To do")),
+        marked=str(row.get("marked") or "To do"),
         transformation_instructions=_none(row.get("transformation_instructions")),
         transformation_type=_none(row.get("transformation_type")),
         source_dtype=_none(row.get("source_dtype")),
@@ -130,11 +110,9 @@ def _row_to_record(row: pd.Series) -> MappingRecord:
         patient_id_confidence=_none(row.get("patient_id_confidence")),
         date_var=_none(row.get("date_var")),
         date_confidence=_none(row.get("date_confidence")),
+        afpo_values_mapped=_none(row.get("afpo_values_mapped")),
+        afpo_values_gaps=_none(row.get("afpo_values_gaps")),
     )
-
-
-def _df_to_records(df: pd.DataFrame) -> list[MappingRecord]:
-    return [_row_to_record(row) for _, row in df.iterrows()]
 
 
 # ── GET /api/mappings/{study} ─────────────────────────────────────────────────
@@ -148,7 +126,7 @@ async def get_mappings(
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    df = _load_or_init_results(study_name)
+    _ensure_initialised(study_name)
 
     # Join best_confidence from recommendations file (for client-side difficulty sort)
     best_conf_map: dict[str, int] = {}
@@ -168,12 +146,11 @@ async def get_mappings(
         except Exception:
             pass
 
-    filtered = df[df["marked"] == status] if status in MARKING_OPTIONS else df
+    total, mapped = db.count_mappings(study_name)
+    status_filter = status if status in MARKING_OPTIONS else None
+    rows = db.list_mappings(study_name, status_filter)
 
-    total  = len(df)
-    mapped = int((df["marked"] != "To do").sum())
-
-    records = _df_to_records(filtered)
+    records = [_row_to_record(r) for r in rows]
     for rec in records:
         rec.best_confidence = best_conf_map.get(rec.study_var)
 
@@ -283,24 +260,17 @@ async def get_variable_detail(study_name: str, variable_name: str):
         for v, d in zip(date_recs[:5], date_dists[:5])
     ]
 
-    # Existing mapping from results file
-    results_df   = _load_or_init_results(study_name)
-    existing_row = results_df[results_df["study_var"] == variable_name]
+    # Existing mapping from SQLite
+    _ensure_initialised(study_name)
+    existing_row = db.get_mapping(study_name, variable_name)
     existing_mapping = (
-        _row_to_record(existing_row.iloc[0])
-        if not existing_row.empty
+        _row_to_record(existing_row)
+        if existing_row is not None
         else MappingRecord(study_var=variable_name)
     )
 
     # Already-used codebook vars (exclude this variable's own saved value)
-    already_used_rows = results_df[
-        results_df["marked"].isin(["Successfully mapped", "Marked to reconsider"])
-        & (results_df["study_var"] != variable_name)
-    ]
-    already_used_codebook_vars = [
-        v for v in already_used_rows["codebook_var"].dropna().tolist()
-        if v and str(v) not in ("nan", "None")
-    ]
+    already_used_codebook_vars = db.already_used_codebook_vars(study_name, variable_name)
 
     return VariableDetailResponse(
         variable=variable,
@@ -324,10 +294,24 @@ async def save_mapping(
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    df = _load_or_init_results(study_name)
+    _ensure_initialised(study_name)
 
-    prev_row = df[df["study_var"] == variable_name]
-    previous = _row_to_record(prev_row.iloc[0]).model_dump() if not prev_row.empty else None
+    prev_row = db.get_mapping(study_name, variable_name)
+    previous = _row_to_record(prev_row).model_dump() if prev_row is not None else None
+
+    # AfPO results are only recomputed when the frontend actually re-ran the
+    # lookup in this request. If the field is omitted (e.g. the user reopened
+    # an already-mapped variable and resubmitted after only touching Notes,
+    # without re-running "Look up in AfPO"), keep whatever was saved before
+    # instead of silently wiping it back to empty.
+    afpo_values_mapped = (
+        json.dumps(body.afpo_values_mapped) if body.afpo_values_mapped is not None
+        else (previous["afpo_values_mapped"] if previous and previous.get("afpo_values_mapped") else json.dumps({}))
+    )
+    afpo_values_gaps = (
+        json.dumps(body.afpo_values_gaps) if body.afpo_values_gaps is not None
+        else (previous["afpo_values_gaps"] if previous and previous.get("afpo_values_gaps") else json.dumps([]))
+    )
 
     new_record = {
         "study_var":                   variable_name,
@@ -347,13 +331,11 @@ async def save_mapping(
         "patient_id_confidence":       None,
         "date_var":                    body.date_var,
         "date_confidence":             None,
+        "afpo_values_mapped":          afpo_values_mapped,
+        "afpo_values_gaps":            afpo_values_gaps,
     }
 
-    # Upsert: drop existing row for this variable, append the new one
-    df = df[df["study_var"] != variable_name]
-    df = pd.concat([df, pd.DataFrame([new_record])], ignore_index=True)
-    df.to_csv(_results_path(study_name), index=False)
-
+    db.upsert_mapping(study_name, variable_name, new_record)
     _write_audit(study_name, variable_name, body, new_record, previous)
 
     return MappingRecord(**new_record)
@@ -366,14 +348,11 @@ def _write_audit(
     new_record: dict,
     previous,
 ):
-    Path("logs").mkdir(exist_ok=True)
-    audit_path = Path("logs/mapping_audit.jsonl")
-
     t_instr = body.transformation_instructions or ""
     t_hash  = hashlib.sha256(t_instr.encode()).hexdigest() if t_instr else None
 
-    entry = {
-        "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+    db.append_audit({
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat() + "Z",
         "study":     study_name,
         "study_var": variable_name,
         "operator":  body.operator_name,
@@ -384,9 +363,7 @@ def _write_audit(
         "transformation_instructions_sha256": t_hash,
         "previous": previous,
         "new":      new_record,
-    }
-    with open(audit_path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "\n")
+    })
 
 
 # ── PUT /api/mappings/{study}/variable/{name}/reopen ─────────────────────────
@@ -398,13 +375,9 @@ async def reopen_mapping(study_name: str, variable_name: str):
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    df   = _load_or_init_results(study_name)
-    mask = df["study_var"] == variable_name
-    if not mask.any():
+    _ensure_initialised(study_name)
+    if not db.reopen_mapping(study_name, variable_name):
         raise HTTPException(404, f"Variable '{variable_name}' not found in results")
-
-    df.loc[mask, "marked"] = "To do"
-    df.to_csv(_results_path(study_name), index=False)
     return {"status": "reopened", "study_var": variable_name}
 
 
@@ -417,21 +390,7 @@ async def get_audit(study_name: str, n: int = Query(10, ge=1, le=100)):
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    audit_path = Path("logs/mapping_audit.jsonl")
-    if not audit_path.exists():
-        return {"records": []}
-
-    records: list[dict] = []
-    with open(audit_path, "r", encoding="utf-8") as f:
-        for line in f:
-            try:
-                entry = json.loads(line.strip())
-                if entry.get("study") == study_name:
-                    records.append(entry)
-            except Exception:
-                pass
-
-    return {"records": records[-n:]}
+    return {"records": db.get_audit(study_name, n)}
 
 
 # ── POST /api/mappings/preview-transformation ─────────────────────────────────

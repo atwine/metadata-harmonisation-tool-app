@@ -3,13 +3,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import codebook, studies, initialise, mappings, download, ai_config
+from routers import codebook, studies, initialise, mappings, download, ai_config, afpo
+from storage.db import init_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     for d in ["input", "results", "logs"]:
         Path(d).mkdir(exist_ok=True)
+    init_db()
     yield
 
 
@@ -34,3 +36,4 @@ app.include_router(initialise.router, prefix="/api/initialise")
 app.include_router(mappings.router,   prefix="/api/mappings")
 app.include_router(download.router,   prefix="/api/download")
 app.include_router(ai_config.router,  prefix="/api/ai-config")
+app.include_router(afpo.router,       prefix="/api/afpo")

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Clock } from "lucide-react";
+import { ChevronDown, ChevronRight, Clock, Lock, Globe } from "lucide-react";
 import { PageHeader } from "@/components/Sidebar";
 import { useWizardStore } from "@/stores/wizardStore";
 import {
@@ -9,9 +9,13 @@ import {
   useVariableDetail,
   useAudit,
   useSaveMapping,
+  useReopenMapping,
+  useAfpoLookup,
+  useAfpoMarkGapSubmitted,
   api,
   type TransformationPreviewResponse,
   type ValidateExpressionResponse,
+  type AfpoLookupResult,
 } from "@/api/client";
 
 export const Route = createFileRoute("/map-studies")({
@@ -27,6 +31,11 @@ const MARKINGS = [
 
 type Marking = (typeof MARKINGS)[number]["label"];
 
+// AfPO population/ethnicity ontology mapping — triggered when the mapped
+// codebook variable name suggests population/ethnicity data (matches the
+// reference app's trigger exactly).
+const ETHNICITY_KEYWORDS = ["ethnicity", "ethnic", "population", "tribe", "ancestry", "race"];
+
 function MapStudiesPage() {
   const {
     currentStudy,
@@ -40,7 +49,7 @@ function MapStudiesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("To do");
   const [sort, setSort] = useState<"difficulty" | "original">("difficulty");
   const [selectedVar, setSelectedVar] = useState<string>("");
-  const [transformOpen, setTransformOpen] = useState(true);
+  const [transformOpen, setTransformOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
 
   // Form state
@@ -57,6 +66,12 @@ function MapStudiesPage() {
   const [exprValidation, setExprValidation] = useState<ValidateExpressionResponse | null>(null);
   const [previewing, setPreviewing] = useState(false);
 
+  // AfPO population/ethnicity mapping sub-section state
+  const [afpoInput, setAfpoInput] = useState("");
+  const [afpoResults, setAfpoResults] = useState<AfpoLookupResult[] | null>(null);
+  const [afpoGapEdits, setAfpoGapEdits] = useState<Record<string, string>>({});
+  const [afpoSubmittedGaps, setAfpoSubmittedGaps] = useState<Set<string>>(new Set());
+
   const study = currentStudy ?? "";
 
   const { data: studies = [] } = useStudies();
@@ -64,6 +79,9 @@ function MapStudiesPage() {
   const { data: detail, isLoading: detailLoading } = useVariableDetail(study, selectedVar);
   const { data: auditData } = useAudit(study, 5);
   const saveMapping = useSaveMapping();
+  const reopenMapping = useReopenMapping();
+  const afpoLookup = useAfpoLookup();
+  const afpoMarkSubmitted = useAfpoMarkGapSubmitted();
 
   const records = mappingsData?.records ?? [];
 
@@ -85,7 +103,21 @@ function MapStudiesPage() {
   useEffect(() => {
     if (!detail) return;
     const m = detail.existing_mapping;
-    setCodebookMatch(m.codebook_var ?? "");
+
+    // Mirror the reference app: the codebook-match dropdown has no "none"
+    // placeholder and simply defaults to its first (best-confidence) option,
+    // so a fresh "To do" variable arrives pre-matched to its top recommendation
+    // instead of forcing the user to reopen the dropdown and pick it manually.
+    // Skip recommendations already claimed by another variable, same as the
+    // reference's duplicate filtering — unless it's this variable's own saved match.
+    const topAvailable =
+      detail.recommendations.find(
+        (r) => !detail.already_used_codebook_vars.includes(r.codebook_var)
+      )?.codebook_var ??
+      detail.recommendations[0]?.codebook_var ??
+      "";
+    setCodebookMatch(m.codebook_var || topAvailable);
+
     setMarking((m.marked as Marking) ?? "To do");
     setNotes(m.notes ?? "");
     setPidVar(m.patient_id_var ?? "");
@@ -96,6 +128,16 @@ function MapStudiesPage() {
     setExpression(m.transformation_instructions ?? "");
     setPreview(null);
     setExprValidation(null);
+
+    // AfPO section: pre-populate from this variable's example data, and
+    // reset lookup results — a new variable means a fresh lookup.
+    const uniqueExampleValues = Array.from(
+      new Set(detail.example_data.map((v) => v.trim()).filter(Boolean))
+    );
+    setAfpoInput(uniqueExampleValues.join("\n"));
+    setAfpoResults(null);
+    setAfpoGapEdits({});
+    setAfpoSubmittedGaps(new Set());
   }, [detail]);
 
   const handleValidateExpr = async () => {
@@ -121,8 +163,72 @@ function MapStudiesPage() {
     }
   };
 
+  const isEthnicityVar =
+    !!codebookMatch &&
+    ETHNICITY_KEYWORDS.some((kw) => codebookMatch.toLowerCase().includes(kw));
+
+  const handleAfpoLookup = () => {
+    if (!study || !selectedVar) return;
+    const values = Array.from(
+      new Set(afpoInput.split("\n").map((v) => v.trim()).filter(Boolean))
+    );
+    if (values.length === 0) return;
+    afpoLookup.mutate(
+      { study, variable_name: selectedVar, values },
+      {
+        onSuccess: (data) => {
+          setAfpoResults(data.results);
+          setAfpoGapEdits(
+            Object.fromEntries(
+              data.results.filter((r) => !r.afpo_id).map((r) => [r.input_value, r.input_value])
+            )
+          );
+          setAfpoSubmittedGaps(new Set());
+        },
+      }
+    );
+  };
+
+  const handleAfpoSubmitGap = (originalValue: string) => {
+    if (!study || !selectedVar) return;
+    const submittedAs = (afpoGapEdits[originalValue] || originalValue).trim() || originalValue;
+
+    // Open the tab synchronously (inside the click handler) so popup blockers
+    // don't intervene, then navigate it once the backend-built URL resolves —
+    // the issue template lives server-side (backend/core/afpo_gap_reporter.py)
+    // so there's one source of truth for its wording instead of a duplicate here.
+    const popup = window.open("", "_blank", "noopener,noreferrer");
+    api.afpoIssueUrl(submittedAs, study, selectedVar)
+      .then((data) => {
+        if (popup) popup.location.href = data.url;
+      })
+      .catch(() => {
+        popup?.close();
+      });
+
+    afpoMarkSubmitted.mutate({ study, variable_name: selectedVar, value: originalValue });
+    setAfpoSubmittedGaps((prev) => new Set(prev).add(originalValue));
+  };
+
   const handleSubmit = () => {
     if (!study || !selectedVar) return;
+
+    // Figure out which variable to move to next, based on the list as it
+    // stands right now — waiting for the post-save refetch would leave the
+    // user staring at the just-submitted variable in the meantime.
+    const currentIndex = sortedRecords.findIndex((r) => r.study_var === selectedVar);
+    const remaining = sortedRecords.filter((r) => r.study_var !== selectedVar);
+    const nextVar = remaining[currentIndex]?.study_var ?? remaining[0]?.study_var ?? "";
+
+    const afpoValuesMapped = afpoResults
+      ? Object.fromEntries(
+          afpoResults.filter((r) => r.afpo_id).map((r) => [r.input_value, r.afpo_id as string])
+        )
+      : undefined;
+    const afpoValuesGaps = afpoResults
+      ? afpoResults.filter((r) => !r.afpo_id).map((r) => r.input_value)
+      : undefined;
+
     saveMapping.mutate(
       {
         study,
@@ -138,18 +244,42 @@ function MapStudiesPage() {
           patient_id_var: pidVar || undefined,
           date_var: dateVar || undefined,
           operator_name: operatorName || undefined,
+          afpo_values_mapped: afpoValuesMapped,
+          afpo_values_gaps: afpoValuesGaps,
         },
       },
       {
         onSuccess: () => {
           void refetchMappings();
+          setNotes("");
+          setTransformOpen(false);
+          setSelectedVar(nextVar);
         },
       }
     );
   };
 
+  const handleReopen = () => {
+    if (!study || !selectedVar) return;
+    reopenMapping.mutate(
+      { study, variable: selectedVar },
+      {
+        onSuccess: () => {
+          // The variable moves back to "To do" server-side — switch the filter
+          // to match so it's visible (and editable) right away, on the same variable.
+          setStatusFilter("To do");
+        },
+      }
+    );
+  };
+
+  // The confidence shown must track whichever codebook_var is actually
+  // selected — not just always the top recommendation — since the user can
+  // override the auto-picked match with a different one from the dropdown.
   const topConfidence =
-    detail?.recommendations[0]?.confidence ?? 0;
+    detail?.recommendations.find((r) => r.codebook_var === codebookMatch)?.confidence ??
+    detail?.recommendations[0]?.confidence ??
+    0;
 
   const confidenceLabel =
     topConfidence >= 80 ? "Strong" : topConfidence >= 50 ? "Moderate" : "Weak";
@@ -203,6 +333,9 @@ function MapStudiesPage() {
           <option>Marked to reconsider</option>
           <option>Marked unmappable</option>
         </select>
+        <span className="text-[12px] font-medium text-text-secondary bg-[#F5F0EE] px-2 py-1 rounded-full">
+          {sortedRecords.length} in this view
+        </span>
         <div className="inline-flex rounded-md border overflow-hidden">
           {(["difficulty", "original"] as const).map((s) => (
             <button
@@ -224,7 +357,7 @@ function MapStudiesPage() {
       {mappingsData && (
         <div className="flex items-center gap-3 mb-4">
           <span className="text-[13px] text-text-secondary">
-            {mappingsData.mapped} / {mappingsData.total} variables mapped
+            {mappingsData.mapped} / {mappingsData.total} variables mapped overall
           </span>
           <div className="w-[240px] h-1.5 rounded-full bg-border overflow-hidden">
             <div
@@ -236,6 +369,13 @@ function MapStudiesPage() {
       )}
 
       {/* variable selector */}
+      <div className="mb-1">
+        <p className="text-[12px] text-text-secondary">
+          The status filter above changes which variables the dropdown below lists —
+          open it to step through every variable marked{" "}
+          <strong>"{statusFilter}"</strong>.
+        </p>
+      </div>
       <div className="flex items-center gap-3 mb-4">
         <label className="text-[13px] font-medium">Select variable:</label>
         <select
@@ -260,6 +400,13 @@ function MapStudiesPage() {
       {!study && (
         <div className="text-[13px] text-text-secondary py-8 text-center">
           Select a study to begin mapping.
+        </div>
+      )}
+
+      {study && !selectedVar && sortedRecords.length === 0 && !detailLoading && (
+        <div className="text-[13px] text-success py-8 text-center font-medium">
+          No variables left in "{statusFilter}" — nice work. Switch the status filter above
+          to review other variables.
         </div>
       )}
 
@@ -296,7 +443,7 @@ function MapStudiesPage() {
               </div>
               {detail.example_data.length > 0 ? (
                 <pre
-                  className="font-mono text-[12px] p-2.5 rounded text-text-primary"
+                  className="font-mono text-[12px] p-2.5 rounded text-text-primary whitespace-pre-wrap break-words"
                   style={{ background: "#F4F0ED" }}
                 >
                   {detail.example_data.join(" ; ")}
@@ -307,7 +454,64 @@ function MapStudiesPage() {
             </div>
           </div>
 
-          {/* mapping form */}
+          {/* mapping form — editable only while reviewing "To do"; everything
+              else is read-only with a "Reopen for edit" gate, so browsing an
+              already-decided category can't silently overwrite it via a
+              Submit button that's just sitting there. */}
+          {statusFilter !== "To do" ? (
+            <div className="mt-4 bg-surface border rounded-lg p-5 shadow-sm space-y-4">
+              <div className="flex items-center gap-2 text-[13px] font-medium text-text-secondary">
+                <Lock className="size-4" />
+                Marked "{detail.existing_mapping.marked}" — reviewing read-only.
+              </div>
+              <table className="w-full text-[13px] border rounded-md overflow-hidden">
+                <tbody>
+                  <tr style={{ background: "#FAFAF8" }}>
+                    <td className="px-2 h-9 text-text-secondary w-44">Codebook match</td>
+                    <td className="px-2 h-9 font-mono">
+                      {detail.existing_mapping.codebook_var || "—"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-2 h-9 text-text-secondary">Notes</td>
+                    <td className="px-2 h-9">{detail.existing_mapping.notes || "—"}</td>
+                  </tr>
+                  <tr style={{ background: "#FAFAF8" }}>
+                    <td className="px-2 h-9 text-text-secondary">Transformation</td>
+                    <td className="px-2 h-9 font-mono">
+                      {detail.existing_mapping.transformation_instructions
+                        ? `${detail.existing_mapping.transformation_type}: ${detail.existing_mapping.transformation_instructions}`
+                        : "—"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-2 h-9 text-text-secondary">Patient ID / Date</td>
+                    <td className="px-2 h-9 font-mono">
+                      {detail.existing_mapping.patient_id_var || "—"} /{" "}
+                      {detail.existing_mapping.date_var || "—"}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {reopenMapping.isError && (
+                <div className="p-2 rounded-md bg-red-50 border border-red-200 text-[12px] text-red-700">
+                  {(reopenMapping.error as Error).message}
+                </div>
+              )}
+
+              <button
+                onClick={handleReopen}
+                disabled={reopenMapping.isPending}
+                className="w-full h-10 rounded-md text-[14px] font-medium border border-primary text-primary hover:bg-primary-light transition-colors disabled:opacity-50"
+              >
+                {reopenMapping.isPending ? "Reopening…" : "Reopen for edit"}
+              </button>
+              <p className="text-[12px] text-text-secondary text-center">
+                Moves this variable back to "To do" so you can safely change its mapping.
+              </p>
+            </div>
+          ) : (
           <div className="mt-4 bg-surface border rounded-lg p-5 shadow-sm space-y-5">
             {/* codebook match */}
             <div>
@@ -448,13 +652,153 @@ function MapStudiesPage() {
               />
             </div>
 
+            {/* AfPO population/ethnicity mapping — only when the matched codebook
+                variable looks like it holds population/ethnicity data. Entirely
+                optional: doesn't block Submit either way. */}
+            {isEthnicityVar && (
+              <div className="border-t pt-5">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Globe className="size-4 text-primary" />
+                  <span className="text-[14px] font-medium">AfPO Population Mapping</span>
+                </div>
+                <p className="text-[12px] text-text-secondary mb-3">
+                  This variable appears to contain population or ethnicity data. Enter the
+                  values found in your dataset to map them to the African Population Ontology
+                  (AfPO).
+                </p>
+                <label className="text-[12px] text-text-secondary block mb-1">
+                  Ethnicity/population values found in this column (one per line):
+                </label>
+                <textarea
+                  rows={5}
+                  value={afpoInput}
+                  onChange={(e) => setAfpoInput(e.target.value)}
+                  className="w-full text-[13px] p-2.5 rounded-md border bg-surface font-mono"
+                />
+                <button
+                  onClick={handleAfpoLookup}
+                  disabled={afpoLookup.isPending || !afpoInput.trim()}
+                  className="mt-2 h-9 px-3 text-[13px] rounded-md border border-primary text-primary hover:bg-primary-light font-medium disabled:opacity-50"
+                >
+                  {afpoLookup.isPending ? "Looking up…" : "Look up in AfPO"}
+                </button>
+
+                {afpoResults && (
+                  <div className="mt-4 space-y-4">
+                    {afpoResults.some((r) => r.afpo_id) && (
+                      <div>
+                        <div className="text-[13px] font-medium text-success mb-1.5">Matched</div>
+                        <table className="w-full text-[12px] border rounded overflow-hidden">
+                          <thead>
+                            <tr className="bg-primary text-primary-foreground">
+                              <th className="text-left px-2 h-8 font-medium">Input Value</th>
+                              <th className="text-left px-2 h-8 font-medium">AfPO ID</th>
+                              <th className="text-left px-2 h-8 font-medium">Canonical Name</th>
+                              <th className="text-left px-2 h-8 font-medium">Matched Via</th>
+                              <th className="text-left px-2 h-8 font-medium">Confidence</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {afpoResults.filter((r) => r.afpo_id).map((r, i) => (
+                              <tr key={r.input_value} style={{ background: i % 2 ? "#FAFAF8" : "#FFFFFF" }}>
+                                <td className="px-2 h-8 font-mono">{r.input_value}</td>
+                                <td className="px-2 h-8 font-mono">{r.afpo_id}</td>
+                                <td className="px-2 h-8">{r.canonical_name}</td>
+                                <td className="px-2 h-8">{r.matched_via}</td>
+                                <td className="px-2 h-8">{r.confidence}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {afpoResults.some((r) => !r.afpo_id) && (
+                      <div>
+                        <div className="text-[13px] font-medium text-accent mb-1">
+                          Not found in AfPO — these are gaps
+                        </div>
+                        <p className="text-[12px] text-text-secondary mb-2">
+                          You can edit the term below before submitting. Each gap is
+                          independent — submit in any order.
+                        </p>
+                        <div className="space-y-2">
+                          {afpoResults.filter((r) => !r.afpo_id).map((r) => {
+                            const alreadySubmitted = r.already_submitted || afpoSubmittedGaps.has(r.input_value);
+                            return (
+                              <div key={r.input_value} className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[12px] px-2 py-1.5 rounded bg-accent-light text-text-primary font-mono shrink-0">
+                                    {r.input_value}
+                                  </span>
+                                  <input
+                                    value={afpoGapEdits[r.input_value] ?? r.input_value}
+                                    onChange={(e) =>
+                                      setAfpoGapEdits((prev) => ({ ...prev, [r.input_value]: e.target.value }))
+                                    }
+                                    disabled={alreadySubmitted}
+                                    className="h-9 flex-1 px-2 rounded-md border bg-surface text-[12px] font-mono disabled:opacity-60"
+                                  />
+                                  {r.search_issues_url && (
+                                    <a
+                                      href={r.search_issues_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="h-9 px-3 flex items-center text-[12px] rounded-md border text-text-secondary hover:bg-[#F5F0EE] font-medium shrink-0 whitespace-nowrap"
+                                    >
+                                      Search existing
+                                    </a>
+                                  )}
+                                  <button
+                                    onClick={() => handleAfpoSubmitGap(r.input_value)}
+                                    disabled={alreadySubmitted}
+                                    className="h-9 px-3 text-[12px] rounded-md border border-primary text-primary hover:bg-primary-light font-medium disabled:opacity-50 disabled:cursor-not-allowed shrink-0 whitespace-nowrap"
+                                  >
+                                    {alreadySubmitted ? "Already submitted ✓" : "Submit to AfPO"}
+                                  </button>
+                                </div>
+                                {r.already_submitted && r.previously_submitted_at && !afpoSubmittedGaps.has(r.input_value) && (
+                                  <p className="text-[11px] text-text-secondary pl-1">
+                                    Already submitted to AfPO on{" "}
+                                    {new Date(r.previously_submitted_at).toLocaleDateString()} — check{" "}
+                                    <a
+                                      href={r.search_issues_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline"
+                                    >
+                                      existing issues
+                                    </a>{" "}
+                                    before filing another.
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* transformation */}
             <div className="border rounded-md">
               <button
                 onClick={() => setTransformOpen((o) => !o)}
                 className="w-full flex items-center justify-between p-3"
               >
-                <span className="text-[13px] font-medium">Transformation</span>
+                <span className="flex items-center gap-2 text-[13px] font-medium">
+                  Transformation
+                  {!transformOpen && (
+                    <span className="text-[12px] font-normal text-text-secondary">
+                      {expression
+                        ? `— ${transformType}: ${expression}`
+                        : "— none configured"}
+                    </span>
+                  )}
+                </span>
                 {transformOpen ? (
                   <ChevronDown className="size-4 text-text-secondary" />
                 ) : (
@@ -608,6 +952,7 @@ function MapStudiesPage() {
               {saveMapping.isPending ? "Saving…" : "Submit"}
             </button>
           </div>
+          )}
         </>
       )}
 

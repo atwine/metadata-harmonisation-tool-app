@@ -10,12 +10,26 @@ const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://loc
 
 // ── Low-level fetch helpers ──────────────────────────────────────────────────
 
+/** FastAPI error responses are JSON ({"detail": "..."}) — extract that instead
+ * of throwing the raw response body, which would otherwise surface as literal
+ * unparsed JSON text in the UI. Falls back to raw text/statusText for
+ * non-JSON error bodies (e.g. a proxy 502). */
+async function extractErrorMessage(r: Response): Promise<string> {
+  const text = await r.text().catch(() => "");
+  if (text) {
+    try {
+      const parsed = JSON.parse(text) as { detail?: unknown };
+      if (typeof parsed.detail === "string") return parsed.detail;
+    } catch {
+      /* not JSON — fall through to raw text */
+    }
+  }
+  return text || r.statusText;
+}
+
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`);
-  if (!r.ok) {
-    const msg = await r.text().catch(() => r.statusText);
-    throw new Error(msg);
-  }
+  if (!r.ok) throw new Error(await extractErrorMessage(r));
   return r.json() as Promise<T>;
 }
 
@@ -25,10 +39,7 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
     headers: body !== undefined ? { "Content-Type": "application/json" } : {},
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  if (!r.ok) {
-    const msg = await r.text().catch(() => r.statusText);
-    throw new Error(msg);
-  }
+  if (!r.ok) throw new Error(await extractErrorMessage(r));
   return r.json() as Promise<T>;
 }
 
@@ -38,19 +49,13 @@ async function put<T>(path: string, body?: unknown): Promise<T> {
     headers: body !== undefined ? { "Content-Type": "application/json" } : {},
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  if (!r.ok) {
-    const msg = await r.text().catch(() => r.statusText);
-    throw new Error(msg);
-  }
+  if (!r.ok) throw new Error(await extractErrorMessage(r));
   return r.json() as Promise<T>;
 }
 
 async function del<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`, { method: "DELETE" });
-  if (!r.ok) {
-    const msg = await r.text().catch(() => r.statusText);
-    throw new Error(msg);
-  }
+  if (!r.ok) throw new Error(await extractErrorMessage(r));
   return r.json() as Promise<T>;
 }
 
@@ -85,9 +90,15 @@ export interface ProviderInfo {
   note?: string;
 }
 
-export interface AITestResponse {
+export interface SlotTestResult {
   connected: boolean;
   message: string;
+}
+
+export interface AITestResponse {
+  connected: boolean;
+  chat: SlotTestResult;
+  embedding?: SlotTestResult | null;
 }
 
 export interface StudyInitStatus {
@@ -170,6 +181,20 @@ export interface MappingUpdateRequest {
   patient_id_var?: string;
   date_var?: string;
   operator_name?: string;
+  afpo_values_mapped?: Record<string, string>;
+  afpo_values_gaps?: string[];
+}
+
+export interface AfpoLookupResult {
+  input_value: string;
+  afpo_id?: string;
+  canonical_name?: string;
+  matched_via?: string;
+  confidence?: number;
+  github_issue_url?: string;
+  search_issues_url?: string;
+  already_submitted: boolean;
+  previously_submitted_at?: string;
 }
 
 // ── API functions ────────────────────────────────────────────────────────────
@@ -187,7 +212,7 @@ export const api = {
     const fd = new FormData();
     fd.append("file", file);
     const r = await fetch(`${BASE}/api/codebook/upload`, { method: "POST", body: fd });
-    if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
+    if (!r.ok) throw new Error(await extractErrorMessage(r));
     return r.json();
   },
   getCodebook: (): Promise<CodebookVariable[]> =>
@@ -201,12 +226,12 @@ export const api = {
     contextPdf?: File
   ): Promise<StudyUploadResponse> => {
     const fd = new FormData();
-    fd.append("study_name", name);
-    fd.append("variables_csv", variables);
-    if (exampleData) fd.append("example_data_csv", exampleData);
+    fd.append("study_title", name);
+    fd.append("variables_file", variables);
+    if (exampleData) fd.append("example_data_file", exampleData);
     if (contextPdf) fd.append("context_pdf", contextPdf);
     const r = await fetch(`${BASE}/api/studies/upload`, { method: "POST", body: fd });
-    if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
+    if (!r.ok) throw new Error(await extractErrorMessage(r));
     return r.json();
   },
   getStudies: (): Promise<Study[]> => get("/api/studies/"),
@@ -216,9 +241,11 @@ export const api = {
   getProviders: (): Promise<ProviderInfo[]> => get("/api/ai-config/providers"),
   testConnection: (config: AIConfig): Promise<AITestResponse> =>
     post("/api/ai-config/test", config),
-  getOllamaModels: (baseUrl?: string): Promise<{ models: string[] }> => {
-    const qs = baseUrl ? `?base_url=${encodeURIComponent(baseUrl)}` : "";
-    return get(`/api/ai-config/ollama-models${qs}`);
+  getProviderModels: (provider: string, baseUrl?: string, apiKey?: string): Promise<{ models: string[] }> => {
+    const params = new URLSearchParams({ provider });
+    if (baseUrl) params.set("base_url", baseUrl);
+    if (apiKey) params.set("api_key", apiKey);
+    return get(`/api/ai-config/models?${params.toString()}`);
   },
 
   // Initialise
@@ -255,17 +282,38 @@ export const api = {
   validateExpression: (expression: string): Promise<ValidateExpressionResponse> =>
     post("/api/mappings/validate-expression", { expression }),
 
+  // AfPO population/ethnicity ontology mapping
+  afpoLookup: (body: {
+    study: string;
+    variable_name: string;
+    values: string[];
+  }): Promise<{ results: AfpoLookupResult[] }> => post("/api/afpo/lookup", body),
+  afpoMarkGapSubmitted: (body: {
+    study: string;
+    variable_name: string;
+    value: string;
+  }): Promise<unknown> => post("/api/afpo/gaps/submitted", body),
+  afpoIssueUrl: (value: string, study: string, variableName: string): Promise<{ url: string }> => {
+    const params = new URLSearchParams({ value, study, variable_name: variableName });
+    return get(`/api/afpo/issue-url?${params.toString()}`);
+  },
+
   // Download
   getMappingCsvUrl: (study: string): string =>
     `${BASE}/api/download/${study}/mapping-csv`,
+  getAuditLogUrl: (): string => `${BASE}/api/download/audit-log`,
   downloadTransformedData: async (studies: string[]): Promise<Blob> => {
     const r = await fetch(`${BASE}/api/download/transformed-data`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ studies }),
     });
-    if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
+    if (!r.ok) throw new Error(await extractErrorMessage(r));
     return r.blob();
+  },
+  checkAuditLogExists: async (): Promise<boolean> => {
+    const r = await fetch(`${BASE}/api/download/audit-log`, { method: "HEAD" });
+    return r.ok;
   },
 };
 
@@ -286,7 +334,7 @@ export const QUERY_KEYS = {
   studies: ["studies"] as const,
   initialiseStatus: ["initialise-status"] as const,
   providers: ["providers"] as const,
-  ollamaModels: (baseUrl: string) => ["ollama-models", baseUrl] as const,
+  providerModels: (provider: string, baseUrl: string) => ["provider-models", provider, baseUrl] as const,
   mappings: (study: string, status?: string) =>
     ["mappings", study, status] as const,
   variableDetail: (study: string, variable: string) =>
@@ -331,11 +379,11 @@ export function useProviders() {
   });
 }
 
-export function useOllamaModels(baseUrl: string, enabled = true) {
+export function useProviderModels(provider: string, baseUrl: string, apiKey: string | undefined, enabled: boolean) {
   return useQuery({
-    queryKey: QUERY_KEYS.ollamaModels(baseUrl),
-    queryFn: () => api.getOllamaModels(baseUrl),
-    enabled,
+    queryKey: QUERY_KEYS.providerModels(provider, baseUrl),
+    queryFn: () => api.getProviderModels(provider, baseUrl, apiKey),
+    enabled: enabled && !!baseUrl,
     staleTime: 30_000,
     retry: false,
   });
@@ -414,6 +462,34 @@ export function useSaveMapping() {
         queryKey: QUERY_KEYS.variableDetail(args.study, args.variable),
       });
     },
+  });
+}
+
+export function useReopenMapping() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { study: string; variable: string }) =>
+      api.reopenMapping(args.study, args.variable),
+    onSuccess: (_data, args) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEYS.mappings(args.study) });
+      qc.invalidateQueries({
+        queryKey: QUERY_KEYS.variableDetail(args.study, args.variable),
+      });
+    },
+  });
+}
+
+export function useAfpoLookup() {
+  return useMutation({
+    mutationFn: (args: { study: string; variable_name: string; values: string[] }) =>
+      api.afpoLookup(args),
+  });
+}
+
+export function useAfpoMarkGapSubmitted() {
+  return useMutation({
+    mutationFn: (args: { study: string; variable_name: string; value: string }) =>
+      api.afpoMarkGapSubmitted(args),
   });
 }
 

@@ -9,6 +9,7 @@ __pycache__/
 input/
 results/
 logs/
+db/
 
 # Logs
 *.log

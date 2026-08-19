@@ -30,6 +30,8 @@ class Study(BaseModel):
     variable_count: int
     has_example_data: bool = False
     has_context_pdf: bool = False
+    has_results: bool = False
+    has_mapped_variable: bool = False  # at least one "Successfully mapped" row — what /transformed-data actually requires
     status: Literal["uploaded", "initialised", "mapping", "complete"]
 
 
@@ -49,19 +51,27 @@ class MappingRecord(BaseModel):
     patient_id_confidence: Optional[str] = None
     date_var: Optional[str] = None
     date_confidence: Optional[str] = None
+    # AfPO population/ethnicity mapping — JSON strings, mirroring the reference app
+    afpo_values_mapped: Optional[str] = None
+    afpo_values_gaps: Optional[str] = None
     # Computed on-the-fly for the list endpoint (not persisted to CSV)
     best_confidence: Optional[int] = None
 
 
-class AIConfig(BaseModel):
-    provider: Literal["ollama", "openai", "anthropic", "azure_openai"]
-    chat_model: str
-    embedding_model: str = ""
+class ProviderSlot(BaseModel):
+    """A single provider+model configuration for one role (chat or embedding)."""
+    provider: Literal["ollama", "vllm", "openai", "anthropic", "azure_openai"]
+    model: str
     api_key: Optional[str] = None
     base_url: Optional[str] = None
-    request_timeout: int = 30
     azure_api_version: Optional[str] = None
     azure_deployment: Optional[str] = None
+
+
+class AIConfig(BaseModel):
+    chat: ProviderSlot
+    embedding: Optional[ProviderSlot] = None
+    request_timeout: int = 30
 
 
 # ─── Request models ───────────────────────────────────────────────────────────
@@ -88,6 +98,8 @@ class MappingUpdateRequest(BaseModel):
     patient_id_var: Optional[str] = None
     date_var: Optional[str] = None
     operator_name: Optional[str] = Field(None, max_length=100)
+    afpo_values_mapped: Optional[dict[str, str]] = None
+    afpo_values_gaps: Optional[list[str]] = None
 
 
 class TransformationPreviewRequest(BaseModel):
@@ -197,10 +209,46 @@ class ProviderInfo(BaseModel):
     note: Optional[str] = None
 
 
-class AITestResponse(BaseModel):
+class SlotTestResult(BaseModel):
     connected: bool
     message: str
 
 
+class AITestResponse(BaseModel):
+    connected: bool
+    chat: SlotTestResult
+    embedding: Optional[SlotTestResult] = None
+
+
 class OllamaModelsResponse(BaseModel):
     models: list[str]
+
+
+# ─── AfPO population/ethnicity ontology mapping ────────────────────────────
+
+class AfpoLookupRequest(BaseModel):
+    study: str
+    variable_name: str
+    values: list[str]
+
+
+class AfpoLookupResult(BaseModel):
+    input_value: str
+    afpo_id: Optional[str] = None
+    canonical_name: Optional[str] = None
+    matched_via: Optional[str] = None
+    confidence: Optional[int] = None
+    github_issue_url: Optional[str] = None  # present only for unmatched (gap) values
+    search_issues_url: Optional[str] = None  # present only for unmatched (gap) values
+    already_submitted: bool = False  # true if this value has been submitted to GitHub before, from any study
+    previously_submitted_at: Optional[str] = None
+
+
+class AfpoLookupResponse(BaseModel):
+    results: list[AfpoLookupResult]
+
+
+class AfpoGapSubmittedRequest(BaseModel):
+    study: str
+    variable_name: str
+    value: str

@@ -6,6 +6,7 @@ import pandas as pd
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from models.schemas import Study, StudyUploadResponse
+from storage import db
 from storage.files import (
     get_study_status,
     list_studies,
@@ -94,12 +95,17 @@ async def list_studies_endpoint():
             except Exception:
                 pass
 
+        has_results = db.study_has_any_mappings(name)
+        has_mapped = db.study_has_mapped_variable(name)
+
         studies.append(
             Study(
                 name=name,
                 variable_count=var_count,
                 has_example_data=(study_dir / "example_data.csv").exists(),
                 has_context_pdf=(study_dir / "context.pdf").exists(),
+                has_results=has_results,
+                has_mapped_variable=has_mapped,
                 status=get_study_status(name),
             )
         )
@@ -126,5 +132,7 @@ async def delete_study(study_name: str):
     results_file = (Path("results") / f"{safe_name}.csv").resolve()
     if str(results_file).startswith(allowed_results) and results_file.exists():
         results_file.unlink()
+
+    db.delete_study_data(safe_name)
 
     return {"status": "deleted", "study": safe_name}
