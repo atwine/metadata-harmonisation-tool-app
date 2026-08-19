@@ -78,6 +78,15 @@ def init_db() -> None:
         conn.executescript(_SCHEMA)
 
 
+def clear_all() -> None:
+    """Empties every table — used by clear-workspace alongside wiping
+    input/, results/, logs/ so a workspace reset is actually a clean slate."""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM mappings")
+        conn.execute("DELETE FROM audit_log")
+        conn.execute("DELETE FROM afpo_gaps")
+
+
 @contextmanager
 def get_connection() -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(DB_PATH)
@@ -236,6 +245,15 @@ def all_mappings_for_export(study: str) -> list[dict[str, Any]]:
             (study,),
         ).fetchall()
         return [row_to_dict(r) for r in rows]
+
+
+def delete_study_data(study: str) -> None:
+    """Removes every row for this study — mappings, audit log, AfPO gaps.
+    Mirrors deleting the old results/{study}.csv and its audit/gap entries."""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM mappings WHERE study = ?", (study,))
+        conn.execute("DELETE FROM audit_log WHERE study = ?", (study,))
+        conn.execute("DELETE FROM afpo_gaps WHERE study = ?", (study,))
 
 
 # ── Audit log ────────────────────────────────────────────────────────────────

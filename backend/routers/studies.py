@@ -133,4 +133,6 @@ async def delete_study(study_name: str):
     if str(results_file).startswith(allowed_results) and results_file.exists():
         results_file.unlink()
 
+    db.delete_study_data(safe_name)
+
     return {"status": "deleted", "study": safe_name}
