@@ -13,6 +13,7 @@ input/
 results/
 logs/
 db/
+ontology_cache/
 harmonisation-data/
 
 node_modules

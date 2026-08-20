@@ -16,6 +16,7 @@ import {
   type TransformationPreviewResponse,
   type ValidateExpressionResponse,
   type AfpoLookupResult,
+  type GithubCheckResponse,
 } from "@/api/client";
 
 export const Route = createFileRoute("/map-studies")({
@@ -71,6 +72,7 @@ function MapStudiesPage() {
   const [afpoResults, setAfpoResults] = useState<AfpoLookupResult[] | null>(null);
   const [afpoGapEdits, setAfpoGapEdits] = useState<Record<string, string>>({});
   const [afpoSubmittedGaps, setAfpoSubmittedGaps] = useState<Set<string>>(new Set());
+  const [afpoGithubCheck, setAfpoGithubCheck] = useState<Record<string, GithubCheckResponse | { status: "checking" }>>({});
 
   const study = currentStudy ?? "";
 
@@ -138,6 +140,7 @@ function MapStudiesPage() {
     setAfpoResults(null);
     setAfpoGapEdits({});
     setAfpoSubmittedGaps(new Set());
+    setAfpoGithubCheck({});
   }, [detail]);
 
   const handleValidateExpr = async () => {
@@ -189,7 +192,11 @@ function MapStudiesPage() {
     );
   };
 
-  const handleAfpoSubmitGap = (originalValue: string) => {
+  // The actual submission — opens the pre-filled GitHub issue tab and marks
+  // the gap locally submitted. Only reached once nothing live on GitHub is
+  // blocking it (see handleAfpoSubmitGap), or the human explicitly chose
+  // "Submit anyway" past a closed prior request.
+  const proceedWithAfpoSubmit = (originalValue: string) => {
     if (!study || !selectedVar) return;
     const submittedAs = (afpoGapEdits[originalValue] || originalValue).trim() || originalValue;
 
@@ -208,6 +215,32 @@ function MapStudiesPage() {
 
     afpoMarkSubmitted.mutate({ study, variable_name: selectedVar, value: originalValue });
     setAfpoSubmittedGaps((prev) => new Set(prev).add(originalValue));
+  };
+
+  // The cross-installation dedup guard: before letting anyone file a new
+  // request, ask GitHub itself whether one already exists — a local flag
+  // only knows what *this* installation has done, but every installation
+  // of this app points at the same shared h3abionet/afpo repo.
+  const handleAfpoSubmitGap = async (originalValue: string) => {
+    if (!study || !selectedVar) return;
+    const submittedAs = (afpoGapEdits[originalValue] || originalValue).trim() || originalValue;
+
+    setAfpoGithubCheck((prev) => ({ ...prev, [originalValue]: { status: "checking" } }));
+    let result: GithubCheckResponse;
+    try {
+      result = await api.afpoCheckGithub(submittedAs);
+    } catch {
+      result = { status: "unavailable", issues: [], from_cache: false };
+    }
+    setAfpoGithubCheck((prev) => ({ ...prev, [originalValue]: result }));
+
+    // open_exists: blocked, nothing more to do — the UI shows the existing
+    // issue link instead of the Submit button.
+    // closed_exists: also don't auto-submit — ambiguous (merged? declined?
+    // duplicate?), so a human decides via the "Submit anyway" action.
+    // none / unavailable: nothing found (or couldn't check) — proceed.
+    if (result.status === "open_exists" || result.status === "closed_exists") return;
+    proceedWithAfpoSubmit(originalValue);
   };
 
   const handleSubmit = () => {
@@ -725,6 +758,17 @@ function MapStudiesPage() {
                         <div className="space-y-2">
                           {afpoResults.filter((r) => !r.afpo_id).map((r) => {
                             const alreadySubmitted = r.already_submitted || afpoSubmittedGaps.has(r.input_value);
+                            const check = afpoGithubCheck[r.input_value];
+                            const checking = check?.status === "checking";
+                            const openBlock = check?.status === "open_exists" ? check : undefined;
+                            const closedBlock = check?.status === "closed_exists" ? check : undefined;
+                            const unavailable = check?.status === "unavailable" ? check : undefined;
+                            const buttonDisabled = alreadySubmitted || checking || !!openBlock || !!closedBlock;
+                            const buttonLabel = alreadySubmitted
+                              ? "Already submitted ✓"
+                              : checking
+                              ? "Checking GitHub…"
+                              : "Submit to AfPO";
                             return (
                               <div key={r.input_value} className="space-y-1">
                                 <div className="flex items-center gap-2">
@@ -751,12 +795,55 @@ function MapStudiesPage() {
                                   )}
                                   <button
                                     onClick={() => handleAfpoSubmitGap(r.input_value)}
-                                    disabled={alreadySubmitted}
+                                    disabled={buttonDisabled}
                                     className="h-9 px-3 text-[12px] rounded-md border border-primary text-primary hover:bg-primary-light font-medium disabled:opacity-50 disabled:cursor-not-allowed shrink-0 whitespace-nowrap"
                                   >
-                                    {alreadySubmitted ? "Already submitted ✓" : "Submit to AfPO"}
+                                    {buttonLabel}
                                   </button>
                                 </div>
+
+                                {openBlock && openBlock.issues[0] && (
+                                  <p className="text-[11px] text-accent pl-1">
+                                    Already requested on GitHub — see{" "}
+                                    <a
+                                      href={openBlock.issues[0].url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline"
+                                    >
+                                      issue #{openBlock.issues[0].number}
+                                    </a>
+                                    .
+                                  </p>
+                                )}
+
+                                {closedBlock && closedBlock.issues[0] && (
+                                  <p className="text-[11px] text-text-secondary pl-1">
+                                    A request for this term was already filed and closed — check{" "}
+                                    <a
+                                      href={closedBlock.issues[0].url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline"
+                                    >
+                                      issue #{closedBlock.issues[0].number}
+                                    </a>{" "}
+                                    before resubmitting.{" "}
+                                    <button
+                                      onClick={() => proceedWithAfpoSubmit(r.input_value)}
+                                      className="text-primary hover:underline font-medium"
+                                    >
+                                      Submit anyway
+                                    </button>
+                                  </p>
+                                )}
+
+                                {unavailable && (
+                                  <p className="text-[11px] text-text-secondary pl-1">
+                                    Could not verify against GitHub (rate-limited or offline) — submitted without a live duplicate check.
+                                  </p>
+                                )}
+
                                 {r.already_submitted && r.previously_submitted_at && !afpoSubmittedGaps.has(r.input_value) && (
                                   <p className="text-[11px] text-text-secondary pl-1">
                                     Already submitted to AfPO on{" "}

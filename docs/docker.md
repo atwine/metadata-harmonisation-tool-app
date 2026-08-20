@@ -55,6 +55,24 @@ docker compose up       # starts again, fast (models already cached)
 Avoid `docker compose down -v` unless you specifically want to wipe the Ollama model
 cache too (your study/mapping data in `./harmonisation-data/` is unaffected either way).
 
+## AfPO ontology and duplicate-request checking
+
+The backend checks for a newer AfPO ontology release from the upstream
+`h3abionet/afpo` GitHub repo on every startup, and swaps it in automatically
+if there's an update — so a population/ethnicity term that's been added
+upstream stops showing up as a "gap" without needing a new image build. If
+the check fails (offline, GitHub unreachable) it silently keeps whatever's
+already loaded; it never blocks startup.
+
+Before letting you file a new AfPO term request, the app also live-checks
+GitHub for an existing issue requesting the same term — this works across
+*every* installation of this app, not just yours, since they all point at
+the same shared repo. GitHub's search API is capped at 10 requests/minute
+without a token; set a `GITHUB_TOKEN` environment variable (in your shell,
+or a `.env` file next to `docker-compose.yml`) to raise that to 30/minute if
+you're mapping large datasets with many ethnicity gaps at once. No token is
+required to use the feature.
+
 ## Using a different AI provider
 
 The AI Configuration sidebar in the app works the same as in a manual install — you can

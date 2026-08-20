@@ -23,6 +23,11 @@ services:
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_DEFAULT_CHAT_MODEL: llama3.2:3b
       OLLAMA_DEFAULT_EMBEDDING_MODEL: nomic-embed-text
+      # Optional: raises the GitHub search API rate limit used by the AfPO
+      # duplicate-request check from 10/min (unauthenticated) to 30/min.
+      # Set GITHUB_TOKEN in your shell or a .env file next to this compose
+      # file before `docker compose up` — leave unset to run without one.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     ports:
       - "8000:8000"
     volumes:
@@ -33,6 +38,7 @@ services:
       - ./harmonisation-data/results:/app/results
       - ./harmonisation-data/logs:/app/logs
       - ./harmonisation-data/db:/app/db
+      - ./harmonisation-data/ontology-cache:/app/ontology_cache
     depends_on:
       ollama:
         condition: service_healthy

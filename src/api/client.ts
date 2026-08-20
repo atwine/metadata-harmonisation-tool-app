@@ -197,6 +197,20 @@ export interface AfpoLookupResult {
   previously_submitted_at?: string;
 }
 
+export interface GithubIssueRef {
+  number: number;
+  url: string;
+  state: string;
+  title: string;
+}
+
+export interface GithubCheckResponse {
+  status: "open_exists" | "closed_exists" | "none" | "unavailable";
+  issues: GithubIssueRef[];
+  checked_at?: string;
+  from_cache: boolean;
+}
+
 // ── API functions ────────────────────────────────────────────────────────────
 
 export const api = {
@@ -297,6 +311,8 @@ export const api = {
     const params = new URLSearchParams({ value, study, variable_name: variableName });
     return get(`/api/afpo/issue-url?${params.toString()}`);
   },
+  afpoCheckGithub: (value: string): Promise<GithubCheckResponse> =>
+    get(`/api/afpo/check-github?${new URLSearchParams({ value }).toString()}`),
 
   // Download
   getMappingCsvUrl: (study: string): string =>

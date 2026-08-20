@@ -10,6 +10,7 @@ input/
 results/
 logs/
 db/
+ontology_cache/
 
 # Logs
 *.log

@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers import codebook, studies, initialise, mappings, download, ai_config, afpo
+from core.afpo_lookup import refresh_ontology
 from storage.db import init_db
 
 
@@ -12,6 +13,10 @@ async def lifespan(app: FastAPI):
     for d in ["input", "results", "logs"]:
         Path(d).mkdir(exist_ok=True)
     init_db()
+    # Best-effort — refresh_ontology() already catches network/parse errors
+    # and falls back to whatever's already loaded, so this never blocks
+    # startup on a slow/offline network beyond its own request timeout.
+    refresh_ontology()
     yield
 
 
