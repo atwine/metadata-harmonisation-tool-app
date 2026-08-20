@@ -163,6 +163,7 @@ def _transform_study(study: str) -> dict:
     summary_cols = [c for c in [
         "study_var", "codebook_var", "confidence", "marked",
         "transformation_type", "source_dtype", "target_dtype", "transformation_instructions",
+        "afpo_values_mapped", "afpo_values_gaps",
     ] if c in mapping_df.columns]
 
     files = {
