@@ -1,16 +1,23 @@
+import datetime
+
 from fastapi import APIRouter, Query
 
-from core.afpo_lookup import lookup
+from core.afpo_github_check import check_github_for_term
+from core.afpo_lookup import lookup, ontology_status
 from core.afpo_gap_reporter import build_github_issue_url
 from models.schemas import (
     AfpoGapSubmittedRequest,
     AfpoLookupRequest,
     AfpoLookupResponse,
     AfpoLookupResult,
+    GithubCheckResponse,
+    OntologyStatusResponse,
 )
 from storage import db
 
 router = APIRouter()
+
+_GITHUB_CHECK_CACHE_TTL = datetime.timedelta(hours=24)
 
 
 def _search_issues_url(value: str) -> str:
@@ -72,3 +79,42 @@ async def mark_gap_submitted(body: AfpoGapSubmittedRequest):
     if db.mark_afpo_gap_submitted(body.study, body.variable_name, body.value):
         return {"status": "marked_submitted"}
     return {"status": "not_found"}
+
+
+@router.get("/check-github", response_model=GithubCheckResponse)
+async def check_github(value: str = Query(...)):
+    """Live-checks GitHub for an existing open/closed issue requesting this
+    term, before the frontend lets the user file a new one — this is the
+    actual cross-installation dedup guard (see core.afpo_github_check for
+    why a local-only flag can't do this job on its own).
+
+    Cached for 24h per normalised term: GitHub's search API is capped at
+    10 req/min unauthenticated, so re-checking on every render isn't viable."""
+    key = value.strip().lower()
+
+    cached = db.get_github_check_cache(key)
+    if cached is not None:
+        checked_at = datetime.datetime.fromisoformat(cached["checked_at"])
+        if datetime.datetime.now(datetime.timezone.utc) - checked_at < _GITHUB_CHECK_CACHE_TTL:
+            return GithubCheckResponse(
+                status=cached["status"],
+                issues=cached["issues"],
+                checked_at=cached["checked_at"],
+                from_cache=True,
+            )
+
+    result = await check_github_for_term(value)
+    if result["status"] != "unavailable":
+        db.set_github_check_cache(key, result["status"], result["issues"])
+
+    return GithubCheckResponse(
+        status=result["status"],
+        issues=result["issues"],
+        checked_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        from_cache=False,
+    )
+
+
+@router.get("/ontology-status", response_model=OntologyStatusResponse)
+async def get_ontology_status():
+    return OntologyStatusResponse(**ontology_status())

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query
 
 from core.ai_provider import extract_ollama_names
+from core.config import OLLAMA_BASE_URL, OLLAMA_DEFAULT_CHAT_MODEL, OLLAMA_DEFAULT_EMBEDDING_MODEL
 from models.schemas import AIConfig, AITestResponse, OllamaModelsResponse, ProviderInfo, SlotTestResult
 
 router = APIRouter()
@@ -11,10 +12,10 @@ PROVIDERS: list[ProviderInfo] = [
         name="Ollama (Local)",
         requires_api_key=False,
         requires_base_url=True,
-        default_base_url="http://localhost:11434",
+        default_base_url=OLLAMA_BASE_URL,
         supports_embeddings=True,
-        default_chat_model="llama3.1:8b",
-        default_embedding_model="nomic-embed-text",
+        default_chat_model=OLLAMA_DEFAULT_CHAT_MODEL,
+        default_embedding_model=OLLAMA_DEFAULT_EMBEDDING_MODEL,
     ),
     ProviderInfo(
         id="vllm",
@@ -97,7 +98,7 @@ async def list_models(
     try:
         if provider == "ollama":
             import ollama
-            client = ollama.Client(host=base_url or "http://localhost:11434")
+            client = ollama.Client(host=base_url or OLLAMA_BASE_URL)
             resp   = client.list()
             items  = resp.get("models") if isinstance(resp, dict) else getattr(resp, "models", None) or []
             return OllamaModelsResponse(models=sorted(extract_ollama_names(items)))

@@ -1,19 +1,43 @@
 """
 AfPO Lookup Engine
-Parses data/ontologies/afpo-base.obo once at module load and provides
+Parses an AfPO .obo file into an in-memory lookup table and provides
 exact + fuzzy population-name lookup against the African Population Ontology.
 
 Ported from the reference Streamlit app's app/components/afpo_lookup.py —
 same parsing rules and lookup strategy (exact -> fuzzy via rapidfuzz, threshold 85).
+
+The table is refreshable at runtime (see refresh_ontology()) — checked once on
+backend startup so a term that's been added upstream since this file was last
+shipped stops showing up as a "gap" without needing a rebuild/redeploy.
 """
 from __future__ import annotations
+import datetime
+import json
+import logging
+import os
 import re
 from pathlib import Path
 from typing import Optional, TypedDict
 
-# OBO file location — resolved relative to the project root (three levels up
-# from this file: backend/core/ -> backend/ -> project root).
-_OBO_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "ontologies" / "afpo-base.obo"
+logger = logging.getLogger(__name__)
+
+# The file baked into the image/repo at build time — never overwritten at
+# runtime, so there's always a known-good fallback even if a refresh fails
+# and no cached copy exists yet (e.g. very first run, no network).
+_SHIPPED_OBO_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "ontologies" / "afpo-base.obo"
+
+# Where a successfully-fetched refresh gets written. Deliberately outside
+# data/ (a tracked source path) — this is runtime-generated, like input/,
+# results/, logs/, db/. Bind-mounted in Docker so a later *offline* restart
+# still uses the last-known-good fetch instead of reverting to the
+# image-baked version.
+_CACHE_DIR = Path("ontology_cache")
+_CACHE_OBO_PATH = _CACHE_DIR / "afpo-base.obo"
+_CACHE_META_PATH = _CACHE_DIR / "meta.json"
+
+_SOURCE_URL = os.environ.get(
+    "AFPO_ONTOLOGY_URL", "https://raw.githubusercontent.com/h3abionet/afpo/main/afpo-base.obo"
+)
 
 # Property codes to extract synonyms from
 _SYNONYM_PROPS = {"AfPO:0000450", "AfPO:0000458", "AfPO:0000453"}
@@ -30,15 +54,10 @@ class AfpoTerm(TypedDict):
     confidence: int
 
 
-def _parse_obo(path: Path) -> dict[str, AfpoTerm]:
-    """Parse the OBO file into a flat lookup table keyed on normalised
+def _parse_obo(content: str) -> dict[str, AfpoTerm]:
+    """Parse .obo file content into a flat lookup table keyed on normalised
     (lower-stripped) name/synonym strings, each mapping to a base term dict."""
     lookup_table: dict[str, AfpoTerm] = {}
-
-    try:
-        content = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return lookup_table
 
     blocks = content.split("\n[Term]\n")
 
@@ -110,9 +129,113 @@ def _parse_obo(path: Path) -> dict[str, AfpoTerm]:
     return lookup_table
 
 
-# Parsed once at module import — the file is ~10k lines, this is fast enough
-# to eat on process start rather than re-parse per request.
-lookup_table: dict[str, AfpoTerm] = _parse_obo(_OBO_PATH)
+def _extract_data_version(content: str) -> Optional[str]:
+    for line in content.splitlines()[:20]:
+        if line.startswith("data-version:"):
+            return line[len("data-version:"):].strip()
+    return None
+
+
+def _load_shipped() -> tuple[dict[str, AfpoTerm], Optional[str], Optional[str], str]:
+    try:
+        content = _SHIPPED_OBO_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return {}, None, None, "missing"
+    return _parse_obo(content), _extract_data_version(content), None, "shipped"
+
+
+def _load_initial() -> tuple[dict[str, AfpoTerm], Optional[str], Optional[str], str]:
+    """Loads the table at import time: prefer a previously-cached refresh
+    (last known-good fetch, survives an offline restart via the bind mount)
+    over the file baked into the image/repo. Falls back to the shipped copy
+    on any cache read/parse failure (interrupted write, permission mismatch
+    on the bind mount, corrupted content) rather than silently loading an
+    empty or partial table. Returns (table, data_version, fetched_at, source)."""
+    if _CACHE_OBO_PATH.exists():
+        try:
+            content = _CACHE_OBO_PATH.read_text(encoding="utf-8")
+            table = _parse_obo(content)
+        except (OSError, UnicodeDecodeError) as e:
+            logger.warning("AfPO ontology cache unreadable (%s) — falling back to shipped copy", e)
+            return _load_shipped()
+
+        if not table:
+            logger.warning("AfPO ontology cache parsed to zero terms — falling back to shipped copy")
+            return _load_shipped()
+
+        fetched_at = None
+        if _CACHE_META_PATH.exists():
+            try:
+                fetched_at = json.loads(_CACHE_META_PATH.read_text(encoding="utf-8")).get("fetched_at")
+            except (json.JSONDecodeError, OSError):
+                pass
+        return table, _extract_data_version(content), fetched_at, "cache"
+
+    return _load_shipped()
+
+
+# Loaded once at module import — the file is ~10k lines, fast enough to eat
+# on process start rather than re-parse per request. Refreshable afterwards
+# via refresh_ontology() without needing a process restart.
+lookup_table: dict[str, AfpoTerm]
+_current_data_version: Optional[str]
+_current_fetched_at: Optional[str]
+_current_source: str
+lookup_table, _current_data_version, _current_fetched_at, _current_source = _load_initial()
+
+
+async def refresh_ontology(timeout: float = 10.0) -> dict:
+    """Fetches the latest .obo from upstream; if its data-version differs
+    from what's currently loaded, swaps the in-memory table and persists the
+    new file to the (bind-mounted, in Docker) cache path. Never raises —
+    called from the startup lifespan, so a slow/offline network must degrade
+    to 'keep what we have' without blocking (async) or crashing (caught)
+    startup."""
+    global lookup_table, _current_data_version, _current_fetched_at, _current_source
+
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(_SOURCE_URL, timeout=timeout)
+        resp.raise_for_status()
+        content = resp.text
+    except Exception as e:
+        logger.warning("AfPO ontology refresh failed (%s) — keeping %s copy", e, _current_source)
+        return {"status": "unavailable", "data_version": _current_data_version, "source": _current_source}
+
+    new_version = _extract_data_version(content)
+    if new_version is not None and new_version == _current_data_version:
+        return {"status": "up_to_date", "data_version": _current_data_version, "source": _current_source}
+
+    new_table = _parse_obo(content)
+    if not new_table:
+        logger.warning("AfPO ontology refresh fetched unparseable content — keeping %s copy", _current_source)
+        return {"status": "unavailable", "data_version": _current_data_version, "source": _current_source}
+
+    _CACHE_DIR.mkdir(exist_ok=True)
+    _CACHE_OBO_PATH.write_text(content, encoding="utf-8")
+    fetched_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    _CACHE_META_PATH.write_text(
+        json.dumps({"data_version": new_version, "fetched_at": fetched_at, "source_url": _SOURCE_URL}),
+        encoding="utf-8",
+    )
+
+    old_version = _current_data_version
+    lookup_table = new_table
+    _current_data_version = new_version
+    _current_fetched_at = fetched_at
+    _current_source = "cache"
+    logger.info("AfPO ontology updated: %s -> %s", old_version, new_version)
+    return {"status": "updated", "data_version": new_version, "previous_data_version": old_version, "source": "cache"}
+
+
+def ontology_status() -> dict:
+    return {
+        "data_version": _current_data_version,
+        "fetched_at": _current_fetched_at,
+        "source_url": _SOURCE_URL,
+        "using_cache": _current_source == "cache",
+    }
 
 
 def lookup(value: str) -> Optional[AfpoTerm]:

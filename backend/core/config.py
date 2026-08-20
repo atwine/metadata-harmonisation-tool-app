@@ -4,9 +4,17 @@ extended with vLLM (OpenAI-compatible self-hosted) support and per-role (chat/em
 provider slots so chat and embeddings can each point at a different provider/server.
 """
 from __future__ import annotations
+import os
 import re
 from enum import Enum
 from typing import Optional
+
+# Overridable so the Docker Compose package can point the backend at the
+# bundled `ollama` service (http://ollama:11434) and a smaller default model,
+# without changing the defaults for a normal local/manual setup.
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_DEFAULT_CHAT_MODEL = os.environ.get("OLLAMA_DEFAULT_CHAT_MODEL", "llama3.1:8b")
+OLLAMA_DEFAULT_EMBEDDING_MODEL = os.environ.get("OLLAMA_DEFAULT_EMBEDDING_MODEL", "nomic-embed-text")
 
 
 class AIProvider(Enum):
@@ -53,7 +61,7 @@ class ModelConfig:
         self.provider          = provider
         self.model              = model
         self.api_key           = api_key
-        self.base_url          = base_url or ("http://localhost:11434" if provider == AIProvider.OLLAMA else None)
+        self.base_url          = base_url or (OLLAMA_BASE_URL if provider == AIProvider.OLLAMA else None)
         self.request_timeout   = request_timeout
         self.azure_api_version = azure_api_version or "2024-02-01"
         self.azure_deployment  = azure_deployment

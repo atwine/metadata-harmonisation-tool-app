@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Layers,
 } from "lucide-react";
+import { OLLAMA_BASE_URL, OLLAMA_CHAT_MODEL, OLLAMA_EMBEDDING_MODEL } from "@/lib/ollamaDefaults";
 import { useAIConfigStore } from "@/stores/aiConfigStore";
 import { useTestConnection, useProviderModels } from "@/api/client";
 import type { AIConfig, AIProviderId, ProviderSlot } from "@/types";
@@ -63,14 +64,14 @@ const EMBEDDING_PROVIDERS: AIProviderId[] = ["ollama", "vllm", "openai", "azure_
 
 const SLOT_DEFAULTS: Record<"chat" | "embedding", Partial<Record<AIProviderId, Partial<ProviderSlot>>>> = {
   chat: {
-    ollama: { model: "llama3.1:8b", base_url: "http://localhost:11434" },
+    ollama: { model: OLLAMA_CHAT_MODEL, base_url: OLLAMA_BASE_URL },
     vllm: { model: "", base_url: "" },
     openai: { model: "gpt-4o-mini", base_url: undefined },
     anthropic: { model: "claude-3-5-haiku-20241022", base_url: undefined },
     azure_openai: { model: "", base_url: "" },
   },
   embedding: {
-    ollama: { model: "nomic-embed-text", base_url: "http://localhost:11434" },
+    ollama: { model: OLLAMA_EMBEDDING_MODEL, base_url: OLLAMA_BASE_URL },
     vllm: { model: "", base_url: "" },
     openai: { model: "text-embedding-3-small", base_url: undefined },
     azure_openai: { model: "", base_url: "" },
@@ -159,7 +160,7 @@ function ProviderSlotEditor({
           <input
             value={slot.base_url ?? ""}
             onChange={(e) => update({ base_url: e.target.value })}
-            placeholder={slot.provider === "vllm" ? "http://<host>:8000" : "http://localhost:11434"}
+            placeholder={slot.provider === "vllm" ? "http://<host>:8000" : OLLAMA_BASE_URL}
             className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
           />
         </div>
@@ -227,13 +228,13 @@ function AIConfigPanel() {
 
   const chatSlot: ProviderSlot = config?.chat ?? {
     provider: "ollama",
-    model: "llama3.1:8b",
-    base_url: "http://localhost:11434",
+    model: OLLAMA_CHAT_MODEL,
+    base_url: OLLAMA_BASE_URL,
   };
   const embeddingSlot: ProviderSlot = config?.embedding ?? {
     provider: "ollama",
-    model: "nomic-embed-text",
-    base_url: "http://localhost:11434",
+    model: OLLAMA_EMBEDDING_MODEL,
+    base_url: OLLAMA_BASE_URL,
   };
 
   const updateConfig = (patch: Partial<AIConfig>) =>
@@ -395,7 +396,7 @@ export function Sidebar() {
         <AIConfigPanel />
       </div>
       <div className="border-t" />
-      <div className="px-4 py-2 text-[13px] text-text-secondary shrink-0">v0.6.0</div>
+      <div className="px-4 py-2 text-[13px] text-text-secondary shrink-0">v0.8.0</div>
     </aside>
   );
 }

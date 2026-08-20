@@ -35,8 +35,9 @@ Variables that look like population/ethnicity data (e.g. mapped to a codebook va
 │   ├── core/
 │   │   ├── ai_provider.py     # Provider wrapper (Ollama / vLLM / OpenAI / Anthropic / Azure)
 │   │   ├── config.py          # Per-slot provider config + client construction
-│   │   ├── afpo_lookup.py     # AfPO .obo parser + exact/synonym/fuzzy lookup
+│   │   ├── afpo_lookup.py     # AfPO .obo parser + exact/synonym/fuzzy lookup + auto-refresh from upstream
 │   │   ├── afpo_gap_reporter.py  # Pre-filled GitHub issue URL builder
+│   │   ├── afpo_github_check.py  # Live GitHub search — the cross-installation duplicate-request guard
 │   │   ├── descriptions.py    # Phase 2: AI description generation
 │   │   ├── recommendations.py # Phases 1, 3–5: embeddings + semantic search
 │   │   ├── transform_engine.py
@@ -50,7 +51,9 @@ Variables that look like population/ethnicity data (e.g. mapped to a codebook va
 │   │   ├── initialise.py      # SSE streaming endpoint
 │   │   ├── mappings.py        # Core mapping CRUD + audit trail
 │   │   └── studies.py
-│   ├── storage/files.py
+│   ├── storage/
+│   │   ├── db.py              # SQLite (mapping records, audit trail, AfPO gap log)
+│   │   └── files.py
 │   ├── main.py
 │   └── requirements.txt
 ├── data/ontologies/           # AfPO ontology data (afpo-base.obo)
@@ -71,6 +74,21 @@ Variables that look like population/ethnicity data (e.g. mapped to a codebook va
 │   └── types.ts
 └── run_backend.py             # Entry point — runs uvicorn from project root
 ```
+
+## Running via Docker Compose
+
+For non-technical end users, or anyone who'd rather not install Python/Node/Ollama
+separately:
+
+```bash
+docker compose up
+```
+
+Runs the full stack (frontend, backend, and a bundled Ollama with models pre-pulled)
+locally — no shared/hosted AI backend, everything stays on the machine. First run is
+slow (downloads the AI models); every run after that is fast. See
+[`docs/docker.md`](docs/docker.md) for details, including where your data lives and how
+to back it up.
 
 ## Running locally
 
@@ -111,6 +129,10 @@ Create `.env.local` in the project root (already gitignored):
 VITE_API_URL=http://localhost:8000
 ```
 
+Optional backend env var: `GITHUB_TOKEN` — a personal access token to raise the AfPO
+duplicate-check's GitHub search rate limit from 10 requests/minute (unauthenticated) to
+30/minute. Not required.
+
 ## API overview
 
 | Method | Path | Description |
@@ -127,8 +149,10 @@ VITE_API_URL=http://localhost:8000
 | POST | `/api/ai-config/test` | Test chat + embedding connection (independently) |
 | GET | `/api/ai-config/models` | Live model listing for Ollama / vLLM |
 | POST | `/api/afpo/lookup` | Look up population/ethnicity values against AfPO |
+| GET | `/api/afpo/check-github` | Live-check GitHub for an existing term-request issue (cached 24h) |
 | POST | `/api/afpo/gaps/submitted` | Mark an AfPO gap as submitted to GitHub |
 | GET | `/api/afpo/issue-url` | Build the pre-filled AfPO GitHub issue URL |
+| GET | `/api/afpo/ontology-status` | Current AfPO ontology version and last-sync time |
 | GET | `/api/download/{study}/mapping-csv` | Download mapping table |
 | POST | `/api/download/transformed-data` | Download transformed dataset ZIP |
 | GET | `/api/download/audit-log` | Download the append-only mapping audit trail |
@@ -137,12 +161,18 @@ Full interactive docs at `http://localhost:8000/docs` when the backend is runnin
 
 ## Audit trail
 
-Every mapping save is appended to `logs/mapping_audit.jsonl` with:
+Every mapping save is appended to the SQLite database (`db/app.db`, `audit_log` table) with:
 - Timestamp, operator name, study, variable
 - Before/after state
 - SHA-256 hash of transformation instructions
 
-AfPO lookups that don't match any ontology term are logged to `logs/afpo_gaps.csv` (timestamp, study, variable, value, whether it's been submitted to GitHub yet) — this is what powers the duplicate-submission guard.
+AfPO lookups that don't match any ontology term are logged to the same database's
+`afpo_gaps` table (timestamp, study, variable, value, whether it's been submitted to
+GitHub yet). Duplicate submissions are guarded two ways: a local flag (this table) for
+what this installation has already filed, and a live GitHub issue search — the real
+cross-installation check, since every installation points at the same shared AfPO repo —
+before a new submission is allowed. See `docs/docker.md` for how the AfPO ontology itself
+stays up to date.
 
 ## Branches
 
@@ -155,8 +185,8 @@ AfPO lookups that don't match any ontology term are logged to `logs/afpo_gaps.cs
 - Transformation expressions are evaluated by a custom AST-walking `SafeEvaluator` — `eval()` is never called.
 - All file paths are sanitised against path traversal before use.
 - Uploaded PDFs are validated against their magic bytes before processing.
-- The `logs/`, `input/`, and `results/` directories are excluded from git.
-- AfPO GitHub issue submission is always a manual click — the app never submits on the user's behalf, and the server-side duplicate-submission guard prevents the same term from being filed twice.
+- The `logs/`, `input/`, `results/`, `db/`, and `ontology_cache/` directories are excluded from git — all runtime-generated, not source.
+- AfPO GitHub issue submission is always a manual click — the app never submits on the user's behalf. A local flag prevents this installation from re-filing a term it already submitted, and a live GitHub issue search (`GET /api/afpo/check-github`) catches duplicates across installations too, since every installation of this app points at the same shared AfPO repo.
 - ⚠️ A known gap (tracked in [issue #4](../../issues/4)): the API currently has no authentication — don't expose the backend beyond localhost/trusted networks as-is.
 
 ## License

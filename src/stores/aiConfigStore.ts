@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { OLLAMA_BASE_URL, OLLAMA_CHAT_MODEL, OLLAMA_EMBEDDING_MODEL } from "@/lib/ollamaDefaults";
 import type { AIConfig } from "@/types";
 
 type ConnectionStatus = "unconfigured" | "connected" | "failed";
@@ -14,13 +15,13 @@ export const useAIConfigStore = create<AIConfigState>((set) => ({
   config: {
     chat: {
       provider: "ollama",
-      model: "llama3.1:8b",
-      base_url: "http://localhost:11434",
+      model: OLLAMA_CHAT_MODEL,
+      base_url: OLLAMA_BASE_URL,
     },
     embedding: {
       provider: "ollama",
-      model: "nomic-embed-text",
-      base_url: "http://localhost:11434",
+      model: OLLAMA_EMBEDDING_MODEL,
+      base_url: OLLAMA_BASE_URL,
     },
     request_timeout: 30,
   },

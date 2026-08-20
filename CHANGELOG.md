@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.0] — 2026-08-20
+
+### Added
+- **Live GitHub duplicate check for AfPO term requests** — before letting a user file a new "New term request" issue, the backend live-queries the `h3abionet/afpo` repo's GitHub issue search for an existing open or closed issue with that exact term. This is the real cross-installation guard: every installation of this app, anywhere, points at the same shared repo, so a live check there catches duplicates a purely local flag never could (two different organisations independently hitting the same missing tribe name, or someone filing an issue manually outside the app). An open match blocks submission with a link to the existing issue; a closed match shows the link with a "Submit anyway" override since closed could mean merged, declined, or superseded. Results are cached 24h per term — GitHub's search API is capped at 10 requests/minute unauthenticated (30/minute with an optional `GITHUB_TOKEN`).
+- **Auto-refreshing AfPO ontology** — the backend checks the upstream `.obo` file's `data-version` against what's loaded on every startup and hot-swaps the in-memory lookup table if there's a newer release, so a population/ethnicity term added upstream stops showing as a local "gap" without needing a rebuild or redeploy. Refreshed copies persist to a bind-mounted cache (`ontology_cache/`, `./harmonisation-data/ontology-cache` in Docker) so an offline restart still uses the last successful fetch instead of reverting to the version baked into the image. Never blocks or fails startup — falls back to whatever's already loaded on any network/parse error, and falls back further to the shipped file if a cached copy turns out corrupted.
+- Ontology freshness (`data-version`, last synced) now shown directly in the Map Studies AfPO section.
+
+### Fixed
+- `clear-workspace` was wiping the entire AfPO submission history (`afpo_gaps`) along with mapping data — resetting the local duplicate-submission guard on every workspace reset and risking a real duplicate GitHub issue on the next encounter with the same term. It now only clears un-submitted gap rows; submitted history and the GitHub check cache are facts about the outside world, not local mapping progress, so clearing them wouldn't undo the GitHub submission — only make the app forget it happened.
+
+## [0.7.0] — 2026-08-19
+
+### Added
+- **Docker Compose packaging** (closes #11) — `docker compose up` runs the full stack (frontend, backend, and a bundled Ollama) locally with no separate Python/Node/Ollama install. First run pulls a smaller default model (`llama3.2:3b`) into a persistent volume; every run after that is fast since the model cache survives `docker compose down`/`up`. Uploaded studies, mapping results, the audit trail, and the SQLite database are bind-mounted to `./harmonisation-data/` on the host — a normal folder, not a Docker-managed volume, so `docker compose down -v` can't silently wipe them. See `docs/docker.md`.
+- Ollama's base URL and default chat/embedding models are now overridable via env vars (`OLLAMA_BASE_URL`, `OLLAMA_DEFAULT_CHAT_MODEL`, `OLLAMA_DEFAULT_EMBEDDING_MODEL` backend-side; `VITE_OLLAMA_*` frontend-side) instead of being hardcoded in six-plus places — what the Docker default-value change above needed, generalized to a single source of truth on each side.
+
+### Changed
+- **Mapping records, the audit trail, and the AfPO gap log now live in SQLite** (`db/app.db`) instead of `results/*.csv` / `logs/mapping_audit.jsonl` / `logs/afpo_gaps.csv`. Fixes the O(n) full-file-read-and-rewrite pattern on every mapping save, AfPO dedup check, and studies-list status lookup identified in a scale audit — the app now scales to many studies/variables without slowing down. No migration of old CSV/JSONL data (confirmed as synthetic test data, safe to leave behind untouched on disk).
+
+### Fixed
+- `DELETE /api/studies/{name}` and `POST /api/initialise/clear-workspace` now also clear the study's SQLite rows — previously they only touched `input/`/`results/`/`logs/`, so deleting a study or clearing the workspace could leave stale mapping data behind under a reused study name.
+
 ## [0.6.0] — 2026-08-18
 
 ### Added

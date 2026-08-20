@@ -197,6 +197,27 @@ export interface AfpoLookupResult {
   previously_submitted_at?: string;
 }
 
+export interface GithubIssueRef {
+  number: number;
+  url: string;
+  state: string;
+  title: string;
+}
+
+export interface GithubCheckResponse {
+  status: "open_exists" | "closed_exists" | "none" | "unavailable";
+  issues: GithubIssueRef[];
+  checked_at?: string;
+  from_cache: boolean;
+}
+
+export interface OntologyStatus {
+  data_version?: string;
+  fetched_at?: string;
+  source_url: string;
+  using_cache: boolean;
+}
+
 // ── API functions ────────────────────────────────────────────────────────────
 
 export const api = {
@@ -297,6 +318,9 @@ export const api = {
     const params = new URLSearchParams({ value, study, variable_name: variableName });
     return get(`/api/afpo/issue-url?${params.toString()}`);
   },
+  afpoCheckGithub: (value: string): Promise<GithubCheckResponse> =>
+    get(`/api/afpo/check-github?${new URLSearchParams({ value }).toString()}`),
+  getOntologyStatus: (): Promise<OntologyStatus> => get("/api/afpo/ontology-status"),
 
   // Download
   getMappingCsvUrl: (study: string): string =>
@@ -340,6 +364,7 @@ export const QUERY_KEYS = {
   variableDetail: (study: string, variable: string) =>
     ["variable-detail", study, variable] as const,
   audit: (study: string) => ["audit", study] as const,
+  ontologyStatus: ["ontology-status"] as const,
 };
 
 // ── TanStack Query hooks ─────────────────────────────────────────────────────
@@ -369,6 +394,13 @@ export function useInitialiseStatus() {
   return useQuery({
     queryKey: QUERY_KEYS.initialiseStatus,
     queryFn: api.getInitialiseStatus,
+  });
+}
+
+export function useOntologyStatus() {
+  return useQuery({
+    queryKey: QUERY_KEYS.ontologyStatus,
+    queryFn: api.getOntologyStatus,
   });
 }
 

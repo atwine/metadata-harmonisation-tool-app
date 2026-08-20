@@ -252,3 +252,24 @@ class AfpoGapSubmittedRequest(BaseModel):
     study: str
     variable_name: str
     value: str
+
+
+class GithubIssueRef(BaseModel):
+    number: int
+    url: str
+    state: str
+    title: str
+
+
+class GithubCheckResponse(BaseModel):
+    status: str  # "open_exists" | "closed_exists" | "none" | "unavailable"
+    issues: list[GithubIssueRef] = []
+    checked_at: Optional[str] = None
+    from_cache: bool = False
+
+
+class OntologyStatusResponse(BaseModel):
+    data_version: Optional[str] = None
+    fetched_at: Optional[str] = None
+    source_url: str
+    using_cache: bool

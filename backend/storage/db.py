@@ -69,6 +69,13 @@ CREATE TABLE IF NOT EXISTS afpo_gaps (
     submitted_to_github      INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_afpo_gaps_value ON afpo_gaps (unmatched_value, submitted_to_github);
+
+CREATE TABLE IF NOT EXISTS afpo_github_cache (
+    value_key       TEXT PRIMARY KEY,
+    status          TEXT NOT NULL,
+    issues_json      TEXT NOT NULL DEFAULT '[]',
+    checked_at       TEXT NOT NULL
+);
 """
 
 
@@ -79,12 +86,19 @@ def init_db() -> None:
 
 
 def clear_all() -> None:
-    """Empties every table — used by clear-workspace alongside wiping
-    input/, results/, logs/ so a workspace reset is actually a clean slate."""
+    """Used by clear-workspace alongside wiping input/, results/, logs/ so a
+    workspace reset is actually a clean slate for mapping progress.
+
+    Deliberately spares two things: gaps already submitted to GitHub
+    (submitted_to_github = 1) and the afpo_github_cache table. Both are facts
+    about the outside world (an issue really was filed / GitHub's own state),
+    not local mapping progress — wiping them wouldn't undo the GitHub
+    submission, it would just make the app forget it happened and risk a
+    duplicate re-submission next time the same term comes up."""
     with get_connection() as conn:
         conn.execute("DELETE FROM mappings")
         conn.execute("DELETE FROM audit_log")
-        conn.execute("DELETE FROM afpo_gaps")
+        conn.execute("DELETE FROM afpo_gaps WHERE submitted_to_github = 0")
 
 
 @contextmanager
@@ -340,3 +354,40 @@ def mark_afpo_gap_submitted(study: str, variable_name: str, value: str) -> bool:
             return False
         conn.execute("UPDATE afpo_gaps SET submitted_to_github = 1 WHERE id = ?", (row["id"],))
         return True
+
+
+# ── AfPO GitHub live-check cache ────────────────────────────────────────────
+# Caches the result of asking GitHub's search API "does an issue requesting
+# this term already exist" — keyed by normalised term, not by study/variable,
+# since the answer is the same no matter which study encountered it. GitHub's
+# unauthenticated search endpoint is capped at 10 req/min, so this cache is
+# load-bearing, not just an optimisation.
+
+def get_github_check_cache(value_key: str) -> Optional[dict[str, Any]]:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM afpo_github_cache WHERE value_key = ?", (value_key,)
+        ).fetchone()
+        if row is None:
+            return None
+        record = row_to_dict(row)
+        record["issues"] = json.loads(record.pop("issues_json"))
+        return record
+
+
+def set_github_check_cache(value_key: str, status: str, issues: list[dict[str, Any]]) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            """INSERT INTO afpo_github_cache (value_key, status, issues_json, checked_at)
+               VALUES (:value_key, :status, :issues_json, :checked_at)
+               ON CONFLICT (value_key) DO UPDATE SET
+                   status = excluded.status,
+                   issues_json = excluded.issues_json,
+                   checked_at = excluded.checked_at""",
+            {
+                "value_key": value_key,
+                "status": status,
+                "issues_json": json.dumps(issues),
+                "checked_at": _now(),
+            },
+        )
