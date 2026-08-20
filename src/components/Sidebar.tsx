@@ -29,25 +29,13 @@ const NAV = [
 
 function BrandDots() {
   return (
-    <div className="grid grid-cols-3 gap-[3px] w-[30px] h-[30px]">
-      {[
-        "var(--primary)",
-        "var(--accent)",
-        "var(--success)",
-        "var(--accent)",
-        "var(--primary)",
-        "var(--primary)",
-        "var(--success)",
-        "var(--primary)",
-        "var(--accent)",
-      ].map((c, i) => (
-        <span
-          key={i}
-          className="rounded-[2px]"
-          style={{ background: c, opacity: 0.85 }}
-        />
-      ))}
-    </div>
+    <img
+      src="/elwazi-icon.png"
+      alt="eLwazi"
+      width={26}
+      height={32}
+      className="shrink-0"
+    />
   );
 }
 
@@ -134,7 +122,7 @@ function ProviderSlotEditor({
         ) : (
           <Layers className="size-4 text-primary" />
         )}
-        <span className="text-[14px] font-medium">
+        <span className="text-[16px] font-medium">
           {role === "chat" ? "Chat model" : "Embedding model"}
         </span>
       </div>
@@ -147,7 +135,7 @@ function ProviderSlotEditor({
           const defs = SLOT_DEFAULTS[role][p] ?? { model: "" };
           onChange({ provider: p, model: defs.model ?? "", base_url: defs.base_url });
         }}
-        className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
+        className="mt-1 w-full h-10 text-[16px] px-2 rounded-md border bg-surface"
       >
         {providers.map((p) => (
           <option key={p} value={p}>{PROVIDER_LABELS[p]}</option>
@@ -161,7 +149,7 @@ function ProviderSlotEditor({
             value={slot.base_url ?? ""}
             onChange={(e) => update({ base_url: e.target.value })}
             placeholder={slot.provider === "vllm" ? "http://<host>:8000" : OLLAMA_BASE_URL}
-            className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
+            className="mt-1 w-full h-10 text-[16px] px-2 rounded-md border bg-surface"
           />
         </div>
       )}
@@ -172,7 +160,7 @@ function ProviderSlotEditor({
           <select
             value={slot.model}
             onChange={(e) => update({ model: e.target.value })}
-            className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
+            className="mt-1 w-full h-10 text-[16px] px-2 rounded-md border bg-surface"
           >
             <option value="">— select model —</option>
             {models.map((m) => (
@@ -184,7 +172,7 @@ function ProviderSlotEditor({
             value={slot.model}
             onChange={(e) => update({ model: e.target.value })}
             placeholder="model name"
-            className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
+            className="mt-1 w-full h-10 text-[16px] px-2 rounded-md border bg-surface"
           />
         )}
       </div>
@@ -199,7 +187,7 @@ function ProviderSlotEditor({
             value={slot.api_key ?? ""}
             onChange={(e) => update({ api_key: e.target.value })}
             placeholder={apiKeyRequired(slot.provider) ? "sk-..." : "leave blank if the server doesn't require one"}
-            className="mt-1 w-full h-10 text-[14px] px-2 rounded-md border bg-surface"
+            className="mt-1 w-full h-10 text-[16px] px-2 rounded-md border bg-surface"
           />
         </div>
       )}
@@ -209,7 +197,7 @@ function ProviderSlotEditor({
 
 function SlotFeedback({ label, result }: { label: string; result: SlotTestResult }) {
   return (
-    <div className={`text-[13px] font-medium flex items-start gap-1.5 ${
+    <div className={`text-[15px] font-medium flex items-start gap-1.5 ${
       result.connected ? "text-success" : "text-danger"
     }`}>
       <span>{result.connected ? "✅" : "❌"}</span>
@@ -256,7 +244,7 @@ function AIConfigPanel() {
     <div className="px-3 py-3">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between text-[13px] font-medium tracking-widest text-text-secondary uppercase px-1 hover:text-text-primary"
+        className="w-full flex items-center justify-between text-[15px] font-medium tracking-widest text-text-secondary uppercase px-1 hover:text-text-primary"
       >
         <span>AI Configuration</span>
         {open ? (
@@ -283,7 +271,7 @@ function AIConfigPanel() {
 
           {/* ── Request Timeout ─────────────────────────────── */}
           <div className="pt-2 border-t">
-            <div className="text-[13px] font-medium tracking-widest text-text-secondary uppercase mb-2">
+            <div className="text-[15px] font-medium tracking-widest text-text-secondary uppercase mb-2">
               ⏱ Request Timeout
             </div>
             <label className="label-caption">Timeout (seconds)</label>
@@ -303,7 +291,7 @@ function AIConfigPanel() {
                   const v = Math.min(120, Math.max(5, Number(e.target.value)));
                   updateConfig({ request_timeout: v });
                 }}
-                className="flex-1 h-9 text-center text-[14px] rounded border bg-surface"
+                className="flex-1 h-9 text-center text-[16px] rounded border bg-surface"
               />
               <button
                 onClick={() => updateConfig({ request_timeout: Math.min(120, (config?.request_timeout ?? 30) + 5) })}
@@ -316,13 +304,13 @@ function AIConfigPanel() {
 
           {/* ── Connection Test ──────────────────────────────── */}
           <div className="pt-2 border-t">
-            <div className="text-[13px] font-medium tracking-widest text-text-secondary uppercase mb-2">
+            <div className="text-[15px] font-medium tracking-widest text-text-secondary uppercase mb-2">
               🔍 Connection Test
             </div>
             <button
               onClick={handleTest}
               disabled={testConn.isPending}
-              className="w-full h-11 text-[14px] rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+              className="w-full h-11 text-[16px] rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
             >
               {testConn.isPending ? "Testing connection…" : "Test Connection"}
             </button>
@@ -337,7 +325,7 @@ function AIConfigPanel() {
               </div>
             )}
             {testConn.isError && (
-              <div className="mt-2 text-[13px] text-danger">
+              <div className="mt-2 text-[15px] text-danger">
                 ❌ {(testConn.error as Error).message}
               </div>
             )}
@@ -351,21 +339,21 @@ function AIConfigPanel() {
 export function Sidebar() {
   const location = useLocation();
   return (
-    <aside className="fixed top-0 left-0 h-screen w-80 bg-surface border-r flex flex-col z-30">
+    <aside className="fixed top-0 left-0 h-screen w-[350px] bg-surface border-r flex flex-col z-30">
       <div className="px-4 py-3 flex items-center gap-3">
         <BrandDots />
         <div className="leading-tight">
-          <div className="text-[17px] font-semibold text-text-primary">
+          <div className="text-[19px] font-semibold text-text-primary">
             Metadata Harmonisation
           </div>
-          <div className="text-[13px] text-text-secondary">
+          <div className="text-[15px] text-text-secondary">
             eLwazi Open Data Science Platform
           </div>
         </div>
       </div>
       <div className="border-t" />
       <div className="px-3 pt-3 pb-1">
-        <span className="text-[13px] font-medium tracking-widest text-text-secondary uppercase">
+        <span className="text-[15px] font-medium tracking-widest text-text-secondary uppercase">
           Workflow
         </span>
       </div>
@@ -379,7 +367,7 @@ export function Sidebar() {
             <Link
               key={to}
               to={to}
-              className={`flex items-center gap-2.5 text-[15px] px-3 py-2 rounded-md transition-colors border-l-[3px] ${
+              className={`flex items-center gap-2.5 text-[17px] px-3 py-2 rounded-md transition-colors border-l-[3px] ${
                 active
                   ? "bg-primary-light border-primary text-primary font-medium"
                   : "border-transparent text-text-primary hover:bg-[#F5F0EE]"
@@ -396,7 +384,7 @@ export function Sidebar() {
         <AIConfigPanel />
       </div>
       <div className="border-t" />
-      <div className="px-4 py-2 text-[13px] text-text-secondary shrink-0">v0.8.0</div>
+      <div className="px-4 py-2 text-[15px] text-text-secondary shrink-0">v0.8.0</div>
     </aside>
   );
 }
@@ -413,7 +401,7 @@ export function PageHeader({
       <h1 className="page-title">{title}</h1>
       <div className="page-title-underline" />
       {subtitle && (
-        <p className="mt-3 text-[14px] text-text-secondary max-w-3xl">
+        <p className="mt-3 text-[16px] text-text-secondary max-w-3xl">
           {subtitle}
         </p>
       )}

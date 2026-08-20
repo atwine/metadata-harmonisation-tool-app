@@ -356,6 +356,30 @@ def mark_afpo_gap_submitted(study: str, variable_name: str, value: str) -> bool:
         return True
 
 
+def unmark_afpo_gap_submitted(study: str, variable_name: str, value: str) -> bool:
+    """The escape hatch for a local 'already submitted' flag that turns out to
+    be wrong — e.g. the browser tab never actually reached GitHub (a bug fixed
+    separately), or the user just never finished the submission. Used only
+    after a live GitHub check confirms no matching issue actually exists;
+    without this, a bad local flag would permanently block ever submitting
+    that term again, with no recovery path.
+
+    Clears every row for this normalised value with submitted_to_github = 1,
+    not just the latest — load_submitted_afpo_values() below checks globally
+    (any row across any study/variable), so leaving an older row flagged
+    would keep reporting "already submitted" even after this call. study and
+    variable_name are accepted for API symmetry with mark_afpo_gap_submitted
+    but aren't part of the match, matching that same global scope."""
+    key = value.strip().lower()
+    with get_connection() as conn:
+        cur = conn.execute(
+            """UPDATE afpo_gaps SET submitted_to_github = 0
+               WHERE LOWER(TRIM(unmatched_value)) = ? AND submitted_to_github = 1""",
+            (key,),
+        )
+        return cur.rowcount > 0
+
+
 # ── AfPO GitHub live-check cache ────────────────────────────────────────────
 # Caches the result of asking GitHub's search API "does an issue requesting
 # this term already exist" — keyed by normalised term, not by study/variable,

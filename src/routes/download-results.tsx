@@ -49,50 +49,58 @@ function DownloadResultsPage() {
   const selectedStudies = studies.filter((s) => checked[s.name]);
 
   return (
-    <div className="max-w-[720px]">
+    <div className="max-w-[1200px]">
       <PageHeader
         title="Download Results"
         subtitle="Export mapping tables and transformed datasets."
       />
 
-      <h2 className="section-heading mb-3">Select studies to export</h2>
-      <div className="space-y-2 mb-6">
-        {studies.length === 0 && (
-          <div className="text-[13px] text-text-secondary py-4 text-center">
-            No studies uploaded yet.
-          </div>
-        )}
-        {studies.map((s) => (
-          <label
-            key={s.name}
-            className="flex items-center gap-3 p-3 bg-surface border rounded-md cursor-pointer hover:bg-[#FAFAF8]"
-          >
-            <input
-              type="checkbox"
-              checked={!!checked[s.name]}
-              onChange={(e) => toggle(s.name, e.target.checked)}
-              className="size-4 accent-primary"
-            />
-            <span className="font-semibold text-[14px] font-mono">{s.name}</span>
-            <span className="text-[12px] text-text-secondary">
-              ({s.variable_count} variables)
-            </span>
-            <span
-              className={`ml-auto text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                s.status === "complete"
-                  ? "bg-success-light text-success"
-                  : s.status === "mapping"
-                    ? "bg-primary-light text-primary"
-                    : "bg-[#EDE8E4] text-text-secondary"
-              }`}
+      <div className="max-w-2xl">
+        <h2 className="section-heading mb-3">Select studies to export</h2>
+        <div className="space-y-2 mb-6">
+          {studies.length === 0 && (
+            <div className="text-[15px] text-text-secondary py-4 text-center">
+              No studies uploaded yet.
+            </div>
+          )}
+          {studies.map((s) => (
+            <label
+              key={s.name}
+              className="flex items-center gap-3 p-3 bg-surface border rounded-md cursor-pointer hover:bg-[#FAFAF8]"
             >
-              {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
-            </span>
-          </label>
-        ))}
+              <input
+                type="checkbox"
+                checked={!!checked[s.name]}
+                onChange={(e) => toggle(s.name, e.target.checked)}
+                className="size-4 accent-primary"
+              />
+              <span className="font-semibold text-[16px] font-mono">{s.name}</span>
+              <span className="text-[14px] text-text-secondary">
+                ({s.variable_count} variables)
+              </span>
+              <span
+                className={`ml-auto text-[13px] font-medium px-2 py-0.5 rounded-full ${
+                  s.status === "complete"
+                    ? "bg-success-light text-success"
+                    : s.status === "mapping"
+                      ? "bg-primary-light text-primary"
+                      : "bg-[#EDE8E4] text-text-secondary"
+                }`}
+              >
+                {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
 
-      <div className="space-y-4">
+      {studies.length > 0 && selectedStudies.length === 0 && (
+        <div className="border-2 border-dashed rounded-lg p-8 text-center text-[15px] text-text-secondary mb-6">
+          Select one or more studies above to see export options.
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {selectedStudies.map((s) => {
           const csvDisabled = !s.has_results;
           const zipDisabled = !s.has_example_data || !s.has_mapped_variable;
@@ -103,39 +111,39 @@ function DownloadResultsPage() {
               : undefined;
           return (
             <div key={s.name} className="bg-surface border rounded-lg p-4 shadow-sm">
-              <h3 className="font-semibold text-[14px] font-mono mb-3">{s.name}</h3>
+              <h3 className="font-semibold text-[16px] font-mono mb-3">{s.name}</h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px]">Mapping table</span>
+                  <span className="text-[15px]">Mapping table</span>
                   <button
                     onClick={() => handleCsv(s.name)}
                     disabled={csvDisabled}
                     title={csvDisabled ? "No results yet — map at least one variable in Map Studies first" : undefined}
-                    className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-primary text-primary hover:bg-primary-light text-[13px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-primary text-primary hover:bg-primary-light text-[15px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                   >
                     <FileSpreadsheet className="size-4" />
                     Download CSV
                   </button>
                 </div>
                 {csvDisabled && (
-                  <div className="text-[12px] text-text-secondary -mt-2">
+                  <div className="text-[14px] text-text-secondary -mt-2">
                     No results yet — map at least one variable in Map Studies first.
                   </div>
                 )}
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[13px]">Transformed data</span>
+                    <span className="text-[15px]">Transformed data</span>
                     <button
                       onClick={() => void handleZip(s.name)}
                       disabled={downloading[s.name] || zipDisabled}
                       title={zipDisabledReason}
-                      className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-primary text-primary hover:bg-primary-light text-[13px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                      className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-primary text-primary hover:bg-primary-light text-[15px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
                       <Archive className="size-4" />
                       {downloading[s.name] ? "Preparing…" : "Download ZIP"}
                     </button>
                   </div>
-                  <div className="text-[12px] text-text-secondary mt-1">
+                  <div className="text-[14px] text-text-secondary mt-1">
                     {!s.has_example_data
                       ? "Metadata-only study (no example_data.csv) — use \"Download CSV\" instead."
                       : !s.has_mapped_variable
@@ -143,7 +151,7 @@ function DownloadResultsPage() {
                         : "Applies transformations defined in Map Studies"}
                   </div>
                   {zipError[s.name] && (
-                    <div className="text-[12px] text-danger mt-1">{zipError[s.name]}</div>
+                    <div className="text-[14px] text-danger mt-1">{zipError[s.name]}</div>
                   )}
                 </div>
               </div>
@@ -152,51 +160,53 @@ function DownloadResultsPage() {
         })}
       </div>
 
-      {auditLogAvailable && (
-        <div className="mt-4 bg-surface border rounded-lg p-4 shadow-sm flex items-center justify-between">
-          <div>
-            <div className="text-[14px] font-semibold">Audit trail</div>
-            <div className="text-[12px] text-text-secondary mt-0.5">
-              Every mapping write, across all studies — for compliance/traceability.
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-6 items-start">
+        {auditLogAvailable && (
+          <div className="bg-surface border rounded-lg p-4 shadow-sm flex items-center justify-between gap-4">
+            <div>
+              <div className="text-[16px] font-semibold">Audit trail</div>
+              <div className="text-[14px] text-text-secondary mt-0.5">
+                Every mapping write, across all studies — for compliance/traceability.
+              </div>
             </div>
-          </div>
-          <a
-            href={api.getAuditLogUrl()}
-            className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-primary text-primary hover:bg-primary-light text-[13px] font-medium transition-colors"
-          >
-            <ClipboardList className="size-4" />
-            Download audit log
-          </a>
-        </div>
-      )}
-
-      <div className="mt-6 bg-surface border rounded-lg shadow-sm">
-        <button
-          onClick={() => setReportOpen((o) => !o)}
-          className="w-full flex items-center justify-between p-4"
-        >
-          <span className="font-medium text-[14px]">About transformed exports</span>
-          {reportOpen ? (
-            <ChevronDown className="size-4 text-text-secondary" />
-          ) : (
-            <ChevronRight className="size-4 text-text-secondary" />
-          )}
-        </button>
-        {reportOpen && (
-          <div className="px-4 pb-4 text-[13px] text-text-secondary space-y-2">
-            <p>
-              The ZIP file contains one transformed CSV per study. Only
-              variables marked <strong>Successfully mapped</strong> with
-              transformation instructions have the expression applied
-              row-by-row.
-            </p>
-            <p>
-              Variables with no transformation, or marked{" "}
-              <strong>Marked to reconsider</strong> or{" "}
-              <strong>Marked unmappable</strong>, are excluded from the output.
-            </p>
+            <a
+              href={api.getAuditLogUrl()}
+              className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-primary text-primary hover:bg-primary-light text-[15px] font-medium transition-colors shrink-0 whitespace-nowrap"
+            >
+              <ClipboardList className="size-4" />
+              Download audit log
+            </a>
           </div>
         )}
+
+        <div className="bg-surface border rounded-lg shadow-sm">
+          <button
+            onClick={() => setReportOpen((o) => !o)}
+            className="w-full flex items-center justify-between p-4"
+          >
+            <span className="font-medium text-[16px]">About transformed exports</span>
+            {reportOpen ? (
+              <ChevronDown className="size-4 text-text-secondary" />
+            ) : (
+              <ChevronRight className="size-4 text-text-secondary" />
+            )}
+          </button>
+          {reportOpen && (
+            <div className="px-4 pb-4 text-[15px] text-text-secondary space-y-2">
+              <p>
+                The ZIP file contains one transformed CSV per study. Only
+                variables marked <strong>Successfully mapped</strong> with
+                transformation instructions have the expression applied
+                row-by-row.
+              </p>
+              <p>
+                Variables with no transformation, or marked{" "}
+                <strong>Marked to reconsider</strong> or{" "}
+                <strong>Marked unmappable</strong>, are excluded from the output.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

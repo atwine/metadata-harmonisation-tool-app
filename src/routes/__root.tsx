@@ -106,7 +106,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background">
         <Sidebar />
-        <main className="ml-80 min-h-screen p-8">
+        <main className="ml-[350px] min-h-screen p-8">
           <Outlet />
         </main>
       </div>

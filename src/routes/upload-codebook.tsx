@@ -27,7 +27,7 @@ function formatTimestamp(iso: string): string {
 function CodebookTable({ rows }: { rows: CodebookVariable[] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-[12px] min-w-[600px]">
+      <table className="w-full text-[14px] min-w-[600px]">
         <thead>
           <tr className="bg-primary text-primary-foreground">
             <th className="text-left px-3 h-9 font-medium whitespace-nowrap">variable_name</th>
@@ -41,7 +41,7 @@ function CodebookTable({ rows }: { rows: CodebookVariable[] }) {
         <tbody>
           {rows.map((r, i) => (
             <tr key={r.variable_name} style={{ background: i % 2 ? "#FAFAF8" : "#FFFFFF" }}>
-              <td className="px-3 h-8 font-mono text-[11px] whitespace-nowrap">{r.variable_name}</td>
+              <td className="px-3 h-8 font-mono text-[13px] whitespace-nowrap">{r.variable_name}</td>
               <td className="px-3 h-8">{r.description}</td>
               <td className="px-3 h-8 text-text-secondary">{r.dType ?? "—"}</td>
               <td className="px-3 h-8 text-text-secondary">{r.unit ?? "—"}</td>
@@ -86,7 +86,7 @@ function UploadCodebookPage() {
 
       {/* ── Last upload banner ─────────────────────────────── */}
       {meta?.exists && meta.filename && (
-        <div className="mb-5 flex items-start gap-3 px-4 py-3 rounded-md bg-primary-light border border-primary/30 text-[13px]">
+        <div className="mb-5 flex items-start gap-3 px-4 py-3 rounded-md bg-primary-light border border-primary/30 text-[15px]">
           <Info className="size-4 text-primary mt-0.5 shrink-0" />
           <span className="text-text-primary">
             Last codebook upload:{" "}
@@ -104,7 +104,7 @@ function UploadCodebookPage() {
 
         {/* LEFT: upload form */}
         <div className="space-y-4">
-          <p className="text-[13px] text-text-secondary">
+          <p className="text-[15px] text-text-secondary">
             To upload a new codebook, complete the form below.
           </p>
 
@@ -123,16 +123,16 @@ function UploadCodebookPage() {
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
             />
             <UploadCloud className="size-7 text-text-secondary mx-auto" />
-            <div className="mt-2 text-[13px] font-medium text-text-primary">
+            <div className="mt-2 text-[15px] font-medium text-text-primary">
               {pendingFile ? pendingFile.name : "Target Codebook"}
             </div>
-            <div className="text-[11px] text-text-secondary mt-0.5">
+            <div className="text-[13px] text-text-secondary mt-0.5">
               {pendingFile
                 ? `${(pendingFile.size / 1024).toFixed(0)} KB — ready to upload`
                 : "Drag and drop file here · CSV only · max 10 MB"}
             </div>
             {!pendingFile && (
-              <span className="mt-3 inline-block px-3 py-1 rounded border text-[12px] text-text-primary hover:bg-[#F5F0EE]">
+              <span className="mt-3 inline-block px-3 py-1 rounded border text-[14px] text-text-primary hover:bg-[#F5F0EE]">
                 Browse files
               </span>
             )}
@@ -142,26 +142,26 @@ function UploadCodebookPage() {
           <button
             onClick={handleUpload}
             disabled={!pendingFile || upload.isPending}
-            className="w-full h-10 rounded-md border-2 border-primary text-primary font-medium text-[14px] hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full h-10 rounded-md border-2 border-primary text-primary font-medium text-[16px] hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {upload.isPending ? "Uploading…" : "Upload Codebook"}
           </button>
 
           {/* Success / error feedback */}
           {upload.isSuccess && (
-            <div className="flex items-center gap-2 text-[12px] text-success">
+            <div className="flex items-center gap-2 text-[14px] text-success">
               <CheckCircle2 className="size-4" />
               Uploaded — {upload.data.row_count} variables loaded
             </div>
           )}
           {warnings.map((w, i) => (
-            <div key={i} className="flex items-center gap-2 text-[12px] text-accent">
+            <div key={i} className="flex items-center gap-2 text-[14px] text-accent">
               <AlertTriangle className="size-4 shrink-0" />
               {w}
             </div>
           ))}
           {upload.isError && (
-            <div className="p-3 rounded-md bg-red-50 border border-red-200 text-[12px] text-red-700">
+            <div className="p-3 rounded-md bg-red-50 border border-red-200 text-[14px] text-red-700">
               {(upload.error as Error).message}
             </div>
           )}
@@ -170,7 +170,7 @@ function UploadCodebookPage() {
           <div className="border rounded-lg bg-surface shadow-sm">
             <button
               onClick={() => setFormatOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-4 py-3 text-[13px] font-medium"
+              className="w-full flex items-center justify-between px-4 py-3 text-[15px] font-medium"
             >
               <span>Codebook CSV format (required columns)</span>
               {formatOpen
@@ -179,7 +179,7 @@ function UploadCodebookPage() {
               }
             </button>
             {formatOpen && (
-              <div className="px-4 pb-4 space-y-2 border-t text-[12px] text-text-primary">
+              <div className="px-4 pb-4 space-y-2 border-t text-[14px] text-text-primary">
                 <ul className="mt-3 space-y-1.5 list-disc list-inside text-text-secondary">
                   <li>
                     <strong className="text-text-primary">Required:</strong>{" "}
@@ -215,7 +215,7 @@ function UploadCodebookPage() {
 
                 {/* Sample format image */}
                 <div className="mt-4">
-                  <p className="text-[11px] text-text-secondary mb-2">Example of expected CSV format:</p>
+                  <p className="text-[13px] text-text-secondary mb-2">Example of expected CSV format:</p>
                   <img
                     src="/sample_data.png"
                     alt="Sample codebook CSV format"
@@ -232,13 +232,13 @@ function UploadCodebookPage() {
         <div>
           <h2 className="section-heading mb-3">Target Codebook</h2>
           {rows.length === 0 ? (
-            <div className="border rounded-lg bg-surface p-8 text-center text-[13px] text-text-secondary">
+            <div className="border rounded-lg bg-surface p-8 text-center text-[15px] text-text-secondary">
               No codebook uploaded yet.
             </div>
           ) : (
             <div className="border rounded-lg bg-surface shadow-sm overflow-hidden">
               <CodebookTable rows={rows.slice(0, 10)} />
-              <div className="px-3 py-2 border-t text-[11px] text-text-secondary">
+              <div className="px-3 py-2 border-t text-[13px] text-text-secondary">
                 Showing 10 of {rows.length} variables
               </div>
             </div>

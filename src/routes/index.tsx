@@ -1,117 +1,94 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { FileSpreadsheet, Cpu, GitMerge, ArrowRight } from "lucide-react";
+import {
+  FileSpreadsheet,
+  FolderOpen,
+  GitMerge,
+  Download,
+  ArrowRight,
+} from "lucide-react";
 import { PageHeader } from "@/components/Sidebar";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
+const STEPS = [
+  {
+    icon: FileSpreadsheet,
+    step: "Step 1",
+    title: "Upload Codebook",
+    desc: "Set the target variable list",
+    to: "/upload-codebook" as const,
+  },
+  {
+    icon: FolderOpen,
+    step: "Step 2",
+    title: "Upload Studies",
+    desc: "Add the datasets to be mapped",
+    to: "/upload-studies" as const,
+  },
+  {
+    icon: GitMerge,
+    step: "Step 3",
+    title: "Map Studies",
+    desc: "Review AI-suggested mappings",
+    to: "/map-studies" as const,
+  },
+  {
+    icon: Download,
+    step: "Step 4",
+    title: "Download Results",
+    desc: "Export the mapped datasets",
+    to: "/download-results" as const,
+  },
+];
+
 function HomePage() {
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-[1200px]">
       <PageHeader title="About This Tool" />
 
-      <div className="bg-surface rounded-lg border border-l-4 border-l-primary p-5 shadow-sm space-y-5">
-        <p className="text-[14px] leading-relaxed text-text-primary">
+      {/* Welcome — fully visible, generously sized, nothing hidden behind a click.
+          Spans the same width as the card grid below and justified, so the
+          block reads as one aligned unit with it rather than a narrower column. */}
+      <div className="text-justify">
+        <p className="text-[18px] leading-relaxed text-text-primary">
           The Metadata Harmonisation Tool helps researchers map variables from
-          multiple study datasets onto a single canonical codebook. This
-          enables data pooling and cross-study comparisons across the eLwazi
-          data ecosystem.
+          multiple study datasets onto a single canonical codebook — so data
+          from different studies can be pooled and compared side by side.
         </p>
+        <p className="text-[18px] leading-relaxed text-text-primary mt-4">
+          It's part of the eLwazi Open Data Science Platform's data ecosystem,
+          built for researchers working with African health study data who
+          need their variables harmonised to a shared standard.
+        </p>
+      </div>
 
-        <div>
-          <h2 className="text-[15px] font-semibold text-text-primary mb-3">General work flow</h2>
-          <ol className="space-y-4 text-[13px] text-text-primary list-none">
-            <li>
-              <span className="font-semibold">Step 1 — Upload Target Codebook</span>
-              <p className="mt-0.5 text-text-secondary leading-relaxed">
-                This platform is built to harmonise incoming datasets to a single set of target variables (codebook).
-                An example codebook is included by default. A new codebook can be uploaded under the Upload Codebook tab.
-                New codebooks should be in <code className="font-mono text-[12px]">.csv</code> format and contain two columns:{" "}
-                <code className="font-mono text-[12px]">variable_name</code> and{" "}
-                <code className="font-mono text-[12px]">description</code>.
-                It is recommended (but not needed) that these variables be linked to standardised ontologies.
-              </p>
-            </li>
-            <li>
-              <span className="font-semibold">Step 2 — Upload Incoming Datasets</span>
-              <p className="mt-0.5 text-text-secondary leading-relaxed">
-                From here, incoming study data which needs to be mapped to the target codebook can be uploaded.
-                The following documents can be uploaded:
-              </p>
-              <ul className="mt-1.5 ml-4 space-y-1 text-text-secondary list-disc">
-                <li>Study Name <span className="text-text-secondary opacity-70">(required)</span></li>
-                <li>
-                  Variables Table <span className="text-text-secondary opacity-70">(required)</span> — CSV with columns{" "}
-                  <code className="font-mono text-[12px]">variable_name</code> and{" "}
-                  <code className="font-mono text-[12px]">description</code>
-                </li>
-                <li>
-                  Example Data <span className="text-text-secondary opacity-70">(optional)</span> — CSV whose column headers match the variable names
-                </li>
-                <li>
-                  Contextual Documents <span className="text-text-secondary opacity-70">(optional, PDF)</span> — a study protocol or relevant documentation that helps the AI generate better descriptions
-                </li>
-              </ul>
-            </li>
-            <li>
-              <span className="font-semibold">Step 3 — Map Datasets to Codebook</span>
-              <p className="mt-0.5 text-text-secondary leading-relaxed">
-                Once steps 1 &amp; 2 have been completed, a recommendations algorithm will suggest the most likely variable
-                mappings for each added dataset. The user will be presented with an interface to select the correct
-                mappings from a list of suggested mappings. The actual mapping process remains manual.
-              </p>
-            </li>
-            <li>
-              <span className="font-semibold">Step 4 — Download Mapping Results</span>
-              <p className="mt-0.5 text-text-secondary leading-relaxed">
-                Once the mapping process has been completed, each study that has been fully mapped will be available
-                for download as a <code className="font-mono text-[12px]">.csv</code> file. The mapping result is a
-                table mapping each dataset variable name to a corresponding codebook variable name.
-              </p>
-            </li>
-          </ol>
+      {/* Getting started — substantial, equal-height cards that fill the width
+          properly. These are the entry point, ordered top-to-bottom by step. */}
+      <div className="mt-10">
+        <h2 className="text-[17px] font-semibold text-text-primary mb-4">Getting started</h2>
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+          {STEPS.map(({ icon: Icon, step, title, desc, to }) => (
+            <Link
+              key={title}
+              to={to}
+              className="bg-surface border rounded-lg p-6 shadow-sm hover:border-primary hover:shadow-md transition-all flex flex-col"
+            >
+              <div className="size-11 rounded-md bg-primary-light text-primary flex items-center justify-center">
+                <Icon className="size-6" />
+              </div>
+              <div className="mt-4 text-[13px] font-medium tracking-wide text-text-secondary uppercase">
+                {step}
+              </div>
+              <div className="mt-0.5 font-semibold text-[18px]">{title}</div>
+              <div className="text-[15px] text-text-secondary mt-1">{desc}</div>
+              <div className="mt-4 pt-3 border-t text-[15px] font-medium text-primary flex items-center gap-1">
+                Go <ArrowRight className="size-3.5" />
+              </div>
+            </Link>
+          ))}
         </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4 mt-6">
-        {[
-          {
-            icon: FileSpreadsheet,
-            title: "Codebook",
-            desc: "Upload your target variable list",
-          },
-          {
-            icon: Cpu,
-            title: "AI Recommendations",
-            desc: "Semantic matching via embeddings",
-          },
-          {
-            icon: GitMerge,
-            title: "Manual Review",
-            desc: "Operator-confirmed mappings with audit trail",
-          },
-        ].map(({ icon: Icon, title, desc }) => (
-          <div
-            key={title}
-            className="bg-surface border rounded-lg p-5 shadow-sm"
-          >
-            <div className="size-9 rounded-md bg-primary-light text-primary flex items-center justify-center">
-              <Icon className="size-5" />
-            </div>
-            <div className="mt-3 font-semibold text-[14px]">{title}</div>
-            <div className="text-[13px] text-text-secondary mt-1">{desc}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-8">
-        <Link
-          to="/upload-codebook"
-          className="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary-hover px-5 h-10 rounded-md text-[14px] font-medium transition-colors"
-        >
-          Get Started <ArrowRight className="size-4" />
-        </Link>
       </div>
     </div>
   );

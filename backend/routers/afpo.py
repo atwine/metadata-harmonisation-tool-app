@@ -81,18 +81,36 @@ async def mark_gap_submitted(body: AfpoGapSubmittedRequest):
     return {"status": "not_found"}
 
 
+@router.post("/gaps/unsubmitted")
+async def unmark_gap_submitted(body: AfpoGapSubmittedRequest):
+    """The recovery path for a local 'already submitted' flag that's wrong —
+    only meant to be called after the frontend has live-checked GitHub
+    (GET /check-github) and confirmed no matching issue actually exists.
+    Without this, a bad local flag (e.g. from a submission that never
+    actually reached GitHub) would permanently block resubmitting that term."""
+    if db.unmark_afpo_gap_submitted(body.study, body.variable_name, body.value):
+        return {"status": "unmarked"}
+    return {"status": "not_found"}
+
+
 @router.get("/check-github", response_model=GithubCheckResponse)
-async def check_github(value: str = Query(...)):
+async def check_github(value: str = Query(...), force: bool = Query(False)):
     """Live-checks GitHub for an existing open/closed issue requesting this
     term, before the frontend lets the user file a new one — this is the
     actual cross-installation dedup guard (see core.afpo_github_check for
     why a local-only flag can't do this job on its own).
 
     Cached for 24h per normalised term: GitHub's search API is capped at
-    10 req/min unauthenticated, so re-checking on every render isn't viable."""
+    10 req/min unauthenticated, so re-checking on every render isn't viable.
+
+    force=True skips the cache read (a fresh result is still cached after).
+    Only the "unstick a wrongly-flagged already-submitted gap" recheck flow
+    passes this — that action is user-initiated and infrequent, but it's
+    specifically asking "is this really still missing right now", so serving
+    it a stale cached 'none' could let a genuine duplicate through."""
     key = value.strip().lower()
 
-    cached = db.get_github_check_cache(key)
+    cached = None if force else db.get_github_check_cache(key)
     if cached is not None:
         checked_at = datetime.datetime.fromisoformat(cached["checked_at"])
         if datetime.datetime.now(datetime.timezone.utc) - checked_at < _GITHUB_CHECK_CACHE_TTL:

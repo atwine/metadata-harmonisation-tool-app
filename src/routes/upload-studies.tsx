@@ -5,6 +5,7 @@ import {
   Table as TableIcon,
   FileText,
   Trash2,
+  FolderOpen,
 } from "lucide-react";
 import { PageHeader } from "@/components/Sidebar";
 import { useStudies, useUploadStudy, useDeleteStudy } from "@/api/client";
@@ -28,7 +29,7 @@ function statusChip(status: Study["status"]) {
     complete: "Complete",
   };
   return (
-    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${map[status]}`}>
+    <span className={`text-[13px] font-medium px-2 py-0.5 rounded-full ${map[status]}`}>
       {label[status]}
     </span>
   );
@@ -70,15 +71,15 @@ function Dropzone({ icon: Icon, label, hint, file, onFile, accept }: DropzonePro
       <div className="leading-tight">
         {file ? (
           <>
-            <div className="text-[13px] font-medium text-primary">{file.name}</div>
-            <div className="text-[11px] text-text-secondary">
+            <div className="text-[15px] font-medium text-primary">{file.name}</div>
+            <div className="text-[13px] text-text-secondary">
               {(file.size / 1024).toFixed(0)} KB
             </div>
           </>
         ) : (
           <>
-            <div className="text-[13px]">{label}</div>
-            {hint && <div className="text-[11px] text-text-secondary">{hint}</div>}
+            <div className="text-[15px]">{label}</div>
+            {hint && <div className="text-[13px] text-text-secondary">{hint}</div>}
           </>
         )}
       </div>
@@ -142,7 +143,7 @@ function UploadStudiesPage() {
                 value={studyName}
                 onChange={(e) => setStudyName(e.target.value)}
                 placeholder="e.g. cohort_2024"
-                className="mt-1 w-full h-9 px-3 rounded-md border bg-surface text-[13px]"
+                className="mt-1 w-full h-9 px-3 rounded-md border bg-surface text-[15px]"
               />
             </div>
             <Dropzone
@@ -170,14 +171,14 @@ function UploadStudiesPage() {
               accept=".pdf"
             />
             {upload.isError && (
-              <div className="p-2 rounded-md bg-red-50 border border-red-200 text-[12px] text-red-700">
+              <div className="p-2 rounded-md bg-red-50 border border-red-200 text-[14px] text-red-700">
                 {(upload.error as Error).message}
               </div>
             )}
             <button
               onClick={handleAdd}
               disabled={!canSubmit || upload.isPending}
-              className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary-hover rounded-md text-[14px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary-hover rounded-md text-[16px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {upload.isPending ? "Uploading…" : "Add Study"}
             </button>
@@ -188,67 +189,80 @@ function UploadStudiesPage() {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <h2 className="section-heading">Uploaded Studies</h2>
-            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-primary-light text-primary">
+            <span className="text-[13px] font-medium px-2 py-0.5 rounded-full bg-primary-light text-primary">
               {studies.length}
             </span>
           </div>
-          <div className="space-y-3">
-            {studies.map((s) => (
-              <div key={s.name} className="bg-surface border rounded-lg p-4 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold text-[14px] font-mono">{s.name}</div>
-                  {statusChip(s.status)}
-                </div>
-                <div className="text-[12px] text-text-secondary mt-1">
-                  {s.variable_count} variables
-                </div>
-                <div className="flex items-center justify-between mt-3">
-                  <div className="flex gap-2">
-                    {s.has_example_data && (
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-accent-light text-accent">
-                        Example data
-                      </span>
-                    )}
-                    {s.has_context_pdf && (
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-primary-light text-primary">
-                        Context PDF
-                      </span>
-                    )}
-                  </div>
-                  {deleteTarget === s.name ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[12px] text-danger">Delete?</span>
-                      <button
-                        onClick={() => handleDelete(s.name)}
-                        className="text-[12px] text-danger font-medium hover:underline"
-                      >
-                        Yes
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(null)}
-                        className="text-[12px] text-text-secondary hover:underline"
-                      >
-                        No
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      aria-label="delete"
-                      onClick={() => setDeleteTarget(s.name)}
-                      className="size-8 rounded-md text-danger hover:bg-primary-light flex items-center justify-center"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
+          {studies.length === 0 ? (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              {[0, 1].map((i) => (
+                <div
+                  key={i}
+                  className="border-2 border-dashed rounded-lg p-8 min-h-[132px] flex flex-col items-center justify-center gap-2 text-center"
+                >
+                  <FolderOpen className="size-6 text-text-secondary/40" />
+                  {i === 0 && (
+                    <p className="text-[15px] text-text-secondary">
+                      Studies you add will appear here
+                    </p>
                   )}
                 </div>
-              </div>
-            ))}
-            {studies.length === 0 && (
-              <div className="text-[13px] text-text-secondary text-center py-8">
-                No studies uploaded yet.
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              {studies.map((s) => (
+                <div key={s.name} className="bg-surface border rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold text-[16px] font-mono">{s.name}</div>
+                    {statusChip(s.status)}
+                  </div>
+                  <div className="text-[14px] text-text-secondary mt-1">
+                    {s.variable_count} variables
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex gap-2">
+                      {s.has_example_data && (
+                        <span className="text-[13px] font-medium px-2 py-0.5 rounded-full bg-accent-light text-accent">
+                          Example data
+                        </span>
+                      )}
+                      {s.has_context_pdf && (
+                        <span className="text-[13px] font-medium px-2 py-0.5 rounded-full bg-primary-light text-primary">
+                          Context PDF
+                        </span>
+                      )}
+                    </div>
+                    {deleteTarget === s.name ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[14px] text-danger">Delete?</span>
+                        <button
+                          onClick={() => handleDelete(s.name)}
+                          className="text-[14px] text-danger font-medium hover:underline"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(null)}
+                          className="text-[14px] text-text-secondary hover:underline"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        aria-label="delete"
+                        onClick={() => setDeleteTarget(s.name)}
+                        className="size-8 rounded-md text-danger hover:bg-primary-light flex items-center justify-center"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
