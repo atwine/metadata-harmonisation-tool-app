@@ -8,6 +8,7 @@ python-dotenv
 openai
 anthropic
 ollama
+httpx
 clevercsv
 python-multipart
 rapidfuzz

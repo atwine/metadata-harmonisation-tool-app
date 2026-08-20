@@ -103,7 +103,7 @@ async def check_github(value: str = Query(...)):
                 from_cache=True,
             )
 
-    result = check_github_for_term(value)
+    result = await check_github_for_term(value)
     if result["status"] != "unavailable":
         db.set_github_check_cache(key, result["status"], result["issues"])
 

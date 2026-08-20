@@ -22,21 +22,31 @@ _SEARCH_URL = "https://api.github.com/search/issues"
 _TIMEOUT = 8.0
 
 
-def check_github_for_term(value: str) -> dict[str, Any]:
+async def check_github_for_term(value: str) -> dict[str, Any]:
     """Returns {"status": "open_exists" | "closed_exists" | "none" | "unavailable",
     "issues": [{"number", "url", "state", "title"}, ...]}.
 
     Searches issue titles for our own submission template's exact wording
     (see afpo_gap_reporter.build_github_issue_url) so a match is precise
-    rather than matching any issue that happens to mention the term."""
-    query = f'repo:{_REPO} in:title "New term request: {value}"'
+    rather than matching any issue that happens to mention the term.
+
+    Async — this call can take up to _TIMEOUT seconds on an uncached term, and
+    the endpoint that calls this is on the same event loop serving every other
+    request; a blocking call here would stall the whole app for that long."""
+    # Strip embedded quotes: GitHub's search syntax treats " as a phrase
+    # delimiter, so an unescaped one in the term (e.g. a value like
+    # `Fulani "Peul"` from messy source data) would split our quoted phrase
+    # into several, breaking the exact-title match this function depends on.
+    sanitised = value.replace('"', "")
+    query = f'repo:{_REPO} in:title "New term request: {sanitised}"'
     headers = {"Accept": "application/vnd.github+json"}
     token = os.environ.get("GITHUB_TOKEN")
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
     try:
-        resp = httpx.get(_SEARCH_URL, params={"q": query}, headers=headers, timeout=_TIMEOUT)
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(_SEARCH_URL, params={"q": query}, headers=headers, timeout=_TIMEOUT)
     except httpx.HTTPError:
         return {"status": "unavailable", "issues": []}
 

@@ -13,10 +13,11 @@ async def lifespan(app: FastAPI):
     for d in ["input", "results", "logs"]:
         Path(d).mkdir(exist_ok=True)
     init_db()
-    # Best-effort — refresh_ontology() already catches network/parse errors
-    # and falls back to whatever's already loaded, so this never blocks
-    # startup on a slow/offline network beyond its own request timeout.
-    refresh_ontology()
+    # Best-effort and async — refresh_ontology() already catches network/parse
+    # errors and falls back to whatever's already loaded, and awaiting it
+    # (rather than a blocking call) keeps the event loop free for other
+    # startup work instead of freezing on a slow network for its timeout.
+    await refresh_ontology()
     yield
 
 

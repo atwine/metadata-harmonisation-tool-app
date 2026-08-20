@@ -12,6 +12,7 @@ import {
   useReopenMapping,
   useAfpoLookup,
   useAfpoMarkGapSubmitted,
+  useOntologyStatus,
   api,
   type TransformationPreviewResponse,
   type ValidateExpressionResponse,
@@ -72,7 +73,8 @@ function MapStudiesPage() {
   const [afpoResults, setAfpoResults] = useState<AfpoLookupResult[] | null>(null);
   const [afpoGapEdits, setAfpoGapEdits] = useState<Record<string, string>>({});
   const [afpoSubmittedGaps, setAfpoSubmittedGaps] = useState<Set<string>>(new Set());
-  const [afpoGithubCheck, setAfpoGithubCheck] = useState<Record<string, GithubCheckResponse | { status: "checking" }>>({});
+  type AfpoGithubCheckState = { status: "checking" } | (GithubCheckResponse & { checkedTerm: string });
+  const [afpoGithubCheck, setAfpoGithubCheck] = useState<Record<string, AfpoGithubCheckState>>({});
 
   const study = currentStudy ?? "";
 
@@ -84,6 +86,7 @@ function MapStudiesPage() {
   const reopenMapping = useReopenMapping();
   const afpoLookup = useAfpoLookup();
   const afpoMarkSubmitted = useAfpoMarkGapSubmitted();
+  const { data: ontologyStatus } = useOntologyStatus();
 
   const records = mappingsData?.records ?? [];
 
@@ -195,10 +198,12 @@ function MapStudiesPage() {
   // The actual submission — opens the pre-filled GitHub issue tab and marks
   // the gap locally submitted. Only reached once nothing live on GitHub is
   // blocking it (see handleAfpoSubmitGap), or the human explicitly chose
-  // "Submit anyway" past a closed prior request.
-  const proceedWithAfpoSubmit = (originalValue: string) => {
+  // "Submit anyway" past a closed prior request. Takes the exact term that
+  // was actually checked against GitHub (not a fresh re-read of the edit
+  // box) — otherwise an edit made after the check resolves could submit a
+  // different term than the one just verified against GitHub.
+  const proceedWithAfpoSubmit = (originalValue: string, submittedAs: string) => {
     if (!study || !selectedVar) return;
-    const submittedAs = (afpoGapEdits[originalValue] || originalValue).trim() || originalValue;
 
     // Open the tab synchronously (inside the click handler) so popup blockers
     // don't intervene, then navigate it once the backend-built URL resolves —
@@ -232,7 +237,7 @@ function MapStudiesPage() {
     } catch {
       result = { status: "unavailable", issues: [], from_cache: false };
     }
-    setAfpoGithubCheck((prev) => ({ ...prev, [originalValue]: result }));
+    setAfpoGithubCheck((prev) => ({ ...prev, [originalValue]: { ...result, checkedTerm: submittedAs } }));
 
     // open_exists: blocked, nothing more to do — the UI shows the existing
     // issue link instead of the Submit button.
@@ -240,7 +245,7 @@ function MapStudiesPage() {
     // duplicate?), so a human decides via the "Submit anyway" action.
     // none / unavailable: nothing found (or couldn't check) — proceed.
     if (result.status === "open_exists" || result.status === "closed_exists") return;
-    proceedWithAfpoSubmit(originalValue);
+    proceedWithAfpoSubmit(originalValue, submittedAs);
   };
 
   const handleSubmit = () => {
@@ -694,11 +699,19 @@ function MapStudiesPage() {
                   <Globe className="size-4 text-primary" />
                   <span className="text-[14px] font-medium">AfPO Population Mapping</span>
                 </div>
-                <p className="text-[12px] text-text-secondary mb-3">
+                <p className="text-[12px] text-text-secondary mb-1">
                   This variable appears to contain population or ethnicity data. Enter the
                   values found in your dataset to map them to the African Population Ontology
                   (AfPO).
                 </p>
+                {ontologyStatus && (
+                  <p className="text-[11px] text-text-secondary mb-3">
+                    Ontology: {ontologyStatus.data_version ?? "unknown release"}
+                    {ontologyStatus.using_cache && ontologyStatus.fetched_at
+                      ? ` · refreshed ${new Date(ontologyStatus.fetched_at).toLocaleDateString()}`
+                      : " · shipped with app"}
+                  </p>
+                )}
                 <label className="text-[12px] text-text-secondary block mb-1">
                   Ethnicity/population values found in this column (one per line):
                 </label>
@@ -780,7 +793,7 @@ function MapStudiesPage() {
                                     onChange={(e) =>
                                       setAfpoGapEdits((prev) => ({ ...prev, [r.input_value]: e.target.value }))
                                     }
-                                    disabled={alreadySubmitted}
+                                    disabled={alreadySubmitted || checking}
                                     className="h-9 flex-1 px-2 rounded-md border bg-surface text-[12px] font-mono disabled:opacity-60"
                                   />
                                   {r.search_issues_url && (
@@ -802,7 +815,7 @@ function MapStudiesPage() {
                                   </button>
                                 </div>
 
-                                {openBlock && openBlock.issues[0] && (
+                                {openBlock && !alreadySubmitted && openBlock.issues[0] && (
                                   <p className="text-[11px] text-accent pl-1">
                                     Already requested on GitHub — see{" "}
                                     <a
@@ -817,7 +830,7 @@ function MapStudiesPage() {
                                   </p>
                                 )}
 
-                                {closedBlock && closedBlock.issues[0] && (
+                                {closedBlock && !alreadySubmitted && closedBlock.issues[0] && (
                                   <p className="text-[11px] text-text-secondary pl-1">
                                     A request for this term was already filed and closed — check{" "}
                                     <a
@@ -830,7 +843,7 @@ function MapStudiesPage() {
                                     </a>{" "}
                                     before resubmitting.{" "}
                                     <button
-                                      onClick={() => proceedWithAfpoSubmit(r.input_value)}
+                                      onClick={() => proceedWithAfpoSubmit(r.input_value, closedBlock.checkedTerm)}
                                       className="text-primary hover:underline font-medium"
                                     >
                                       Submit anyway

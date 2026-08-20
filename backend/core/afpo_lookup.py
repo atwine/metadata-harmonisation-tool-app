@@ -136,26 +136,42 @@ def _extract_data_version(content: str) -> Optional[str]:
     return None
 
 
+def _load_shipped() -> tuple[dict[str, AfpoTerm], Optional[str], Optional[str], str]:
+    try:
+        content = _SHIPPED_OBO_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return {}, None, None, "missing"
+    return _parse_obo(content), _extract_data_version(content), None, "shipped"
+
+
 def _load_initial() -> tuple[dict[str, AfpoTerm], Optional[str], Optional[str], str]:
     """Loads the table at import time: prefer a previously-cached refresh
     (last known-good fetch, survives an offline restart via the bind mount)
-    over the file baked into the image/repo. Returns
-    (table, data_version, fetched_at, source)."""
+    over the file baked into the image/repo. Falls back to the shipped copy
+    on any cache read/parse failure (interrupted write, permission mismatch
+    on the bind mount, corrupted content) rather than silently loading an
+    empty or partial table. Returns (table, data_version, fetched_at, source)."""
     if _CACHE_OBO_PATH.exists():
-        content = _CACHE_OBO_PATH.read_text(encoding="utf-8")
+        try:
+            content = _CACHE_OBO_PATH.read_text(encoding="utf-8")
+            table = _parse_obo(content)
+        except (OSError, UnicodeDecodeError) as e:
+            logger.warning("AfPO ontology cache unreadable (%s) — falling back to shipped copy", e)
+            return _load_shipped()
+
+        if not table:
+            logger.warning("AfPO ontology cache parsed to zero terms — falling back to shipped copy")
+            return _load_shipped()
+
         fetched_at = None
         if _CACHE_META_PATH.exists():
             try:
                 fetched_at = json.loads(_CACHE_META_PATH.read_text(encoding="utf-8")).get("fetched_at")
             except (json.JSONDecodeError, OSError):
                 pass
-        return _parse_obo(content), _extract_data_version(content), fetched_at, "cache"
+        return table, _extract_data_version(content), fetched_at, "cache"
 
-    try:
-        content = _SHIPPED_OBO_PATH.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return {}, None, None, "missing"
-    return _parse_obo(content), _extract_data_version(content), None, "shipped"
+    return _load_shipped()
 
 
 # Loaded once at module import — the file is ~10k lines, fast enough to eat
@@ -168,17 +184,19 @@ _current_source: str
 lookup_table, _current_data_version, _current_fetched_at, _current_source = _load_initial()
 
 
-def refresh_ontology(timeout: float = 10.0) -> dict:
+async def refresh_ontology(timeout: float = 10.0) -> dict:
     """Fetches the latest .obo from upstream; if its data-version differs
     from what's currently loaded, swaps the in-memory table and persists the
     new file to the (bind-mounted, in Docker) cache path. Never raises —
     called from the startup lifespan, so a slow/offline network must degrade
-    to 'keep what we have', not block or crash startup."""
+    to 'keep what we have' without blocking (async) or crashing (caught)
+    startup."""
     global lookup_table, _current_data_version, _current_fetched_at, _current_source
 
     try:
         import httpx
-        resp = httpx.get(_SOURCE_URL, timeout=timeout)
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(_SOURCE_URL, timeout=timeout)
         resp.raise_for_status()
         content = resp.text
     except Exception as e:
