@@ -314,12 +314,17 @@ export const api = {
     variable_name: string;
     value: string;
   }): Promise<unknown> => post("/api/afpo/gaps/submitted", body),
+  afpoUnmarkGapSubmitted: (body: {
+    study: string;
+    variable_name: string;
+    value: string;
+  }): Promise<unknown> => post("/api/afpo/gaps/unsubmitted", body),
   afpoIssueUrl: (value: string, study: string, variableName: string): Promise<{ url: string }> => {
     const params = new URLSearchParams({ value, study, variable_name: variableName });
     return get(`/api/afpo/issue-url?${params.toString()}`);
   },
-  afpoCheckGithub: (value: string): Promise<GithubCheckResponse> =>
-    get(`/api/afpo/check-github?${new URLSearchParams({ value }).toString()}`),
+  afpoCheckGithub: (value: string, force = false): Promise<GithubCheckResponse> =>
+    get(`/api/afpo/check-github?${new URLSearchParams({ value, ...(force ? { force: "true" } : {}) }).toString()}`),
   getOntologyStatus: (): Promise<OntologyStatus> => get("/api/afpo/ontology-status"),
 
   // Download
