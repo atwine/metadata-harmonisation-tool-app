@@ -55,12 +55,16 @@ Variables that look like population/ethnicity data (e.g. mapped to a codebook va
 │   │   ├── db.py              # SQLite (mapping records, audit trail, AfPO gap log)
 │   │   └── files.py
 │   ├── main.py
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── Dockerfile
 ├── data/ontologies/           # AfPO ontology data (afpo-base.obo)
-├── docs/harmonisation_spec.md # Rebuild spec / architecture reference
+├── docs/
+│   ├── docker.md               # Docker Compose walkthrough (data location, troubleshooting)
+│   └── harmonisation_spec.md   # Rebuild spec / architecture reference
 ├── example_data/              # Sample codebooks + studies for local testing
 ├── src/                       # React frontend
 │   ├── api/client.ts          # Typed API client + TanStack Query hooks
+│   ├── components/Sidebar.tsx # Nav, AI Configuration panel, PageHeader + the workflow step strip
 │   ├── routes/                # File-based routing (TanStack Router)
 │   │   ├── upload-codebook.tsx
 │   │   ├── upload-studies.tsx
@@ -71,24 +75,34 @@ Variables that look like population/ethnicity data (e.g. mapped to a codebook va
 │   │   ├── aiConfigStore.ts
 │   │   ├── mappingStore.ts
 │   │   └── wizardStore.ts
+│   ├── styles.css             # Design tokens (colors, the text-xs..xl type scale)
 │   └── types.ts
+├── docker-compose.yml         # Full-stack local packaging (frontend + backend + Ollama)
+├── Dockerfile.frontend
 └── run_backend.py             # Entry point — runs uvicorn from project root
 ```
 
 ## Running via Docker Compose
 
 For non-technical end users, or anyone who'd rather not install Python/Node/Ollama
-separately:
+separately. Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+installed and running first.
 
 ```bash
+git clone https://github.com/atwine/metadata-harmonisation-tool-app.git
+cd metadata-harmonisation-tool-app
 docker compose up
 ```
+
+Run that last command from *inside* the cloned folder — `docker compose` looks for
+`docker-compose.yml` in whatever directory you're in, and that file lives at the
+top level of this repo.
 
 Runs the full stack (frontend, backend, and a bundled Ollama with models pre-pulled)
 locally — no shared/hosted AI backend, everything stays on the machine. First run is
 slow (downloads the AI models); every run after that is fast. See
-[`docs/docker.md`](docs/docker.md) for details, including where your data lives and how
-to back it up.
+[`docs/docker.md`](docs/docker.md) for the full walkthrough, including where your data
+lives, how to back it up, and troubleshooting.
 
 ## Running locally
 
@@ -149,8 +163,9 @@ duplicate-check's GitHub search rate limit from 10 requests/minute (unauthentica
 | POST | `/api/ai-config/test` | Test chat + embedding connection (independently) |
 | GET | `/api/ai-config/models` | Live model listing for Ollama / vLLM |
 | POST | `/api/afpo/lookup` | Look up population/ethnicity values against AfPO |
-| GET | `/api/afpo/check-github` | Live-check GitHub for an existing term-request issue (cached 24h) |
+| GET | `/api/afpo/check-github` | Live-check GitHub for an existing term-request issue (cached 24h; `?force=true` bypasses the cache) |
 | POST | `/api/afpo/gaps/submitted` | Mark an AfPO gap as submitted to GitHub |
+| POST | `/api/afpo/gaps/unsubmitted` | Clear a wrongly-set "already submitted" flag, once a live GitHub check confirms no matching issue actually exists |
 | GET | `/api/afpo/issue-url` | Build the pre-filled AfPO GitHub issue URL |
 | GET | `/api/afpo/ontology-status` | Current AfPO ontology version and last-sync time |
 | GET | `/api/download/{study}/mapping-csv` | Download mapping table |
@@ -171,8 +186,10 @@ AfPO lookups that don't match any ontology term are logged to the same database'
 GitHub yet). Duplicate submissions are guarded two ways: a local flag (this table) for
 what this installation has already filed, and a live GitHub issue search — the real
 cross-installation check, since every installation points at the same shared AfPO repo —
-before a new submission is allowed. See `docs/docker.md` for how the AfPO ontology itself
-stays up to date.
+before a new submission is allowed. If that local flag is ever wrong (e.g. a submission
+that never actually reached GitHub), Map Studies has a "Not there? Re-check" action that
+live-checks GitHub and clears the flag only once it confirms no matching issue exists.
+See `docs/docker.md` for how the AfPO ontology itself stays up to date.
 
 ## Branches
 

@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.3] — 2026-08-24
+
+### Added
+- **Typography scale** — the ~180 arbitrary one-off `text-[Npx]` sizes scattered across every page (13-20px, 8 near-random increments) are replaced with 6 named tokens (`text-xs/sm/base/md/lg/xl`, defined once in `src/styles.css`). Two rare, near-duplicate sizes were folded into their nearest neighbor (a 1px shift, visually unnoticeable).
+- **Workflow step strip** — every workflow page (Upload Codebook, Upload Studies, Initialise, Map Studies, Download Results) now shows where it sits in that 5-step flow, derived from the current route rather than hardcoded per page. Home's "Getting started" cards read from the same shared list, so the two surfaces can't drift apart.
+
+### Changed
+- The AI Configuration sidebar panel now collapses by default instead of always being expanded, freeing space for the actual workflow nav.
+
+### Fixed
+- Buttons not responding when clicked directly on their label text. `<button>` elements had no `user-select` override, so a real mouse's natural jitter between mousedown/mouseup on the label text could be interpreted as a text-selection drag instead of a click — clicking the same button's padding worked fine since there was nothing to select there. Fixed globally (`button { user-select: none }`), not just on the one button it was first reported on.
+
+## [0.8.2] — 2026-08-20
+
+### Fixed
+- `mapping_summary.csv` inside the transformed-data ZIP export was silently missing AfPO population/ethnicity mapping data (`afpo_values_mapped`, `afpo_values_gaps`) for any variable that had it — present in the separate mapping-CSV download, but omitted from this file's column allowlist since it had never been added there.
+
+## [0.8.1] — 2026-08-20
+
+### Added
+- Logo swap (eLwazi icon mark), and a page-by-page UI/UX pass: a "ghost grid" empty state on Upload Studies, a two-column Initialise layout, a Download Results grid with an empty-state nudge, and a Home page rework (justified welcome text, equal-height step cards).
+
+### Fixed
+- **AfPO "Submit to AfPO" opening a permanently blank tab.** `window.open(..., "noopener,noreferrer")` makes modern browsers return `null` from the call, severing the reference the code needed to navigate the tab once the backend-built issue URL resolved — so the tab was left on `about:blank` forever. Fixed by dropping `noopener`/`noreferrer` from that specific call (the destination is always our own backend-built `github.com` URL, so there's no reverse-tabnabbing risk).
+- **A wrongly-set local "already submitted" AfPO flag had no recovery path**, permanently blocking resubmission of a term even when it was never actually filed (e.g. every term submitted while the bug above was active). Added a `POST /api/afpo/gaps/unsubmitted` endpoint and a "Not there? Re-check" UI action that live-checks GitHub and clears the flag only once it's confirmed no matching issue exists. Also fixed the unmark logic itself — it originally cleared only the single most-recent database row, but the "already submitted" read path checks globally across every historical row for that value, so an older row could keep reporting "submitted" even after the fix.
+
 ## [0.8.0] — 2026-08-20
 
 ### Added
