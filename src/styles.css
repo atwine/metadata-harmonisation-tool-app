@@ -41,6 +41,20 @@
   --color-text-secondary: var(--text-secondary);
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Type scale — replaces ~180 one-off text-[Npx] arbitrary values that had
+     accumulated with no shared scale (13-20px in 8 near-random increments).
+     Named after Tailwind's own size scale so text-xs/sm/base/md/lg/xl read
+     as an intentional system instead of another arbitrary number. Two rare,
+     near-duplicate sizes (17px, 19px) were folded into their 18px/20px
+     neighbors — a 1px shift, visually unnoticeable, but it means every size
+     in the app now maps to exactly one of these six tokens. */
+  --text-xs: 13px;
+  --text-sm: 14px;
+  --text-base: 15px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
 }
 
 :root {

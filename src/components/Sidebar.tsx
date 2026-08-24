@@ -28,15 +28,7 @@ const NAV = [
 ] as const;
 
 function BrandDots() {
-  return (
-    <img
-      src="/elwazi-icon.png"
-      alt="eLwazi"
-      width={26}
-      height={32}
-      className="shrink-0"
-    />
-  );
+  return <img src="/elwazi-icon.png" alt="eLwazi" width={26} height={32} className="shrink-0" />;
 }
 
 const PROVIDER_LABELS: Record<AIProviderId, string> = {
@@ -50,7 +42,10 @@ const PROVIDER_LABELS: Record<AIProviderId, string> = {
 const CHAT_PROVIDERS: AIProviderId[] = ["ollama", "vllm", "openai", "anthropic", "azure_openai"];
 const EMBEDDING_PROVIDERS: AIProviderId[] = ["ollama", "vllm", "openai", "azure_openai"];
 
-const SLOT_DEFAULTS: Record<"chat" | "embedding", Partial<Record<AIProviderId, Partial<ProviderSlot>>>> = {
+const SLOT_DEFAULTS: Record<
+  "chat" | "embedding",
+  Partial<Record<AIProviderId, Partial<ProviderSlot>>>
+> = {
   chat: {
     ollama: { model: OLLAMA_CHAT_MODEL, base_url: OLLAMA_BASE_URL },
     vllm: { model: "", base_url: "" },
@@ -72,7 +67,12 @@ function hasLiveModelList(provider: AIProviderId) {
 function showsApiKey(provider: AIProviderId) {
   // Required for these; vLLM only needs one if the server was launched with
   // --api-key, so it's shown but optional there.
-  return provider === "openai" || provider === "anthropic" || provider === "azure_openai" || provider === "vllm";
+  return (
+    provider === "openai" ||
+    provider === "anthropic" ||
+    provider === "azure_openai" ||
+    provider === "vllm"
+  );
 }
 function apiKeyRequired(provider: AIProviderId) {
   return provider === "openai" || provider === "anthropic" || provider === "azure_openai";
@@ -122,7 +122,7 @@ function ProviderSlotEditor({
         ) : (
           <Layers className="size-4 text-primary" />
         )}
-        <span className="text-[16px] font-medium">
+        <span className="text-md font-medium">
           {role === "chat" ? "Chat model" : "Embedding model"}
         </span>
       </div>
@@ -135,10 +135,12 @@ function ProviderSlotEditor({
           const defs = SLOT_DEFAULTS[role][p] ?? { model: "" };
           onChange({ provider: p, model: defs.model ?? "", base_url: defs.base_url });
         }}
-        className="mt-1 w-full h-10 text-[16px] px-2 rounded-md border bg-surface"
+        className="mt-1 w-full h-10 text-md px-2 rounded-md border bg-surface"
       >
         {providers.map((p) => (
-          <option key={p} value={p}>{PROVIDER_LABELS[p]}</option>
+          <option key={p} value={p}>
+            {PROVIDER_LABELS[p]}
+          </option>
         ))}
       </select>
 
@@ -149,7 +151,7 @@ function ProviderSlotEditor({
             value={slot.base_url ?? ""}
             onChange={(e) => update({ base_url: e.target.value })}
             placeholder={slot.provider === "vllm" ? "http://<host>:8000" : OLLAMA_BASE_URL}
-            className="mt-1 w-full h-10 text-[16px] px-2 rounded-md border bg-surface"
+            className="mt-1 w-full h-10 text-md px-2 rounded-md border bg-surface"
           />
         </div>
       )}
@@ -160,11 +162,13 @@ function ProviderSlotEditor({
           <select
             value={slot.model}
             onChange={(e) => update({ model: e.target.value })}
-            className="mt-1 w-full h-10 text-[16px] px-2 rounded-md border bg-surface"
+            className="mt-1 w-full h-10 text-md px-2 rounded-md border bg-surface"
           >
             <option value="">— select model —</option>
             {models.map((m) => (
-              <option key={m} value={m}>{m}</option>
+              <option key={m} value={m}>
+                {m}
+              </option>
             ))}
           </select>
         ) : (
@@ -172,7 +176,7 @@ function ProviderSlotEditor({
             value={slot.model}
             onChange={(e) => update({ model: e.target.value })}
             placeholder="model name"
-            className="mt-1 w-full h-10 text-[16px] px-2 rounded-md border bg-surface"
+            className="mt-1 w-full h-10 text-md px-2 rounded-md border bg-surface"
           />
         )}
       </div>
@@ -186,8 +190,12 @@ function ProviderSlotEditor({
             type="password"
             value={slot.api_key ?? ""}
             onChange={(e) => update({ api_key: e.target.value })}
-            placeholder={apiKeyRequired(slot.provider) ? "sk-..." : "leave blank if the server doesn't require one"}
-            className="mt-1 w-full h-10 text-[16px] px-2 rounded-md border bg-surface"
+            placeholder={
+              apiKeyRequired(slot.provider)
+                ? "sk-..."
+                : "leave blank if the server doesn't require one"
+            }
+            className="mt-1 w-full h-10 text-md px-2 rounded-md border bg-surface"
           />
         </div>
       )}
@@ -197,9 +205,11 @@ function ProviderSlotEditor({
 
 function SlotFeedback({ label, result }: { label: string; result: SlotTestResult }) {
   return (
-    <div className={`text-[15px] font-medium flex items-start gap-1.5 ${
-      result.connected ? "text-success" : "text-danger"
-    }`}>
+    <div
+      className={`text-base font-medium flex items-start gap-1.5 ${
+        result.connected ? "text-success" : "text-danger"
+      }`}
+    >
       <span>{result.connected ? "✅" : "❌"}</span>
       <span>
         {label} {result.connected ? "connected" : "unavailable"}
@@ -210,7 +220,11 @@ function SlotFeedback({ label, result }: { label: string; result: SlotTestResult
 }
 
 function AIConfigPanel() {
-  const [open, setOpen] = useState(true);
+  // Collapsed by default — this is setup content, not part of the everyday
+  // workflow, and having it always expanded pushed the actual nav below the
+  // fold on shorter viewports. The Initialise page's "AI not configured"
+  // banner already tells the user where to look if they need it.
+  const [open, setOpen] = useState(false);
   const { config, setConfig, connectionStatus, setConnectionStatus } = useAIConfigStore();
   const testConn = useTestConnection();
 
@@ -244,14 +258,10 @@ function AIConfigPanel() {
     <div className="px-3 py-3">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between text-[15px] font-medium tracking-widest text-text-secondary uppercase px-1 hover:text-text-primary"
+        className="w-full flex items-center justify-between text-base font-medium tracking-widest text-text-secondary uppercase px-1 hover:text-text-primary"
       >
         <span>AI Configuration</span>
-        {open ? (
-          <ChevronDown className="size-4" />
-        ) : (
-          <ChevronRight className="size-4" />
-        )}
+        {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
       </button>
 
       {open && (
@@ -271,13 +281,17 @@ function AIConfigPanel() {
 
           {/* ── Request Timeout ─────────────────────────────── */}
           <div className="pt-2 border-t">
-            <div className="text-[15px] font-medium tracking-widest text-text-secondary uppercase mb-2">
+            <div className="text-base font-medium tracking-widest text-text-secondary uppercase mb-2">
               ⏱ Request Timeout
             </div>
             <label className="label-caption">Timeout (seconds)</label>
             <div className="mt-1 flex items-center gap-1.5">
               <button
-                onClick={() => updateConfig({ request_timeout: Math.max(5, (config?.request_timeout ?? 30) - 5) })}
+                onClick={() =>
+                  updateConfig({
+                    request_timeout: Math.max(5, (config?.request_timeout ?? 30) - 5),
+                  })
+                }
                 className="size-9 rounded border text-text-secondary hover:bg-[#F5F0EE] text-base font-bold flex items-center justify-center"
               >
                 −
@@ -291,10 +305,14 @@ function AIConfigPanel() {
                   const v = Math.min(120, Math.max(5, Number(e.target.value)));
                   updateConfig({ request_timeout: v });
                 }}
-                className="flex-1 h-9 text-center text-[16px] rounded border bg-surface"
+                className="flex-1 h-9 text-center text-md rounded border bg-surface"
               />
               <button
-                onClick={() => updateConfig({ request_timeout: Math.min(120, (config?.request_timeout ?? 30) + 5) })}
+                onClick={() =>
+                  updateConfig({
+                    request_timeout: Math.min(120, (config?.request_timeout ?? 30) + 5),
+                  })
+                }
                 className="size-9 rounded border text-text-secondary hover:bg-[#F5F0EE] text-base font-bold flex items-center justify-center"
               >
                 +
@@ -304,13 +322,13 @@ function AIConfigPanel() {
 
           {/* ── Connection Test ──────────────────────────────── */}
           <div className="pt-2 border-t">
-            <div className="text-[15px] font-medium tracking-widest text-text-secondary uppercase mb-2">
+            <div className="text-base font-medium tracking-widest text-text-secondary uppercase mb-2">
               🔍 Connection Test
             </div>
             <button
               onClick={handleTest}
               disabled={testConn.isPending}
-              className="w-full h-11 text-[16px] rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+              className="w-full h-11 text-md rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
             >
               {testConn.isPending ? "Testing connection…" : "Test Connection"}
             </button>
@@ -325,7 +343,7 @@ function AIConfigPanel() {
               </div>
             )}
             {testConn.isError && (
-              <div className="mt-2 text-[15px] text-danger">
+              <div className="mt-2 text-base text-danger">
                 ❌ {(testConn.error as Error).message}
               </div>
             )}
@@ -343,31 +361,24 @@ export function Sidebar() {
       <div className="px-4 py-3 flex items-center gap-3">
         <BrandDots />
         <div className="leading-tight">
-          <div className="text-[19px] font-semibold text-text-primary">
-            Metadata Harmonisation
-          </div>
-          <div className="text-[15px] text-text-secondary">
-            eLwazi Open Data Science Platform
-          </div>
+          <div className="text-xl font-semibold text-text-primary">Metadata Harmonisation</div>
+          <div className="text-base text-text-secondary">eLwazi Open Data Science Platform</div>
         </div>
       </div>
       <div className="border-t" />
       <div className="px-3 pt-3 pb-1">
-        <span className="text-[15px] font-medium tracking-widest text-text-secondary uppercase">
+        <span className="text-base font-medium tracking-widest text-text-secondary uppercase">
           Workflow
         </span>
       </div>
       <nav className="flex-1 px-2 space-y-0.5">
         {NAV.map(({ to, label, icon: Icon }) => {
-          const active =
-            to === "/"
-              ? location.pathname === "/"
-              : location.pathname.startsWith(to);
+          const active = to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
           return (
             <Link
               key={to}
               to={to}
-              className={`flex items-center gap-2.5 text-[17px] px-3 py-2 rounded-md transition-colors border-l-[3px] ${
+              className={`flex items-center gap-2.5 text-lg px-3 py-2 rounded-md transition-colors border-l-[3px] ${
                 active
                   ? "bg-primary-light border-primary text-primary font-medium"
                   : "border-transparent text-text-primary hover:bg-[#F5F0EE]"
@@ -384,27 +395,102 @@ export function Sidebar() {
         <AIConfigPanel />
       </div>
       <div className="border-t" />
-      <div className="px-4 py-2 text-[15px] text-text-secondary shrink-0">v0.8.0</div>
+      <div className="px-4 py-2 text-base text-text-secondary shrink-0">v0.8.0</div>
     </aside>
   );
 }
 
-export function PageHeader({
-  title,
-  subtitle,
-}: {
-  title: string;
-  subtitle?: string;
-}) {
+// The 5-step flow Home promises ("Getting started") but which otherwise
+// vanishes once you leave it — every workflow page re-states where it sits
+// in that sequence via the strip below, so the promise holds everywhere,
+// not just on Home. This is the single source of truth for that flow: Home
+// imports it too (for its "Getting started" cards), so the two surfaces
+// can't silently drift apart the way two separately-maintained lists could.
+export const WORKFLOW_STEPS = [
+  {
+    icon: FileSpreadsheet,
+    title: "Upload Codebook",
+    desc: "Set the target variable list",
+    to: "/upload-codebook" as const,
+  },
+  {
+    icon: FolderOpen,
+    title: "Upload Studies",
+    desc: "Add the datasets to be mapped",
+    to: "/upload-studies" as const,
+  },
+  {
+    icon: Cpu,
+    title: "Initialise",
+    desc: "Generate embeddings & recommendations",
+    to: "/initialise" as const,
+  },
+  {
+    icon: GitMerge,
+    title: "Map Studies",
+    desc: "Review AI-suggested mappings",
+    to: "/map-studies" as const,
+  },
+  {
+    icon: Download,
+    title: "Download Results",
+    desc: "Export the mapped datasets",
+    to: "/download-results" as const,
+  },
+] as const;
+
+function WorkflowStepStrip() {
+  // Derived from the current route rather than passed in per-page — a page
+  // can't drift out of sync with its own URL, and adding/reordering a step
+  // only ever means editing WORKFLOW_STEPS once, not renumbering call sites.
+  const location = useLocation();
+  const currentIndex = WORKFLOW_STEPS.findIndex((s) => s.to === location.pathname);
+  if (currentIndex === -1) return null;
+
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      {WORKFLOW_STEPS.map((s, i) => {
+        const status = i === currentIndex ? "current" : i < currentIndex ? "done" : "upcoming";
+        return (
+          <div key={s.title} className="flex items-center gap-2">
+            {i > 0 && <div className="w-4 h-px bg-border" />}
+            <Link
+              to={s.to}
+              className={`flex items-center gap-1.5 text-xs font-medium ${
+                status === "current"
+                  ? "text-primary"
+                  : status === "done"
+                    ? "text-text-secondary hover:text-primary"
+                    : "text-text-secondary/50 hover:text-text-secondary"
+              }`}
+            >
+              <span
+                className={`flex items-center justify-center size-4 rounded-full text-xs ${
+                  status === "current"
+                    ? "bg-primary text-primary-foreground"
+                    : status === "done"
+                      ? "bg-primary-light text-primary"
+                      : "bg-secondary text-text-secondary/50"
+                }`}
+              >
+                {i + 1}
+              </span>
+              {s.title}
+            </Link>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <header className="mb-6">
+      <WorkflowStepStrip />
       <h1 className="page-title">{title}</h1>
       <div className="page-title-underline" />
-      {subtitle && (
-        <p className="mt-3 text-[16px] text-text-secondary max-w-3xl">
-          {subtitle}
-        </p>
-      )}
+      {subtitle && <p className="mt-3 text-md text-text-secondary max-w-3xl">{subtitle}</p>}
     </header>
   );
 }

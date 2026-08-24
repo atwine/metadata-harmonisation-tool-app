@@ -50,8 +50,7 @@ function InitialisePage() {
     studies.length > 0 &&
     studies.every((s) => s.recommendations_ready && s.pid_date_ready);
 
-  const appendLog = (line: LogLine) =>
-    setLog((prev) => [...prev, line]);
+  const appendLog = (line: LogLine) => setLog((prev) => [...prev, line]);
 
   const handleRun = async () => {
     if (!config) return;
@@ -102,9 +101,7 @@ function InitialisePage() {
         buf = parts.pop() ?? "";
 
         for (const part of parts) {
-          const dataLine = part
-            .split("\n")
-            .find((l) => l.startsWith("data:"));
+          const dataLine = part.split("\n").find((l) => l.startsWith("data:"));
           if (!dataLine) continue;
           try {
             const ev = JSON.parse(dataLine.slice(5)) as {
@@ -171,8 +168,9 @@ function InitialisePage() {
       {connectionStatus === "connected" && config ? (
         <div className="bg-success-light border border-l-4 border-l-success rounded-md p-4 flex items-start gap-3">
           <CheckCircle2 className="size-5 text-success mt-0.5" />
-          <div className="text-[15px]">
-            Chat: {config.chat.model} ({providerLabel[config.chat.provider] ?? config.chat.provider})
+          <div className="text-base">
+            Chat: {config.chat.model} ({providerLabel[config.chat.provider] ?? config.chat.provider}
+            )
             {config.embedding
               ? ` · Embedding: ${config.embedding.model} (${providerLabel[config.embedding.provider] ?? config.embedding.provider})`
               : ""}
@@ -181,9 +179,9 @@ function InitialisePage() {
       ) : (
         <div className="bg-accent-light border border-l-4 border-l-accent rounded-md p-4 flex items-start gap-3">
           <AlertTriangle className="size-5 text-accent mt-0.5" />
-          <div className="text-[15px]">
-            AI not configured. Open the AI Configuration panel in the sidebar and test
-            your connection before running.
+          <div className="text-base">
+            AI not configured. Open the AI Configuration panel in the sidebar and test your
+            connection before running.
           </div>
         </div>
       )}
@@ -191,24 +189,22 @@ function InitialisePage() {
       {alreadyDoneNotice && (
         <div className="mt-3 bg-danger-light border border-l-4 border-l-danger rounded-md p-4 flex items-start gap-3">
           <XCircle className="size-5 text-danger mt-0.5" />
-          <div className="text-[15px]">
-            All studies are already initialised — recommendations have already been
-            generated. Check "Force re-run" above if you want to regenerate them, or
-            head to Map Studies to continue.
+          <div className="text-base">
+            All studies are already initialised — recommendations have already been generated. Check
+            "Force re-run" above if you want to regenerate them, or head to Map Studies to continue.
           </div>
         </div>
       )}
 
       {/* two columns: controls on the left, live status/output on the right */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start mt-6">
-
         {/* LEFT: configuration + run */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-[15px] font-medium">Initialisation Prompt</label>
+            <label className="text-base font-medium">Initialisation Prompt</label>
             <button
               onClick={() => setPrompt(DEFAULT_PROMPT)}
-              className="text-[14px] text-primary hover:underline"
+              className="text-sm text-primary hover:underline"
             >
               Reset to default
             </button>
@@ -217,7 +213,7 @@ function InitialisePage() {
             rows={4}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            className="w-full text-[15px] p-3 rounded-md border bg-surface font-mono"
+            className="w-full text-base p-3 rounded-md border bg-surface font-mono"
           />
 
           <div className="mt-2 bg-surface border rounded-md">
@@ -225,7 +221,7 @@ function InitialisePage() {
               onClick={() => setTipsOpen((o) => !o)}
               className="w-full flex items-center justify-between p-3"
             >
-              <span className="text-[15px] font-medium">Prompt tips</span>
+              <span className="text-base font-medium">Prompt tips</span>
               {tipsOpen ? (
                 <ChevronDown className="size-4 text-text-secondary" />
               ) : (
@@ -233,7 +229,7 @@ function InitialisePage() {
               )}
             </button>
             {tipsOpen && (
-              <ul className="px-4 pb-3 text-[15px] text-text-primary space-y-1 list-disc list-inside">
+              <ul className="px-4 pb-3 text-base text-text-primary space-y-1 list-disc list-inside">
                 <li>Mention the study domain (e.g., maternal health, TB).</li>
                 <li>List common abbreviations used in the dataset.</li>
                 <li>Specify the target unit system (SI vs Imperial).</li>
@@ -242,7 +238,7 @@ function InitialisePage() {
             )}
           </div>
 
-          <label className="mt-3 flex items-center gap-2 text-[15px] cursor-pointer select-none">
+          <label className="mt-3 flex items-center gap-2 text-base cursor-pointer select-none">
             <input
               type="checkbox"
               checked={forceRerun}
@@ -259,12 +255,12 @@ function InitialisePage() {
             <button
               onClick={() => void handleRun()}
               disabled={running || connectionStatus !== "connected"}
-              className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary-hover rounded-md text-[16px] font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary-hover rounded-md text-md font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Play className="size-4" />
               {running ? "Running…" : "Run Recommendation Engine"}
             </button>
-            <p className="text-[14px] text-text-secondary mt-2 text-center">
+            <p className="text-sm text-text-secondary mt-2 text-center">
               This will generate descriptions, embeddings, and semantic matches for all
               uninitialised studies.
             </p>
@@ -275,7 +271,7 @@ function InitialisePage() {
         <div>
           <h2 className="section-heading mb-2">Studies</h2>
           <div className="bg-surface border rounded-lg overflow-x-auto shadow-sm">
-            <table className="w-full text-[15px]">
+            <table className="w-full text-base">
               <thead>
                 <tr className="bg-primary text-primary-foreground">
                   <th className="text-left px-3 h-9 font-medium whitespace-nowrap">Study</th>
@@ -294,11 +290,8 @@ function InitialisePage() {
                   </tr>
                 ) : (
                   studies.map((s, i) => (
-                    <tr
-                      key={s.name}
-                      style={{ background: i % 2 ? "#FAFAF8" : "#FFFFFF" }}
-                    >
-                      <td className="px-3 h-9 font-mono text-[14px]">{s.name}</td>
+                    <tr key={s.name} style={{ background: i % 2 ? "#FAFAF8" : "#FFFFFF" }}>
+                      <td className="px-3 h-9 font-mono text-sm">{s.name}</td>
                       <td className="px-3 h-9">
                         <Cell ok={s.descriptions_generated} />
                       </td>
@@ -320,7 +313,7 @@ function InitialisePage() {
 
           {/* progress log */}
           <div
-            className="mt-4 rounded-md p-3 font-mono text-[15px] text-white overflow-y-auto"
+            className="mt-4 rounded-md p-3 font-mono text-base text-white overflow-y-auto"
             style={{ background: "#1A1A1A", height: 160 }}
           >
             {log.length === 0 ? (
@@ -361,7 +354,7 @@ function InitialisePage() {
               ) : (
                 <XCircle className="size-5 text-danger mt-0.5" />
               )}
-              <div className="text-[15px] font-medium">
+              <div className="text-base font-medium">
                 {runResult === "success"
                   ? "Recommendation engine finished successfully. You can head to Map Studies."
                   : "Recommendation engine failed — see the error above for details."}
@@ -373,25 +366,25 @@ function InitialisePage() {
 
       {/* danger zone */}
       <div className="mt-8 border border-danger/30 bg-danger-light/40 rounded-lg p-4">
-        <h2 className="text-[15px] font-semibold text-danger mb-2">Danger Zone</h2>
+        <h2 className="text-base font-semibold text-danger mb-2">Danger Zone</h2>
         <div className="flex items-center justify-between gap-4">
-          <span className="text-[14px] text-text-secondary">
+          <span className="text-sm text-text-secondary">
             Deletes all uploaded files and results. This cannot be undone.
           </span>
           {confirmClear ? (
             <div className="flex items-center gap-3 shrink-0">
-              <span className="text-[15px] text-danger font-medium whitespace-nowrap">
+              <span className="text-base text-danger font-medium whitespace-nowrap">
                 Delete all files and results?
               </span>
               <button
                 onClick={handleClear}
-                className="h-9 px-4 rounded-md bg-danger text-white text-[15px] font-medium whitespace-nowrap"
+                className="h-9 px-4 rounded-md bg-danger text-white text-base font-medium whitespace-nowrap"
               >
                 Yes, clear
               </button>
               <button
                 onClick={() => setConfirmClear(false)}
-                className="h-9 px-4 rounded-md border text-[15px] whitespace-nowrap"
+                className="h-9 px-4 rounded-md border text-base whitespace-nowrap"
               >
                 Cancel
               </button>
@@ -399,7 +392,7 @@ function InitialisePage() {
           ) : (
             <button
               onClick={() => setConfirmClear(true)}
-              className="inline-flex items-center gap-2 h-9 px-4 rounded-md border border-danger text-danger hover:bg-white text-[15px] font-medium transition-colors shrink-0 whitespace-nowrap"
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-md border border-danger text-danger hover:bg-white text-base font-medium transition-colors shrink-0 whitespace-nowrap"
             >
               <Trash2 className="size-4" />
               Clear Workspace

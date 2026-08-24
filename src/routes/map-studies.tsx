@@ -73,7 +73,9 @@ function MapStudiesPage() {
   const [afpoResults, setAfpoResults] = useState<AfpoLookupResult[] | null>(null);
   const [afpoGapEdits, setAfpoGapEdits] = useState<Record<string, string>>({});
   const [afpoSubmittedGaps, setAfpoSubmittedGaps] = useState<Set<string>>(new Set());
-  type AfpoGithubCheckState = { status: "checking" } | (GithubCheckResponse & { checkedTerm: string });
+  type AfpoGithubCheckState =
+    | { status: "checking" }
+    | (GithubCheckResponse & { checkedTerm: string });
   const [afpoGithubCheck, setAfpoGithubCheck] = useState<Record<string, AfpoGithubCheckState>>({});
   // Terms where a recheck confirmed no matching GitHub issue actually exists,
   // so the local "already submitted" flag was cleared — lets the row fall
@@ -85,7 +87,10 @@ function MapStudiesPage() {
   const study = currentStudy ?? "";
 
   const { data: studies = [] } = useStudies();
-  const { data: mappingsData, refetch: refetchMappings } = useMappings(study, statusFilter === "All" ? undefined : statusFilter);
+  const { data: mappingsData, refetch: refetchMappings } = useMappings(
+    study,
+    statusFilter === "All" ? undefined : statusFilter,
+  );
   const { data: detail, isLoading: detailLoading } = useVariableDetail(study, selectedVar);
   const { data: auditData } = useAudit(study, 5);
   const saveMapping = useSaveMapping();
@@ -123,7 +128,7 @@ function MapStudiesPage() {
     // reference's duplicate filtering — unless it's this variable's own saved match.
     const topAvailable =
       detail.recommendations.find(
-        (r) => !detail.already_used_codebook_vars.includes(r.codebook_var)
+        (r) => !detail.already_used_codebook_vars.includes(r.codebook_var),
       )?.codebook_var ??
       detail.recommendations[0]?.codebook_var ??
       "";
@@ -143,7 +148,7 @@ function MapStudiesPage() {
     // AfPO section: pre-populate from this variable's example data, and
     // reset lookup results — a new variable means a fresh lookup.
     const uniqueExampleValues = Array.from(
-      new Set(detail.example_data.map((v) => v.trim()).filter(Boolean))
+      new Set(detail.example_data.map((v) => v.trim()).filter(Boolean)),
     );
     setAfpoInput(uniqueExampleValues.join("\n"));
     setAfpoResults(null);
@@ -178,13 +183,17 @@ function MapStudiesPage() {
   };
 
   const isEthnicityVar =
-    !!codebookMatch &&
-    ETHNICITY_KEYWORDS.some((kw) => codebookMatch.toLowerCase().includes(kw));
+    !!codebookMatch && ETHNICITY_KEYWORDS.some((kw) => codebookMatch.toLowerCase().includes(kw));
 
   const handleAfpoLookup = () => {
     if (!study || !selectedVar) return;
     const values = Array.from(
-      new Set(afpoInput.split("\n").map((v) => v.trim()).filter(Boolean))
+      new Set(
+        afpoInput
+          .split("\n")
+          .map((v) => v.trim())
+          .filter(Boolean),
+      ),
     );
     if (values.length === 0) return;
     afpoLookup.mutate(
@@ -194,12 +203,12 @@ function MapStudiesPage() {
           setAfpoResults(data.results);
           setAfpoGapEdits(
             Object.fromEntries(
-              data.results.filter((r) => !r.afpo_id).map((r) => [r.input_value, r.input_value])
-            )
+              data.results.filter((r) => !r.afpo_id).map((r) => [r.input_value, r.input_value]),
+            ),
           );
           setAfpoSubmittedGaps(new Set());
         },
-      }
+      },
     );
   };
 
@@ -224,7 +233,8 @@ function MapStudiesPage() {
     // the destination is always our own backend-built github.com URL, not
     // arbitrary/user-controlled content, so there's no reverse-tabnabbing risk.
     const popup = window.open("", "_blank");
-    api.afpoIssueUrl(submittedAs, study, selectedVar)
+    api
+      .afpoIssueUrl(submittedAs, study, selectedVar)
       .then((data) => {
         if (popup) popup.location.href = data.url;
       })
@@ -270,7 +280,10 @@ function MapStudiesPage() {
 
     setAfpoGithubCheck((prev) => ({ ...prev, [originalValue]: { status: "checking" } }));
     const result = await checkGithubFor(submittedAs);
-    setAfpoGithubCheck((prev) => ({ ...prev, [originalValue]: { ...result, checkedTerm: submittedAs } }));
+    setAfpoGithubCheck((prev) => ({
+      ...prev,
+      [originalValue]: { ...result, checkedTerm: submittedAs },
+    }));
 
     // open_exists: blocked, nothing more to do — the UI shows the existing
     // issue link instead of the Submit button.
@@ -300,7 +313,11 @@ function MapStudiesPage() {
 
     if (result.status === "none") {
       try {
-        await api.afpoUnmarkGapSubmitted({ study, variable_name: selectedVar, value: originalValue });
+        await api.afpoUnmarkGapSubmitted({
+          study,
+          variable_name: selectedVar,
+          value: originalValue,
+        });
       } catch {
         // Best-effort — even if the unmark call fails, the recheck result
         // is still shown so the user can retry rather than silently stall.
@@ -326,7 +343,7 @@ function MapStudiesPage() {
 
     const afpoValuesMapped = afpoResults
       ? Object.fromEntries(
-          afpoResults.filter((r) => r.afpo_id).map((r) => [r.input_value, r.afpo_id as string])
+          afpoResults.filter((r) => r.afpo_id).map((r) => [r.input_value, r.afpo_id as string]),
         )
       : undefined;
     const afpoValuesGaps = afpoResults
@@ -359,7 +376,7 @@ function MapStudiesPage() {
           setTransformOpen(false);
           setSelectedVar(nextVar);
         },
-      }
+      },
     );
   };
 
@@ -373,7 +390,7 @@ function MapStudiesPage() {
           // to match so it's visible (and editable) right away, on the same variable.
           setStatusFilter("To do");
         },
-      }
+      },
     );
   };
 
@@ -389,11 +406,7 @@ function MapStudiesPage() {
     topConfidence >= 80 ? "Strong" : topConfidence >= 50 ? "Moderate" : "Weak";
 
   const confidenceColor =
-    topConfidence >= 80
-      ? "var(--success)"
-      : topConfidence >= 50
-        ? "var(--accent)"
-        : "#9C9590";
+    topConfidence >= 80 ? "var(--success)" : topConfidence >= 50 ? "var(--accent)" : "#9C9590";
 
   return (
     <div className="max-w-[1200px]">
@@ -401,14 +414,14 @@ function MapStudiesPage() {
 
       {/* toolbar */}
       <div className="flex items-center gap-3 border-b pb-3 mb-4 flex-wrap">
-        <label className="text-[15px] text-text-secondary">Study:</label>
+        <label className="text-base text-text-secondary">Study:</label>
         <select
           value={study}
           onChange={(e) => {
             setCurrentStudy(e.target.value);
             setSelectedVar("");
           }}
-          className="h-9 w-[220px] px-3 rounded-md border bg-surface text-[15px]"
+          className="h-9 w-[220px] px-3 rounded-md border bg-surface text-base"
         >
           <option value="">— select study —</option>
           {studies.map((s) => (
@@ -421,7 +434,7 @@ function MapStudiesPage() {
           value={operatorName}
           onChange={(e) => setOperatorName(e.target.value)}
           placeholder="Operator name (audit)"
-          className="h-9 w-[200px] px-3 rounded-md border bg-surface text-[15px]"
+          className="h-9 w-[200px] px-3 rounded-md border bg-surface text-base"
         />
         <div className="flex-1" />
         <select
@@ -430,14 +443,14 @@ function MapStudiesPage() {
             setStatusFilter(e.target.value);
             setSelectedVar("");
           }}
-          className="h-9 px-3 rounded-md border bg-surface text-[15px]"
+          className="h-9 px-3 rounded-md border bg-surface text-base"
         >
           <option>To do</option>
           <option>Successfully mapped</option>
           <option>Marked to reconsider</option>
           <option>Marked unmappable</option>
         </select>
-        <span className="text-[14px] font-medium text-text-secondary bg-[#F5F0EE] px-2 py-1 rounded-full">
+        <span className="text-sm font-medium text-text-secondary bg-[#F5F0EE] px-2 py-1 rounded-full">
           {sortedRecords.length} in this view
         </span>
         <div className="inline-flex rounded-md border overflow-hidden">
@@ -445,7 +458,7 @@ function MapStudiesPage() {
             <button
               key={s}
               onClick={() => setSort(s)}
-              className={`h-9 px-3 text-[14px] font-medium transition-colors ${
+              className={`h-9 px-3 text-sm font-medium transition-colors ${
                 sort === s
                   ? "bg-primary text-primary-foreground"
                   : "bg-surface text-text-primary hover:bg-[#F5F0EE]"
@@ -460,7 +473,7 @@ function MapStudiesPage() {
       {/* progress */}
       {mappingsData && (
         <div className="flex items-center gap-3 mb-4">
-          <span className="text-[15px] text-text-secondary">
+          <span className="text-base text-text-secondary">
             {mappingsData.mapped} / {mappingsData.total} variables mapped overall
           </span>
           <div className="w-[240px] h-1.5 rounded-full bg-border overflow-hidden">
@@ -474,50 +487,43 @@ function MapStudiesPage() {
 
       {/* variable selector */}
       <div className="mb-1">
-        <p className="text-[14px] text-text-secondary">
-          The status filter above changes which variables the dropdown below lists —
-          open it to step through every variable marked{" "}
-          <strong>"{statusFilter}"</strong>.
+        <p className="text-sm text-text-secondary">
+          The status filter above changes which variables the dropdown below lists — open it to step
+          through every variable marked <strong>"{statusFilter}"</strong>.
         </p>
       </div>
       <div className="flex items-center gap-3 mb-4">
-        <label className="text-[15px] font-medium">Select variable:</label>
+        <label className="text-base font-medium">Select variable:</label>
         <select
           value={selectedVar}
           onChange={(e) => setSelectedVar(e.target.value)}
-          className="h-9 flex-1 max-w-md px-3 rounded-md border bg-surface text-[15px] font-mono"
+          className="h-9 flex-1 max-w-md px-3 rounded-md border bg-surface text-base font-mono"
         >
-          {sortedRecords.length === 0 && (
-            <option value="">— no variables —</option>
-          )}
+          {sortedRecords.length === 0 && <option value="">— no variables —</option>}
           {sortedRecords.map((r) => (
             <option key={r.study_var} value={r.study_var}>
               {r.study_var}
-              {r.best_confidence !== undefined
-                ? ` (${r.best_confidence}%)`
-                : ""}
+              {r.best_confidence !== undefined ? ` (${r.best_confidence}%)` : ""}
             </option>
           ))}
         </select>
       </div>
 
       {!study && (
-        <div className="text-[15px] text-text-secondary py-8 text-center">
+        <div className="text-base text-text-secondary py-8 text-center">
           Select a study to begin mapping.
         </div>
       )}
 
       {study && !selectedVar && sortedRecords.length === 0 && !detailLoading && (
-        <div className="text-[15px] text-success py-8 text-center font-medium">
-          No variables left in "{statusFilter}" — nice work. Switch the status filter above
-          to review other variables.
+        <div className="text-base text-success py-8 text-center font-medium">
+          No variables left in "{statusFilter}" — nice work. Switch the status filter above to
+          review other variables.
         </div>
       )}
 
       {study && detailLoading && (
-        <div className="text-[15px] text-text-secondary py-8 text-center">
-          Loading…
-        </div>
+        <div className="text-base text-text-secondary py-8 text-center">Loading…</div>
       )}
 
       {study && detail && !detailLoading && (
@@ -525,10 +531,10 @@ function MapStudiesPage() {
           {/* variable detail */}
           <div className="grid grid-cols-2 gap-4 mt-4">
             <div className="bg-surface border rounded-lg p-4 shadow-sm">
-              <div className="text-[14px] uppercase tracking-wide text-text-secondary font-medium mb-2">
+              <div className="text-sm uppercase tracking-wide text-text-secondary font-medium mb-2">
                 Variable
               </div>
-              <table className="w-full text-[15px]">
+              <table className="w-full text-base">
                 <tbody>
                   <tr style={{ background: "#FAFAF8" }}>
                     <td className="px-2 h-8 text-text-secondary w-32">variable_name</td>
@@ -542,18 +548,18 @@ function MapStudiesPage() {
               </table>
             </div>
             <div className="bg-surface border rounded-lg p-4 shadow-sm">
-              <div className="text-[14px] uppercase tracking-wide text-text-secondary font-medium mb-2">
+              <div className="text-sm uppercase tracking-wide text-text-secondary font-medium mb-2">
                 Example Data
               </div>
               {detail.example_data.length > 0 ? (
                 <pre
-                  className="font-mono text-[14px] p-2.5 rounded text-text-primary whitespace-pre-wrap break-words"
+                  className="font-mono text-sm p-2.5 rounded text-text-primary whitespace-pre-wrap break-words"
                   style={{ background: "#F4F0ED" }}
                 >
                   {detail.example_data.join(" ; ")}
                 </pre>
               ) : (
-                <span className="text-[14px] text-text-secondary">No example data available</span>
+                <span className="text-sm text-text-secondary">No example data available</span>
               )}
             </div>
           </div>
@@ -564,11 +570,11 @@ function MapStudiesPage() {
               Submit button that's just sitting there. */}
           {statusFilter !== "To do" ? (
             <div className="mt-4 bg-surface border rounded-lg p-5 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 text-[15px] font-medium text-text-secondary">
+              <div className="flex items-center gap-2 text-base font-medium text-text-secondary">
                 <Lock className="size-4" />
                 Marked "{detail.existing_mapping.marked}" — reviewing read-only.
               </div>
-              <table className="w-full text-[15px] border rounded-md overflow-hidden">
+              <table className="w-full text-base border rounded-md overflow-hidden">
                 <tbody>
                   <tr style={{ background: "#FAFAF8" }}>
                     <td className="px-2 h-9 text-text-secondary w-44">Codebook match</td>
@@ -599,7 +605,7 @@ function MapStudiesPage() {
               </table>
 
               {reopenMapping.isError && (
-                <div className="p-2 rounded-md bg-red-50 border border-red-200 text-[14px] text-red-700">
+                <div className="p-2 rounded-md bg-red-50 border border-red-200 text-sm text-red-700">
                   {(reopenMapping.error as Error).message}
                 </div>
               )}
@@ -607,575 +613,598 @@ function MapStudiesPage() {
               <button
                 onClick={handleReopen}
                 disabled={reopenMapping.isPending}
-                className="w-full h-10 rounded-md text-[16px] font-medium border border-primary text-primary hover:bg-primary-light transition-colors disabled:opacity-50"
+                className="w-full h-10 rounded-md text-md font-medium border border-primary text-primary hover:bg-primary-light transition-colors disabled:opacity-50"
               >
                 {reopenMapping.isPending ? "Reopening…" : "Reopen for edit"}
               </button>
-              <p className="text-[14px] text-text-secondary text-center">
+              <p className="text-sm text-text-secondary text-center">
                 Moves this variable back to "To do" so you can safely change its mapping.
               </p>
             </div>
           ) : (
-          <div className="mt-4 bg-surface border rounded-lg p-5 shadow-sm space-y-5">
-            {/* codebook match */}
-            <div>
-              <label className="text-[15px] font-medium block mb-1.5">
-                Codebook match
-              </label>
-              <select
-                value={codebookMatch}
-                onChange={(e) => {
-                  setCodebookMatch(e.target.value);
-                  setPreview(null);
-                }}
-                className="h-9 w-full px-3 rounded-md border bg-surface text-[15px]"
-              >
-                <option value="">— none —</option>
-                {detail.recommendations.map((r) => {
-                  const isUsed = detail.already_used_codebook_vars.includes(r.codebook_var);
-                  return (
-                    <option key={r.codebook_var} value={r.codebook_var}>
-                      {r.description} — {r.confidence}%{isUsed ? " (used)" : ""}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-
-            {/* confidence */}
-            {codebookMatch && (
-              <div className="flex items-center gap-3">
-                <span className="text-[20px] font-semibold bg-primary-light text-primary px-2.5 py-1 rounded-md">
-                  {topConfidence}%
-                </span>
-                <div className="w-[200px] h-2 rounded-full bg-border overflow-hidden">
-                  <div
-                    className="h-full transition-all"
-                    style={{ width: `${topConfidence}%`, background: confidenceColor }}
-                  />
-                </div>
-                <span className="inline-flex items-center gap-1.5 text-[14px] font-medium">
-                  <span className="size-2 rounded-full" style={{ background: confidenceColor }} />
-                  {confidenceLabel}
-                </span>
-              </div>
-            )}
-
-            {/* relational mode */}
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <button
-                  onClick={toggleRelationalMode}
-                  className={`relative w-9 h-5 rounded-full transition-colors ${
-                    relationalModeEnabled ? "bg-primary" : "bg-border"
-                  }`}
-                  aria-label="toggle relational mode"
+            <div className="mt-4 bg-surface border rounded-lg p-5 shadow-sm space-y-5">
+              {/* codebook match */}
+              <div>
+                <label className="text-base font-medium block mb-1.5">Codebook match</label>
+                <select
+                  value={codebookMatch}
+                  onChange={(e) => {
+                    setCodebookMatch(e.target.value);
+                    setPreview(null);
+                  }}
+                  className="h-9 w-full px-3 rounded-md border bg-surface text-base"
                 >
-                  <span
-                    className={`absolute top-0.5 size-4 rounded-full bg-white transition-all ${
-                      relationalModeEnabled ? "left-4" : "left-0.5"
-                    }`}
-                  />
-                </button>
-                <span className="text-[15px] font-medium">Relational Mode</span>
-              </div>
-              <div
-                className={`grid grid-cols-2 gap-3 transition-opacity ${
-                  relationalModeEnabled ? "opacity-100" : "opacity-40 pointer-events-none"
-                }`}
-              >
-                <div>
-                  <label className="text-[14px] text-text-secondary">Patient ID:</label>
-                  <select
-                    value={pidVar}
-                    onChange={(e) => setPidVar(e.target.value)}
-                    className="mt-1 h-9 w-full px-3 rounded-md border bg-surface text-[15px]"
-                  >
-                    <option value="">— none —</option>
-                    {detail.pid_recommendations.map((r) => (
-                      <option key={r.variable_name} value={r.variable_name}>
-                        {r.variable_name} — {r.confidence}%
+                  <option value="">— none —</option>
+                  {detail.recommendations.map((r) => {
+                    const isUsed = detail.already_used_codebook_vars.includes(r.codebook_var);
+                    return (
+                      <option key={r.codebook_var} value={r.codebook_var}>
+                        {r.description} — {r.confidence}%{isUsed ? " (used)" : ""}
                       </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[14px] text-text-secondary">Date:</label>
-                  <select
-                    value={dateVar}
-                    onChange={(e) => setDateVar(e.target.value)}
-                    className="mt-1 h-9 w-full px-3 rounded-md border bg-surface text-[15px]"
-                  >
-                    <option value="">— none —</option>
-                    {detail.date_recommendations.map((r) => (
-                      <option key={r.variable_name} value={r.variable_name}>
-                        {r.variable_name} — {r.confidence}%
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-span-2 bg-accent-light rounded p-2.5 text-[14px] text-text-primary">
-                  Map each variable to the patient identifier and date columns in this study for relational export.
-                </div>
+                    );
+                  })}
+                </select>
               </div>
-            </div>
 
-            {/* marking */}
-            <div>
-              <label className="text-[16px] font-medium block mb-2">
-                Can this variable be mapped?
-              </label>
-              <div className="flex items-center gap-4 flex-wrap">
-                {MARKINGS.map((opt) => (
-                  <label
-                    key={opt.label}
-                    className="inline-flex items-center gap-2 text-[15px] cursor-pointer"
-                  >
-                    <input
-                      type="radio"
-                      name="marking"
-                      checked={marking === opt.label}
-                      onChange={() => setMarking(opt.label)}
-                      className="accent-primary"
+              {/* confidence */}
+              {codebookMatch && (
+                <div className="flex items-center gap-3">
+                  <span className="text-xl font-semibold bg-primary-light text-primary px-2.5 py-1 rounded-md">
+                    {topConfidence}%
+                  </span>
+                  <div className="w-[200px] h-2 rounded-full bg-border overflow-hidden">
+                    <div
+                      className="h-full transition-all"
+                      style={{ width: `${topConfidence}%`, background: confidenceColor }}
                     />
-                    <span className="size-2 rounded-full" style={{ background: opt.color }} />
-                    {opt.label}
-                  </label>
-                ))}
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+                    <span className="size-2 rounded-full" style={{ background: confidenceColor }} />
+                    {confidenceLabel}
+                  </span>
+                </div>
+              )}
+
+              {/* relational mode */}
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <button
+                    onClick={toggleRelationalMode}
+                    className={`relative w-9 h-5 rounded-full transition-colors ${
+                      relationalModeEnabled ? "bg-primary" : "bg-border"
+                    }`}
+                    aria-label="toggle relational mode"
+                  >
+                    <span
+                      className={`absolute top-0.5 size-4 rounded-full bg-white transition-all ${
+                        relationalModeEnabled ? "left-4" : "left-0.5"
+                      }`}
+                    />
+                  </button>
+                  <span className="text-base font-medium">Relational Mode</span>
+                </div>
+                <div
+                  className={`grid grid-cols-2 gap-3 transition-opacity ${
+                    relationalModeEnabled ? "opacity-100" : "opacity-40 pointer-events-none"
+                  }`}
+                >
+                  <div>
+                    <label className="text-sm text-text-secondary">Patient ID:</label>
+                    <select
+                      value={pidVar}
+                      onChange={(e) => setPidVar(e.target.value)}
+                      className="mt-1 h-9 w-full px-3 rounded-md border bg-surface text-base"
+                    >
+                      <option value="">— none —</option>
+                      {detail.pid_recommendations.map((r) => (
+                        <option key={r.variable_name} value={r.variable_name}>
+                          {r.variable_name} — {r.confidence}%
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm text-text-secondary">Date:</label>
+                    <select
+                      value={dateVar}
+                      onChange={(e) => setDateVar(e.target.value)}
+                      className="mt-1 h-9 w-full px-3 rounded-md border bg-surface text-base"
+                    >
+                      <option value="">— none —</option>
+                      {detail.date_recommendations.map((r) => (
+                        <option key={r.variable_name} value={r.variable_name}>
+                          {r.variable_name} — {r.confidence}%
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-2 bg-accent-light rounded p-2.5 text-sm text-text-primary">
+                    Map each variable to the patient identifier and date columns in this study for
+                    relational export.
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* notes */}
-            <div>
-              <label className="text-[15px] font-medium block mb-1.5">Notes</label>
-              <input
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Optional notes about this mapping..."
-                className="h-9 w-full px-3 rounded-md border bg-surface text-[15px]"
-              />
-            </div>
+              {/* marking */}
+              <div>
+                <label className="text-md font-medium block mb-2">
+                  Can this variable be mapped?
+                </label>
+                <div className="flex items-center gap-4 flex-wrap">
+                  {MARKINGS.map((opt) => (
+                    <label
+                      key={opt.label}
+                      className="inline-flex items-center gap-2 text-base cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        name="marking"
+                        checked={marking === opt.label}
+                        onChange={() => setMarking(opt.label)}
+                        className="accent-primary"
+                      />
+                      <span className="size-2 rounded-full" style={{ background: opt.color }} />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
 
-            {/* AfPO population/ethnicity mapping — only when the matched codebook
+              {/* notes */}
+              <div>
+                <label className="text-base font-medium block mb-1.5">Notes</label>
+                <input
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Optional notes about this mapping..."
+                  className="h-9 w-full px-3 rounded-md border bg-surface text-base"
+                />
+              </div>
+
+              {/* AfPO population/ethnicity mapping — only when the matched codebook
                 variable looks like it holds population/ethnicity data. Entirely
                 optional: doesn't block Submit either way. */}
-            {isEthnicityVar && (
-              <div className="border-t pt-5">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Globe className="size-4 text-primary" />
-                  <span className="text-[16px] font-medium">AfPO Population Mapping</span>
-                </div>
-                <p className="text-[14px] text-text-secondary mb-1">
-                  This variable appears to contain population or ethnicity data. Enter the
-                  values found in your dataset to map them to the African Population Ontology
-                  (AfPO).
-                </p>
-                {ontologyStatus && (
-                  <p className="text-[13px] text-text-secondary mb-3">
-                    Ontology: {ontologyStatus.data_version ?? "unknown release"}
-                    {ontologyStatus.using_cache && ontologyStatus.fetched_at
-                      ? ` · refreshed ${new Date(ontologyStatus.fetched_at).toLocaleDateString()}`
-                      : " · shipped with app"}
-                  </p>
-                )}
-                <label className="text-[14px] text-text-secondary block mb-1">
-                  Ethnicity/population values found in this column (one per line):
-                </label>
-                <textarea
-                  rows={5}
-                  value={afpoInput}
-                  onChange={(e) => setAfpoInput(e.target.value)}
-                  className="w-full text-[15px] p-2.5 rounded-md border bg-surface font-mono"
-                />
-                <button
-                  onClick={handleAfpoLookup}
-                  disabled={afpoLookup.isPending || !afpoInput.trim()}
-                  className="mt-2 h-9 px-3 text-[15px] rounded-md border border-primary text-primary hover:bg-primary-light font-medium disabled:opacity-50"
-                >
-                  {afpoLookup.isPending ? "Looking up…" : "Look up in AfPO"}
-                </button>
-
-                {afpoResults && (
-                  <div className="mt-4 space-y-4">
-                    {afpoResults.some((r) => r.afpo_id) && (
-                      <div>
-                        <div className="text-[15px] font-medium text-success mb-1.5">Matched</div>
-                        <table className="w-full text-[14px] border rounded overflow-hidden">
-                          <thead>
-                            <tr className="bg-primary text-primary-foreground">
-                              <th className="text-left px-2 h-8 font-medium">Input Value</th>
-                              <th className="text-left px-2 h-8 font-medium">AfPO ID</th>
-                              <th className="text-left px-2 h-8 font-medium">Canonical Name</th>
-                              <th className="text-left px-2 h-8 font-medium">Matched Via</th>
-                              <th className="text-left px-2 h-8 font-medium">Confidence</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {afpoResults.filter((r) => r.afpo_id).map((r, i) => (
-                              <tr key={r.input_value} style={{ background: i % 2 ? "#FAFAF8" : "#FFFFFF" }}>
-                                <td className="px-2 h-8 font-mono">{r.input_value}</td>
-                                <td className="px-2 h-8 font-mono">{r.afpo_id}</td>
-                                <td className="px-2 h-8">{r.canonical_name}</td>
-                                <td className="px-2 h-8">{r.matched_via}</td>
-                                <td className="px-2 h-8">{r.confidence}%</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-
-                    {afpoResults.some((r) => !r.afpo_id) && (
-                      <div>
-                        <div className="text-[15px] font-medium text-accent mb-1">
-                          Not found in AfPO — these are gaps
-                        </div>
-                        <p className="text-[14px] text-text-secondary mb-2">
-                          You can edit the term below before submitting. Each gap is
-                          independent — submit in any order.
-                        </p>
-                        <div className="space-y-2">
-                          {afpoResults.filter((r) => !r.afpo_id).map((r) => {
-                            const alreadySubmitted =
-                              (r.already_submitted || afpoSubmittedGaps.has(r.input_value)) &&
-                              !afpoUnstuckGaps.has(r.input_value);
-                            const check = afpoGithubCheck[r.input_value];
-                            const checking = check?.status === "checking";
-                            const openBlock = check?.status === "open_exists" ? check : undefined;
-                            const closedBlock = check?.status === "closed_exists" ? check : undefined;
-                            const unavailable = check?.status === "unavailable" ? check : undefined;
-                            const buttonDisabled = alreadySubmitted || checking || !!openBlock || !!closedBlock;
-                            const buttonLabel = alreadySubmitted
-                              ? "Already submitted ✓"
-                              : checking
-                              ? "Checking GitHub…"
-                              : "Submit to AfPO";
-                            const recheck = afpoRecheck[r.input_value];
-                            const rechecking = recheck?.status === "checking";
-                            return (
-                              <div key={r.input_value} className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[14px] px-2 py-1.5 rounded bg-accent-light text-text-primary font-mono shrink-0">
-                                    {r.input_value}
-                                  </span>
-                                  <input
-                                    value={afpoGapEdits[r.input_value] ?? r.input_value}
-                                    onChange={(e) =>
-                                      setAfpoGapEdits((prev) => ({ ...prev, [r.input_value]: e.target.value }))
-                                    }
-                                    disabled={alreadySubmitted || checking}
-                                    className="h-9 flex-1 px-2 rounded-md border bg-surface text-[14px] font-mono disabled:opacity-60"
-                                  />
-                                  {r.search_issues_url && (
-                                    <a
-                                      href={r.search_issues_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="h-9 px-3 flex items-center text-[14px] rounded-md border text-text-secondary hover:bg-[#F5F0EE] font-medium shrink-0 whitespace-nowrap"
-                                    >
-                                      Search existing
-                                    </a>
-                                  )}
-                                  <button
-                                    onClick={() => handleAfpoSubmitGap(r.input_value)}
-                                    disabled={buttonDisabled}
-                                    className="h-9 px-3 text-[14px] rounded-md border border-primary text-primary hover:bg-primary-light font-medium disabled:opacity-50 disabled:cursor-not-allowed shrink-0 whitespace-nowrap"
-                                  >
-                                    {buttonLabel}
-                                  </button>
-                                  {alreadySubmitted && (
-                                    <button
-                                      onClick={() => handleAfpoRecheck(r.input_value)}
-                                      disabled={rechecking}
-                                      className="h-9 px-3 text-[14px] rounded-md border text-text-secondary hover:bg-[#F5F0EE] font-medium disabled:opacity-50 shrink-0 whitespace-nowrap"
-                                    >
-                                      {rechecking ? "Re-checking…" : "Not there? Re-check"}
-                                    </button>
-                                  )}
-                                </div>
-
-                                {openBlock && !alreadySubmitted && openBlock.issues[0] && (
-                                  <p className="text-[13px] text-accent pl-1">
-                                    Already requested on GitHub — see{" "}
-                                    <a
-                                      href={openBlock.issues[0].url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:underline"
-                                    >
-                                      issue #{openBlock.issues[0].number}
-                                    </a>
-                                    .
-                                  </p>
-                                )}
-
-                                {closedBlock && !alreadySubmitted && closedBlock.issues[0] && (
-                                  <p className="text-[13px] text-text-secondary pl-1">
-                                    A request for this term was already filed and closed — check{" "}
-                                    <a
-                                      href={closedBlock.issues[0].url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:underline"
-                                    >
-                                      issue #{closedBlock.issues[0].number}
-                                    </a>{" "}
-                                    before resubmitting.{" "}
-                                    <button
-                                      onClick={() => proceedWithAfpoSubmit(r.input_value, closedBlock.checkedTerm)}
-                                      className="text-primary hover:underline font-medium"
-                                    >
-                                      Submit anyway
-                                    </button>
-                                  </p>
-                                )}
-
-                                {unavailable && (
-                                  <p className="text-[13px] text-text-secondary pl-1">
-                                    Could not verify against GitHub (rate-limited or offline) — submitted without a live duplicate check.
-                                  </p>
-                                )}
-
-                                {r.already_submitted &&
-                                  r.previously_submitted_at &&
-                                  !afpoSubmittedGaps.has(r.input_value) &&
-                                  !afpoUnstuckGaps.has(r.input_value) && (
-                                  <p className="text-[13px] text-text-secondary pl-1">
-                                    Already submitted to AfPO on{" "}
-                                    {new Date(r.previously_submitted_at).toLocaleDateString()} — check{" "}
-                                    <a
-                                      href={r.search_issues_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:underline"
-                                    >
-                                      existing issues
-                                    </a>{" "}
-                                    before filing another.
-                                  </p>
-                                )}
-
-                                {recheck && recheck.status === "none" && (
-                                  <p className="text-[13px] text-success pl-1">
-                                    Re-check confirmed no matching issue on GitHub — you can submit this term now.
-                                  </p>
-                                )}
-
-                                {recheck && recheck.status === "open_exists" && recheck.issues[0] && (
-                                  <p className="text-[13px] text-accent pl-1">
-                                    Re-check confirmed an open issue exists — see{" "}
-                                    <a
-                                      href={recheck.issues[0].url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:underline"
-                                    >
-                                      issue #{recheck.issues[0].number}
-                                    </a>
-                                    . Still blocked.
-                                  </p>
-                                )}
-
-                                {recheck && recheck.status === "closed_exists" && recheck.issues[0] && (
-                                  <p className="text-[13px] text-text-secondary pl-1">
-                                    Re-check found a closed issue — see{" "}
-                                    <a
-                                      href={recheck.issues[0].url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:underline"
-                                    >
-                                      issue #{recheck.issues[0].number}
-                                    </a>
-                                    . Treating this term as already requested.
-                                  </p>
-                                )}
-
-                                {recheck && recheck.status === "unavailable" && (
-                                  <p className="text-[13px] text-text-secondary pl-1">
-                                    Could not verify against GitHub (rate-limited or offline) — try "Search existing" above, or retry shortly.
-                                  </p>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+              {isEthnicityVar && (
+                <div className="border-t pt-5">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Globe className="size-4 text-primary" />
+                    <span className="text-md font-medium">AfPO Population Mapping</span>
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* transformation */}
-            <div className="border rounded-md">
-              <button
-                onClick={() => setTransformOpen((o) => !o)}
-                className="w-full flex items-center justify-between p-3"
-              >
-                <span className="flex items-center gap-2 text-[15px] font-medium">
-                  Transformation
-                  {!transformOpen && (
-                    <span className="text-[14px] font-normal text-text-secondary">
-                      {expression
-                        ? `— ${transformType}: ${expression}`
-                        : "— none configured"}
-                    </span>
+                  <p className="text-sm text-text-secondary mb-1">
+                    This variable appears to contain population or ethnicity data. Enter the values
+                    found in your dataset to map them to the African Population Ontology (AfPO).
+                  </p>
+                  {ontologyStatus && (
+                    <p className="text-xs text-text-secondary mb-3">
+                      Ontology: {ontologyStatus.data_version ?? "unknown release"}
+                      {ontologyStatus.using_cache && ontologyStatus.fetched_at
+                        ? ` · refreshed ${new Date(ontologyStatus.fetched_at).toLocaleDateString()}`
+                        : " · shipped with app"}
+                    </p>
                   )}
-                </span>
-                {transformOpen ? (
-                  <ChevronDown className="size-4 text-text-secondary" />
-                ) : (
-                  <ChevronRight className="size-4 text-text-secondary" />
-                )}
-              </button>
-              {transformOpen && (
-                <div className="grid grid-cols-2 gap-5 p-4 border-t">
-                  <div className="space-y-3">
-                    <Field label="Type:">
-                      <select
-                        value={transformType}
-                        onChange={(e) => {
-                          setTransformType(e.target.value as "Direct" | "Categorical");
-                          setPreview(null);
-                          setExprValidation(null);
-                        }}
-                        className="h-8 w-full px-2 rounded-md border bg-surface text-[14px]"
-                      >
-                        <option value="Direct">Direct</option>
-                        <option value="Categorical">Categorical</option>
-                      </select>
-                    </Field>
-                    {transformType === "Direct" && (
-                      <>
-                        <Field label="Source type:">
-                          <select
-                            value={sourceDtype}
-                            onChange={(e) => setSourceDtype(e.target.value)}
-                            className="h-8 w-full px-2 rounded-md border bg-surface text-[14px]"
-                          >
-                            <option value="integer">integer</option>
-                            <option value="float">float</option>
-                            <option value="string">string</option>
-                            <option value="boolean">boolean</option>
-                          </select>
-                        </Field>
-                        <Field label="Target type:">
-                          <select
-                            value={targetDtype}
-                            onChange={(e) => setTargetDtype(e.target.value)}
-                            className="h-8 w-full px-2 rounded-md border bg-surface text-[14px]"
-                          >
-                            <option value="float">float</option>
-                            <option value="integer">integer</option>
-                            <option value="string">string</option>
-                            <option value="boolean">boolean</option>
-                          </select>
-                        </Field>
-                      </>
+                  <label className="text-sm text-text-secondary block mb-1">
+                    Ethnicity/population values found in this column (one per line):
+                  </label>
+                  <textarea
+                    rows={5}
+                    value={afpoInput}
+                    onChange={(e) => setAfpoInput(e.target.value)}
+                    className="w-full text-base p-2.5 rounded-md border bg-surface font-mono"
+                  />
+                  <button
+                    onClick={handleAfpoLookup}
+                    disabled={afpoLookup.isPending || !afpoInput.trim()}
+                    className="mt-2 h-9 px-3 text-base rounded-md border border-primary text-primary hover:bg-primary-light font-medium disabled:opacity-50"
+                  >
+                    {afpoLookup.isPending ? "Looking up…" : "Look up in AfPO"}
+                  </button>
+
+                  {afpoResults && (
+                    <div className="mt-4 space-y-4">
+                      {afpoResults.some((r) => r.afpo_id) && (
+                        <div>
+                          <div className="text-base font-medium text-success mb-1.5">Matched</div>
+                          <table className="w-full text-sm border rounded overflow-hidden">
+                            <thead>
+                              <tr className="bg-primary text-primary-foreground">
+                                <th className="text-left px-2 h-8 font-medium">Input Value</th>
+                                <th className="text-left px-2 h-8 font-medium">AfPO ID</th>
+                                <th className="text-left px-2 h-8 font-medium">Canonical Name</th>
+                                <th className="text-left px-2 h-8 font-medium">Matched Via</th>
+                                <th className="text-left px-2 h-8 font-medium">Confidence</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {afpoResults
+                                .filter((r) => r.afpo_id)
+                                .map((r, i) => (
+                                  <tr
+                                    key={r.input_value}
+                                    style={{ background: i % 2 ? "#FAFAF8" : "#FFFFFF" }}
+                                  >
+                                    <td className="px-2 h-8 font-mono">{r.input_value}</td>
+                                    <td className="px-2 h-8 font-mono">{r.afpo_id}</td>
+                                    <td className="px-2 h-8">{r.canonical_name}</td>
+                                    <td className="px-2 h-8">{r.matched_via}</td>
+                                    <td className="px-2 h-8">{r.confidence}%</td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {afpoResults.some((r) => !r.afpo_id) && (
+                        <div>
+                          <div className="text-base font-medium text-accent mb-1">
+                            Not found in AfPO — these are gaps
+                          </div>
+                          <p className="text-sm text-text-secondary mb-2">
+                            You can edit the term below before submitting. Each gap is independent —
+                            submit in any order.
+                          </p>
+                          <div className="space-y-2">
+                            {afpoResults
+                              .filter((r) => !r.afpo_id)
+                              .map((r) => {
+                                const alreadySubmitted =
+                                  (r.already_submitted || afpoSubmittedGaps.has(r.input_value)) &&
+                                  !afpoUnstuckGaps.has(r.input_value);
+                                const check = afpoGithubCheck[r.input_value];
+                                const checking = check?.status === "checking";
+                                const openBlock =
+                                  check?.status === "open_exists" ? check : undefined;
+                                const closedBlock =
+                                  check?.status === "closed_exists" ? check : undefined;
+                                const unavailable =
+                                  check?.status === "unavailable" ? check : undefined;
+                                const buttonDisabled =
+                                  alreadySubmitted || checking || !!openBlock || !!closedBlock;
+                                const buttonLabel = alreadySubmitted
+                                  ? "Already submitted ✓"
+                                  : checking
+                                    ? "Checking GitHub…"
+                                    : "Submit to AfPO";
+                                const recheck = afpoRecheck[r.input_value];
+                                const rechecking = recheck?.status === "checking";
+                                return (
+                                  <div key={r.input_value} className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm px-2 py-1.5 rounded bg-accent-light text-text-primary font-mono shrink-0">
+                                        {r.input_value}
+                                      </span>
+                                      <input
+                                        value={afpoGapEdits[r.input_value] ?? r.input_value}
+                                        onChange={(e) =>
+                                          setAfpoGapEdits((prev) => ({
+                                            ...prev,
+                                            [r.input_value]: e.target.value,
+                                          }))
+                                        }
+                                        disabled={alreadySubmitted || checking}
+                                        className="h-9 flex-1 px-2 rounded-md border bg-surface text-sm font-mono disabled:opacity-60"
+                                      />
+                                      {r.search_issues_url && (
+                                        <a
+                                          href={r.search_issues_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="h-9 px-3 flex items-center text-sm rounded-md border text-text-secondary hover:bg-[#F5F0EE] font-medium shrink-0 whitespace-nowrap"
+                                        >
+                                          Search existing
+                                        </a>
+                                      )}
+                                      <button
+                                        onClick={() => handleAfpoSubmitGap(r.input_value)}
+                                        disabled={buttonDisabled}
+                                        className="h-9 px-3 text-sm rounded-md border border-primary text-primary hover:bg-primary-light font-medium disabled:opacity-50 disabled:cursor-not-allowed shrink-0 whitespace-nowrap"
+                                      >
+                                        {buttonLabel}
+                                      </button>
+                                      {alreadySubmitted && (
+                                        <button
+                                          onClick={() => handleAfpoRecheck(r.input_value)}
+                                          disabled={rechecking}
+                                          className="h-9 px-3 text-sm rounded-md border text-text-secondary hover:bg-[#F5F0EE] font-medium disabled:opacity-50 shrink-0 whitespace-nowrap"
+                                        >
+                                          {rechecking ? "Re-checking…" : "Not there? Re-check"}
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {openBlock && !alreadySubmitted && openBlock.issues[0] && (
+                                      <p className="text-xs text-accent pl-1">
+                                        Already requested on GitHub — see{" "}
+                                        <a
+                                          href={openBlock.issues[0].url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-primary hover:underline"
+                                        >
+                                          issue #{openBlock.issues[0].number}
+                                        </a>
+                                        .
+                                      </p>
+                                    )}
+
+                                    {closedBlock && !alreadySubmitted && closedBlock.issues[0] && (
+                                      <p className="text-xs text-text-secondary pl-1">
+                                        A request for this term was already filed and closed — check{" "}
+                                        <a
+                                          href={closedBlock.issues[0].url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-primary hover:underline"
+                                        >
+                                          issue #{closedBlock.issues[0].number}
+                                        </a>{" "}
+                                        before resubmitting.{" "}
+                                        <button
+                                          onClick={() =>
+                                            proceedWithAfpoSubmit(
+                                              r.input_value,
+                                              closedBlock.checkedTerm,
+                                            )
+                                          }
+                                          className="text-primary hover:underline font-medium"
+                                        >
+                                          Submit anyway
+                                        </button>
+                                      </p>
+                                    )}
+
+                                    {unavailable && (
+                                      <p className="text-xs text-text-secondary pl-1">
+                                        Could not verify against GitHub (rate-limited or offline) —
+                                        submitted without a live duplicate check.
+                                      </p>
+                                    )}
+
+                                    {r.already_submitted &&
+                                      r.previously_submitted_at &&
+                                      !afpoSubmittedGaps.has(r.input_value) &&
+                                      !afpoUnstuckGaps.has(r.input_value) && (
+                                        <p className="text-xs text-text-secondary pl-1">
+                                          Already submitted to AfPO on{" "}
+                                          {new Date(r.previously_submitted_at).toLocaleDateString()}{" "}
+                                          — check{" "}
+                                          <a
+                                            href={r.search_issues_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-primary hover:underline"
+                                          >
+                                            existing issues
+                                          </a>{" "}
+                                          before filing another.
+                                        </p>
+                                      )}
+
+                                    {recheck && recheck.status === "none" && (
+                                      <p className="text-xs text-success pl-1">
+                                        Re-check confirmed no matching issue on GitHub — you can
+                                        submit this term now.
+                                      </p>
+                                    )}
+
+                                    {recheck &&
+                                      recheck.status === "open_exists" &&
+                                      recheck.issues[0] && (
+                                        <p className="text-xs text-accent pl-1">
+                                          Re-check confirmed an open issue exists — see{" "}
+                                          <a
+                                            href={recheck.issues[0].url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-primary hover:underline"
+                                          >
+                                            issue #{recheck.issues[0].number}
+                                          </a>
+                                          . Still blocked.
+                                        </p>
+                                      )}
+
+                                    {recheck &&
+                                      recheck.status === "closed_exists" &&
+                                      recheck.issues[0] && (
+                                        <p className="text-xs text-text-secondary pl-1">
+                                          Re-check found a closed issue — see{" "}
+                                          <a
+                                            href={recheck.issues[0].url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-primary hover:underline"
+                                          >
+                                            issue #{recheck.issues[0].number}
+                                          </a>
+                                          . Treating this term as already requested.
+                                        </p>
+                                      )}
+
+                                    {recheck && recheck.status === "unavailable" && (
+                                      <p className="text-xs text-text-secondary pl-1">
+                                        Could not verify against GitHub (rate-limited or offline) —
+                                        try "Search existing" above, or retry shortly.
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* transformation */}
+              <div className="border rounded-md">
+                <button
+                  onClick={() => setTransformOpen((o) => !o)}
+                  className="w-full flex items-center justify-between p-3"
+                >
+                  <span className="flex items-center gap-2 text-base font-medium">
+                    Transformation
+                    {!transformOpen && (
+                      <span className="text-sm font-normal text-text-secondary">
+                        {expression ? `— ${transformType}: ${expression}` : "— none configured"}
+                      </span>
                     )}
-                    <Field label={transformType === "Direct" ? "Expression:" : "Mapping:"}>
-                      <input
-                        value={expression}
-                        onChange={(e) => {
-                          setExpression(e.target.value);
-                          setPreview(null);
-                          setExprValidation(null);
-                        }}
-                        onBlur={() => {
-                          if (expression && transformType === "Direct") {
-                            void handleValidateExpr();
-                          }
-                        }}
-                        placeholder={
-                          transformType === "Direct"
-                            ? "e.g. x/12"
-                            : '{"1": "Male", "2": "Female"}'
-                        }
-                        className="h-8 w-full px-2 rounded-md border bg-surface text-[14px] font-mono"
-                      />
-                    </Field>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => void handlePreview()}
-                        disabled={!expression || previewing || detail.example_data.length === 0}
-                        className="h-8 px-3 text-[14px] rounded-md border border-primary text-primary hover:bg-primary-light font-medium disabled:opacity-50"
-                      >
-                        {previewing ? "…" : "Preview"}
-                      </button>
-                      {exprValidation && (
-                        <span
-                          className={`text-[14px] font-medium ${
-                            exprValidation.valid ? "text-success" : "text-danger"
-                          }`}
+                  </span>
+                  {transformOpen ? (
+                    <ChevronDown className="size-4 text-text-secondary" />
+                  ) : (
+                    <ChevronRight className="size-4 text-text-secondary" />
+                  )}
+                </button>
+                {transformOpen && (
+                  <div className="grid grid-cols-2 gap-5 p-4 border-t">
+                    <div className="space-y-3">
+                      <Field label="Type:">
+                        <select
+                          value={transformType}
+                          onChange={(e) => {
+                            setTransformType(e.target.value as "Direct" | "Categorical");
+                            setPreview(null);
+                            setExprValidation(null);
+                          }}
+                          className="h-8 w-full px-2 rounded-md border bg-surface text-sm"
                         >
-                          {exprValidation.valid ? "✓ Valid" : `✗ ${exprValidation.message}`}
-                        </span>
+                          <option value="Direct">Direct</option>
+                          <option value="Categorical">Categorical</option>
+                        </select>
+                      </Field>
+                      {transformType === "Direct" && (
+                        <>
+                          <Field label="Source type:">
+                            <select
+                              value={sourceDtype}
+                              onChange={(e) => setSourceDtype(e.target.value)}
+                              className="h-8 w-full px-2 rounded-md border bg-surface text-sm"
+                            >
+                              <option value="integer">integer</option>
+                              <option value="float">float</option>
+                              <option value="string">string</option>
+                              <option value="boolean">boolean</option>
+                            </select>
+                          </Field>
+                          <Field label="Target type:">
+                            <select
+                              value={targetDtype}
+                              onChange={(e) => setTargetDtype(e.target.value)}
+                              className="h-8 w-full px-2 rounded-md border bg-surface text-sm"
+                            >
+                              <option value="float">float</option>
+                              <option value="integer">integer</option>
+                              <option value="string">string</option>
+                              <option value="boolean">boolean</option>
+                            </select>
+                          </Field>
+                        </>
+                      )}
+                      <Field label={transformType === "Direct" ? "Expression:" : "Mapping:"}>
+                        <input
+                          value={expression}
+                          onChange={(e) => {
+                            setExpression(e.target.value);
+                            setPreview(null);
+                            setExprValidation(null);
+                          }}
+                          onBlur={() => {
+                            if (expression && transformType === "Direct") {
+                              void handleValidateExpr();
+                            }
+                          }}
+                          placeholder={
+                            transformType === "Direct"
+                              ? "e.g. x/12"
+                              : '{"1": "Male", "2": "Female"}'
+                          }
+                          className="h-8 w-full px-2 rounded-md border bg-surface text-sm font-mono"
+                        />
+                      </Field>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => void handlePreview()}
+                          disabled={!expression || previewing || detail.example_data.length === 0}
+                          className="h-8 px-3 text-sm rounded-md border border-primary text-primary hover:bg-primary-light font-medium disabled:opacity-50"
+                        >
+                          {previewing ? "…" : "Preview"}
+                        </button>
+                        {exprValidation && (
+                          <span
+                            className={`text-sm font-medium ${
+                              exprValidation.valid ? "text-success" : "text-danger"
+                            }`}
+                          >
+                            {exprValidation.valid ? "✓ Valid" : `✗ ${exprValidation.message}`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* preview table */}
+                    <div>
+                      <div className="text-base font-medium mb-2">Preview</div>
+                      {preview ? (
+                        <>
+                          <table className="w-full text-sm border rounded overflow-hidden">
+                            <thead>
+                              <tr className="bg-primary text-primary-foreground">
+                                <th className="text-left px-2 h-8 font-medium">Original</th>
+                                <th className="text-left px-2 h-8 font-medium">Transformed</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {preview.preview.map((row, i) => (
+                                <tr key={i} style={{ background: i % 2 ? "#FAFAF8" : "#FFFFFF" }}>
+                                  <td className="px-2 h-7 font-mono">{row.original}</td>
+                                  <td
+                                    className={`px-2 h-7 font-mono ${!row.transformed ? "text-text-secondary" : ""}`}
+                                  >
+                                    {row.transformed || "—"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          <div className="text-sm text-text-secondary mt-2">
+                            Transformed {preview.transformed_count}/{preview.preview.length} ·{" "}
+                            {preview.blank_count} blanks
+                          </div>
+                          {!preview.valid && preview.error && (
+                            <div className="text-sm text-danger mt-1">{preview.error}</div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-sm text-text-secondary italic">
+                          Enter an expression and click Preview.
+                        </div>
                       )}
                     </div>
                   </div>
+                )}
+              </div>
 
-                  {/* preview table */}
-                  <div>
-                    <div className="text-[15px] font-medium mb-2">Preview</div>
-                    {preview ? (
-                      <>
-                        <table className="w-full text-[14px] border rounded overflow-hidden">
-                          <thead>
-                            <tr className="bg-primary text-primary-foreground">
-                              <th className="text-left px-2 h-8 font-medium">Original</th>
-                              <th className="text-left px-2 h-8 font-medium">Transformed</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {preview.preview.map((row, i) => (
-                              <tr key={i} style={{ background: i % 2 ? "#FAFAF8" : "#FFFFFF" }}>
-                                <td className="px-2 h-7 font-mono">{row.original}</td>
-                                <td
-                                  className={`px-2 h-7 font-mono ${!row.transformed ? "text-text-secondary" : ""}`}
-                                >
-                                  {row.transformed || "—"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        <div className="text-[14px] text-text-secondary mt-2">
-                          Transformed {preview.transformed_count}/{preview.preview.length} ·{" "}
-                          {preview.blank_count} blanks
-                        </div>
-                        {!preview.valid && preview.error && (
-                          <div className="text-[14px] text-danger mt-1">{preview.error}</div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="text-[14px] text-text-secondary italic">
-                        Enter an expression and click Preview.
-                      </div>
-                    )}
-                  </div>
+              {/* submit */}
+              {saveMapping.isError && (
+                <div className="p-2 rounded-md bg-red-50 border border-red-200 text-sm text-red-700">
+                  {(saveMapping.error as Error).message}
                 </div>
               )}
+              {saveMapping.isSuccess && (
+                <div className="text-sm text-success">Saved successfully.</div>
+              )}
+              <button
+                onClick={handleSubmit}
+                disabled={saveMapping.isPending}
+                className="w-full h-10 rounded-md text-md font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+                style={{ background: "var(--success)" }}
+              >
+                {saveMapping.isPending ? "Saving…" : "Submit"}
+              </button>
             </div>
-
-            {/* submit */}
-            {saveMapping.isError && (
-              <div className="p-2 rounded-md bg-red-50 border border-red-200 text-[14px] text-red-700">
-                {(saveMapping.error as Error).message}
-              </div>
-            )}
-            {saveMapping.isSuccess && (
-              <div className="text-[14px] text-success">Saved successfully.</div>
-            )}
-            <button
-              onClick={handleSubmit}
-              disabled={saveMapping.isPending}
-              className="w-full h-10 rounded-md text-[16px] font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-              style={{ background: "var(--success)" }}
-            >
-              {saveMapping.isPending ? "Saving…" : "Submit"}
-            </button>
-          </div>
           )}
         </>
       )}
@@ -1187,7 +1216,7 @@ function MapStudiesPage() {
             onClick={() => setAuditOpen((o) => !o)}
             className="w-full flex items-center justify-between p-3"
           >
-            <span className="flex items-center gap-2 text-[15px] font-medium">
+            <span className="flex items-center gap-2 text-base font-medium">
               <Clock className="size-4 text-text-secondary" />
               Audit trail (last 5 writes)
             </span>
@@ -1200,12 +1229,12 @@ function MapStudiesPage() {
           {auditOpen && (
             <div className="px-3 pb-3 space-y-2">
               {(auditData?.records ?? []).length === 0 ? (
-                <div className="text-[14px] text-text-secondary py-2">No audit entries yet.</div>
+                <div className="text-sm text-text-secondary py-2">No audit entries yet.</div>
               ) : (
                 (auditData?.records ?? []).map((entry, i) => (
                   <pre
                     key={i}
-                    className="font-mono text-[13px] text-white p-2 rounded overflow-auto"
+                    className="font-mono text-xs text-white p-2 rounded overflow-auto"
                     style={{ background: "#1A1A1A", maxHeight: 80 }}
                   >
                     {JSON.stringify(entry, null, 2)}
@@ -1223,7 +1252,7 @@ function MapStudiesPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[110px_1fr] items-center gap-2">
-      <label className="text-[14px] text-text-secondary">{label}</label>
+      <label className="text-sm text-text-secondary">{label}</label>
       {children}
     </div>
   );
