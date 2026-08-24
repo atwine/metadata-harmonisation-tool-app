@@ -110,6 +110,15 @@
     color: var(--color-text-primary);
     font-size: 14px;
   }
+  /* Without this, clicking a button's label text with a real mouse (which
+     always has a tiny bit of jitter between mousedown/mouseup) can start a
+     text-selection drag instead of registering as a click — the browser
+     doesn't disable text selection on <button> by default. Symptom: a
+     button that "doesn't respond" only exactly where its label text is,
+     but works fine when clicked on its padding. */
+  button {
+    user-select: none;
+  }
 }
 
 @layer components {
