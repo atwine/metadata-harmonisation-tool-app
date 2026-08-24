@@ -7,14 +7,27 @@ and no shared/hosted AI backend is used.
 ## Requirements
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose).
-  On Windows this also installs WSL2.
+  On Windows this also installs WSL2. **Docker Desktop must actually be running** —
+  open the app and wait for it to say "Docker Desktop is running" before the next step,
+  otherwise `docker compose up` fails with "Cannot connect to the Docker daemon."
 - At least ~8GB free RAM and a few GB of free disk space for the bundled AI models.
 
 ## First run
 
-```bash
-docker compose up
-```
+1. Clone the repo (or download and unzip it) — anywhere on your machine:
+   ```bash
+   git clone https://github.com/atwine/metadata-harmonisation-tool-app.git
+   ```
+2. Open a terminal *inside* the folder that was just created — this matters,
+   since `docker compose` looks for a `docker-compose.yml` file in whatever
+   directory you run it from, and that file lives at the top level of this repo:
+   ```bash
+   cd metadata-harmonisation-tool-app
+   ```
+3. Run:
+   ```bash
+   docker compose up
+   ```
 
 The first run will:
 1. Build the `backend` and `frontend` images.
