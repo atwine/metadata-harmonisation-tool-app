@@ -1,14 +1,45 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { FileSpreadsheet, Archive, ChevronDown, ChevronRight, ClipboardList } from "lucide-react";
+import type { Step } from "react-joyride";
 import { PageHeader } from "@/components/Sidebar";
+import { ProductTour, TourReplayButton } from "@/components/ProductTour";
+import { useProductTour } from "@/hooks/useProductTour";
 import { useStudies, api, triggerDownload } from "@/api/client";
 
 export const Route = createFileRoute("/download-results")({
   component: DownloadResultsPage,
 });
 
+// Only targets elements that always exist — the per-study export cards and
+// the audit-trail card are both conditionally rendered (on selection, and on
+// an async "does a log exist yet" check), so the deeper content is described
+// in a closing centered step instead of pointed at directly.
+const TOUR_STEPS: Step[] = [
+  {
+    target: '[data-tour="study-checklist"]',
+    title: "Pick studies to export",
+    content: "Check off which studies you want to export.",
+    placement: "right",
+  },
+  {
+    target: '[data-tour="about-exports"]',
+    title: "What's in the ZIP?",
+    content:
+      "Not sure what's included in the transformed-data ZIP? Expand this for the details on which variables get exported.",
+    placement: "top",
+  },
+  {
+    target: "body",
+    placement: "center",
+    title: "Downloading",
+    content:
+      "Once you check a study, you'll see Download CSV and Download ZIP buttons for it here, plus an audit-log download if any mappings have been made.",
+  },
+];
+
 function DownloadResultsPage() {
+  const tour = useProductTour("download-results");
   const { data: studies = [] } = useStudies();
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [reportOpen, setReportOpen] = useState(true);
@@ -43,12 +74,17 @@ function DownloadResultsPage() {
 
   return (
     <div className="max-w-[1200px]">
-      <PageHeader
-        title="Download Results"
-        subtitle="Export mapping tables and transformed datasets."
-      />
+      <ProductTour steps={TOUR_STEPS} run={tour.run} onEvent={tour.handleEvent} />
 
-      <div className="max-w-2xl">
+      <div className="flex items-center justify-between gap-4">
+        <PageHeader
+          title="Download Results"
+          subtitle="Export mapping tables and transformed datasets."
+        />
+        <TourReplayButton onClick={tour.start} />
+      </div>
+
+      <div className="max-w-2xl" data-tour="study-checklist">
         <h2 className="section-heading mb-3">Select studies to export</h2>
         <div className="space-y-2 mb-6">
           {studies.length === 0 && (
@@ -174,7 +210,7 @@ function DownloadResultsPage() {
           </div>
         )}
 
-        <div className="bg-surface border rounded-lg shadow-sm">
+        <div className="bg-surface border rounded-lg shadow-sm" data-tour="about-exports">
           <button
             onClick={() => setReportOpen((o) => !o)}
             className="w-full flex items-center justify-between p-4"
