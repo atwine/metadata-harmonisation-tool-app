@@ -43,3 +43,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Impeccable design-review hook cache (local, regenerated per run) —
+# .impeccable/config.json IS tracked, since it records real suppression
+# decisions worth sharing with the team.
+.impeccable/hook.cache.json
