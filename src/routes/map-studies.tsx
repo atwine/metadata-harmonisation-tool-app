@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Clock, Lock, Globe } from "lucide-react";
+import type { Step } from "react-joyride";
 import { PageHeader } from "@/components/Sidebar";
+import { ProductTour, TourReplayButton } from "@/components/ProductTour";
+import { useProductTour } from "@/hooks/useProductTour";
 import { useWizardStore } from "@/stores/wizardStore";
 import {
   useStudies,
@@ -38,6 +41,46 @@ type Marking = (typeof MARKINGS)[number]["label"];
 // reference app's trigger exactly).
 const ETHNICITY_KEYWORDS = ["ethnicity", "ethnic", "population", "tribe", "ancestry", "race"];
 
+// Only targets elements that exist regardless of selection state (no study
+// picked yet, no variable picked yet) — the deeper form (codebook match,
+// transformation, Submit) only renders once both are selected, so it's
+// described in a closing step rather than pointed at directly.
+const TOUR_STEPS: Step[] = [
+  {
+    target: '[data-tour="study-select"]',
+    title: "Pick a study",
+    content: "Start by picking one of your uploaded studies here.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="status-filter"]',
+    title: "Filter by status",
+    content:
+      'Switch between "To do", "Successfully mapped", and the other statuses to review different groups of variables.',
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="sort-toggle"]',
+    title: "Sort by difficulty",
+    content:
+      '"By difficulty" puts the AI\'s most confident matches first, so you can clear the easy ones quickly and spend more time on the hard ones.',
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="variable-select"]',
+    title: "Step through variables",
+    content: "Once a study is picked, its variables (filtered by the status above) show up here.",
+    placement: "bottom",
+  },
+  {
+    target: "body",
+    placement: "center",
+    title: "Reviewing a variable",
+    content:
+      "Once you've picked a variable, you'll see the AI's suggested codebook match and confidence, an optional transformation, and — if it looks like ethnicity data — an AfPO mapping section. Mark it and hit Submit to save your decision and move to the next one.",
+  },
+];
+
 function MapStudiesPage() {
   const {
     currentStudy,
@@ -48,6 +91,7 @@ function MapStudiesPage() {
     setOperatorName,
     afpoMappingEnabled,
   } = useWizardStore();
+  const tour = useProductTour("map-studies");
 
   const [statusFilter, setStatusFilter] = useState<string>("To do");
   const [sort, setSort] = useState<"difficulty" | "original">("difficulty");
@@ -411,12 +455,18 @@ function MapStudiesPage() {
 
   return (
     <div className="max-w-[1200px]">
-      <PageHeader title="Map Studies" />
+      <ProductTour steps={TOUR_STEPS} run={tour.run} onEvent={tour.handleEvent} />
+
+      <div className="flex items-center justify-between gap-4">
+        <PageHeader title="Map Studies" />
+        <TourReplayButton onClick={tour.start} />
+      </div>
 
       {/* toolbar */}
       <div className="flex items-center gap-3 border-b pb-3 mb-4 flex-wrap">
         <label className="text-base text-text-secondary">Study:</label>
         <select
+          data-tour="study-select"
           value={study}
           onChange={(e) => {
             setCurrentStudy(e.target.value);
@@ -439,6 +489,7 @@ function MapStudiesPage() {
         />
         <div className="flex-1" />
         <select
+          data-tour="status-filter"
           value={statusFilter}
           onChange={(e) => {
             setStatusFilter(e.target.value);
@@ -454,7 +505,7 @@ function MapStudiesPage() {
         <span className="text-sm font-medium text-text-secondary bg-[#F5F0EE] px-2 py-1 rounded-full">
           {sortedRecords.length} in this view
         </span>
-        <div className="inline-flex rounded-md border overflow-hidden">
+        <div className="inline-flex rounded-md border overflow-hidden" data-tour="sort-toggle">
           {(["difficulty", "original"] as const).map((s) => (
             <button
               key={s}
@@ -496,6 +547,7 @@ function MapStudiesPage() {
       <div className="flex items-center gap-3 mb-4">
         <label className="text-base font-medium">Select variable:</label>
         <select
+          data-tour="variable-select"
           value={selectedVar}
           onChange={(e) => setSelectedVar(e.target.value)}
           className="h-9 flex-1 max-w-md px-3 rounded-md border bg-surface text-base font-mono"
