@@ -8,10 +8,12 @@ import {
   ChevronDown,
   ChevronRight,
   AlertTriangle,
+  Globe,
 } from "lucide-react";
 import { PageHeader } from "@/components/Sidebar";
 import { useInitialiseStatus, useClearWorkspace } from "@/api/client";
 import { useAIConfigStore } from "@/stores/aiConfigStore";
+import { useWizardStore } from "@/stores/wizardStore";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,6 +54,7 @@ function InitialisePage() {
   const { data: statusData, refetch: refetchStatus } = useInitialiseStatus();
   const clearWorkspace = useClearWorkspace();
   const { config, connectionStatus } = useAIConfigStore();
+  const { afpoMappingEnabled, toggleAfpoMapping } = useWizardStore();
 
   const studies = statusData?.studies ?? [];
 
@@ -204,6 +207,37 @@ function InitialisePage() {
           </div>
         </div>
       )}
+
+      {/* AfPO opt-in (issue #18) — off by default; not every study wants the
+          population/ethnicity ontology pathway forced on it. Read on Map
+          Studies to gate whether the AfPO section renders at all. */}
+      <div className="mt-3 border rounded-md p-4 flex items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <Globe className="size-5 text-primary mt-0.5" />
+          <div>
+            <div className="text-base font-medium">AfPO population/ethnicity mapping</div>
+            <p className="text-sm text-text-secondary mt-0.5">
+              When enabled, Map Studies offers an extra step for variables that look like
+              population/ethnicity data: matching values against the African Population Ontology,
+              with one-click submission of any unmatched terms. Off by default — turn on only if
+              this study needs it.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={toggleAfpoMapping}
+          className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${
+            afpoMappingEnabled ? "bg-primary" : "bg-border"
+          }`}
+          aria-label="toggle AfPO population/ethnicity mapping"
+        >
+          <span
+            className={`absolute top-0.5 size-4 rounded-full bg-white transition-all ${
+              afpoMappingEnabled ? "left-4" : "left-0.5"
+            }`}
+          />
+        </button>
+      </div>
 
       {/* two columns: controls on the left, live status/output on the right */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start mt-6">

@@ -46,6 +46,7 @@ function MapStudiesPage() {
     toggleRelationalMode,
     operatorName,
     setOperatorName,
+    afpoMappingEnabled,
   } = useWizardStore();
 
   const [statusFilter, setStatusFilter] = useState<string>("To do");
@@ -762,9 +763,18 @@ function MapStudiesPage() {
               </div>
 
               {/* AfPO population/ethnicity mapping — only when the matched codebook
-                variable looks like it holds population/ethnicity data. Entirely
-                optional: doesn't block Submit either way. */}
-              {isEthnicityVar && (
+                variable looks like it holds population/ethnicity data AND the
+                feature is opted into (issue #18: off by default, enabled on
+                Initialise). Entirely optional: doesn't block Submit either way. */}
+              {isEthnicityVar && !afpoMappingEnabled && (
+                <div className="border-t pt-5">
+                  <p className="text-sm text-text-secondary">
+                    This variable looks like population/ethnicity data — enable AfPO mapping on the
+                    Initialise page to map it against the ontology.
+                  </p>
+                </div>
+              )}
+              {isEthnicityVar && afpoMappingEnabled && (
                 <div className="border-t pt-5">
                   <div className="flex items-center gap-2 mb-1.5">
                     <Globe className="size-4 text-primary" />
