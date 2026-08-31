@@ -4,6 +4,17 @@ import { FileSpreadsheet, Table as TableIcon, FileText, Trash2, FolderOpen } fro
 import { PageHeader } from "@/components/Sidebar";
 import { useStudies, useUploadStudy, useDeleteStudy } from "@/api/client";
 import type { Study } from "@/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/upload-studies")({
   component: UploadStudiesPage,
@@ -84,7 +95,6 @@ function UploadStudiesPage() {
   const [variablesFile, setVariablesFile] = useState<File | null>(null);
   const [exampleFile, setExampleFile] = useState<File | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const { data: studies = [] } = useStudies();
   const upload = useUploadStudy();
@@ -113,7 +123,6 @@ function UploadStudiesPage() {
   };
 
   const handleDelete = (name: string) => {
-    setDeleteTarget(null);
     deleteStudy.mutate(name);
   };
 
@@ -225,31 +234,35 @@ function UploadStudiesPage() {
                         </span>
                       )}
                     </div>
-                    {deleteTarget === s.name ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-danger">Delete?</span>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
                         <button
-                          onClick={() => handleDelete(s.name)}
-                          className="text-sm text-danger font-medium hover:underline"
+                          aria-label="delete"
+                          className="size-8 rounded-md text-danger hover:bg-primary-light flex items-center justify-center"
                         >
-                          Yes
+                          <Trash2 className="size-4" />
                         </button>
-                        <button
-                          onClick={() => setDeleteTarget(null)}
-                          className="text-sm text-text-secondary hover:underline"
-                        >
-                          No
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        aria-label="delete"
-                        onClick={() => setDeleteTarget(s.name)}
-                        className="size-8 rounded-md text-danger hover:bg-primary-light flex items-center justify-center"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    )}
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete "{s.name}"?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This permanently deletes the uploaded files, {s.variable_count} variable
+                            {s.variable_count === 1 ? "" : "s"}, and any mapping progress for "
+                            {s.name}". This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(s.name)}
+                            className="bg-danger text-white hover:bg-danger/90"
+                          >
+                            Yes, delete study
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               ))}

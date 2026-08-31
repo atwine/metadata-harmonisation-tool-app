@@ -12,6 +12,17 @@ import {
 import { PageHeader } from "@/components/Sidebar";
 import { useInitialiseStatus, useClearWorkspace } from "@/api/client";
 import { useAIConfigStore } from "@/stores/aiConfigStore";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000";
 
@@ -35,7 +46,6 @@ function InitialisePage() {
   const [forceRerun, setForceRerun] = useState(false);
   const [running, setRunning] = useState(false);
   const [log, setLog] = useState<LogLine[]>([]);
-  const [confirmClear, setConfirmClear] = useState(false);
   const [runResult, setRunResult] = useState<RunResult>("idle");
   const [alreadyDoneNotice, setAlreadyDoneNotice] = useState(false);
 
@@ -136,7 +146,6 @@ function InitialisePage() {
   };
 
   const handleClear = () => {
-    setConfirmClear(false);
     clearWorkspace.mutate(undefined, {
       onSuccess: () => void refetchStatus(),
     });
@@ -371,33 +380,47 @@ function InitialisePage() {
           <span className="text-sm text-text-secondary">
             Deletes all uploaded files and results. This cannot be undone.
           </span>
-          {confirmClear ? (
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="text-base text-danger font-medium whitespace-nowrap">
-                Delete all files and results?
-              </span>
-              <button
-                onClick={handleClear}
-                className="h-9 px-4 rounded-md bg-danger text-white text-base font-medium whitespace-nowrap"
-              >
-                Yes, clear
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button className="inline-flex items-center gap-2 h-9 px-4 rounded-md border border-danger text-danger hover:bg-white text-base font-medium transition-colors shrink-0 whitespace-nowrap">
+                <Trash2 className="size-4" />
+                Clear Workspace
               </button>
-              <button
-                onClick={() => setConfirmClear(false)}
-                className="h-9 px-4 rounded-md border text-base whitespace-nowrap"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmClear(true)}
-              className="inline-flex items-center gap-2 h-9 px-4 rounded-md border border-danger text-danger hover:bg-white text-base font-medium transition-colors shrink-0 whitespace-nowrap"
-            >
-              <Trash2 className="size-4" />
-              Clear Workspace
-            </button>
-          )}
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear workspace?</AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-2">
+                    <p>
+                      This permanently deletes the uploaded codebook, every mapping result, and all{" "}
+                      {studies.length} uploaded {studies.length === 1 ? "study" : "studies"}
+                      {studies.length > 0 && (
+                        <>
+                          {" "}
+                          (
+                          <span className="font-medium">
+                            {studies.map((s) => s.name).join(", ")}
+                          </span>
+                          )
+                        </>
+                      )}
+                      . This cannot be undone.
+                    </p>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleClear}
+                  className="bg-danger text-white hover:bg-danger/90"
+                >
+                  Yes, clear workspace
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
     </div>
