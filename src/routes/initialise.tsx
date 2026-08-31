@@ -10,7 +10,10 @@ import {
   AlertTriangle,
   Globe,
 } from "lucide-react";
+import type { Step } from "react-joyride";
 import { PageHeader } from "@/components/Sidebar";
+import { ProductTour, TourReplayButton } from "@/components/ProductTour";
+import { useProductTour } from "@/hooks/useProductTour";
 import { useInitialiseStatus, useClearWorkspace } from "@/api/client";
 import { useAIConfigStore } from "@/stores/aiConfigStore";
 import { useWizardStore } from "@/stores/wizardStore";
@@ -31,6 +34,43 @@ const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://loc
 export const Route = createFileRoute("/initialise")({
   component: InitialisePage,
 });
+
+const TOUR_STEPS: Step[] = [
+  {
+    target: '[data-tour="afpo-toggle"]',
+    title: "Optional: AfPO mapping",
+    content:
+      "Turn this on only if this study has population/ethnicity data you want matched against the African Population Ontology. Off by default.",
+    placement: "bottom",
+  },
+  {
+    target: '[data-tour="init-prompt"]',
+    title: "Initialisation prompt",
+    content:
+      'Tune this to help the AI understand your study\'s domain — see "Prompt tips" below for ideas.',
+    placement: "right",
+  },
+  {
+    target: '[data-tour="run-button"]',
+    title: "Run it",
+    content:
+      "Once your AI provider is configured (sidebar), click here to generate descriptions, embeddings, and match recommendations for every uploaded study.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="studies-status"]',
+    title: "Track progress",
+    content: "Checkmarks here show what's been generated for each study as the run progresses.",
+    placement: "left",
+  },
+  {
+    target: '[data-tour="danger-zone"]',
+    title: "Danger Zone",
+    content:
+      "Wipes the codebook, every study, and every mapping result. There's a confirmation dialog, so it's hard to trigger by accident.",
+    placement: "top",
+  },
+];
 
 const DEFAULT_PROMPT =
   "As an AI, you're given the task of translating short variable names from a public health study into the most likely full variable name.";
@@ -55,6 +95,7 @@ function InitialisePage() {
   const clearWorkspace = useClearWorkspace();
   const { config, connectionStatus } = useAIConfigStore();
   const { afpoMappingEnabled, toggleAfpoMapping } = useWizardStore();
+  const tour = useProductTour("initialise");
 
   const studies = statusData?.studies ?? [];
 
@@ -171,10 +212,15 @@ function InitialisePage() {
 
   return (
     <div className="max-w-[1200px]">
-      <PageHeader
-        title="Initialise"
-        subtitle="Generate AI embeddings and build semantic recommendations for all studies."
-      />
+      <ProductTour steps={TOUR_STEPS} run={tour.run} onEvent={tour.handleEvent} />
+
+      <div className="flex items-center justify-between gap-4">
+        <PageHeader
+          title="Initialise"
+          subtitle="Generate AI embeddings and build semantic recommendations for all studies."
+        />
+        <TourReplayButton onClick={tour.start} />
+      </div>
 
       {/* connection banner */}
       {connectionStatus === "connected" && config ? (
@@ -211,7 +257,10 @@ function InitialisePage() {
       {/* AfPO opt-in (issue #18) — off by default; not every study wants the
           population/ethnicity ontology pathway forced on it. Read on Map
           Studies to gate whether the AfPO section renders at all. */}
-      <div className="mt-3 border rounded-md p-4 flex items-center justify-between gap-4">
+      <div
+        className="mt-3 border rounded-md p-4 flex items-center justify-between gap-4"
+        data-tour="afpo-toggle"
+      >
         <div className="flex items-start gap-3">
           <Globe className="size-5 text-primary mt-0.5" />
           <div>
@@ -253,6 +302,7 @@ function InitialisePage() {
             </button>
           </div>
           <textarea
+            data-tour="init-prompt"
             rows={4}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -296,6 +346,7 @@ function InitialisePage() {
 
           <div className="mt-6">
             <button
+              data-tour="run-button"
               onClick={() => void handleRun()}
               disabled={running || connectionStatus !== "connected"}
               className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary-hover rounded-md text-md font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -311,7 +362,7 @@ function InitialisePage() {
         </div>
 
         {/* RIGHT: live status/output */}
-        <div>
+        <div data-tour="studies-status">
           <h2 className="section-heading mb-2">Studies</h2>
           <div className="bg-surface border rounded-lg overflow-x-auto shadow-sm">
             <table className="w-full text-base">
@@ -408,7 +459,10 @@ function InitialisePage() {
       </div>
 
       {/* danger zone */}
-      <div className="mt-8 border border-danger/30 bg-danger-light/40 rounded-lg p-4">
+      <div
+        className="mt-8 border border-danger/30 bg-danger-light/40 rounded-lg p-4"
+        data-tour="danger-zone"
+      >
         <h2 className="text-base font-semibold text-danger mb-2">Danger Zone</h2>
         <div className="flex items-center justify-between gap-4">
           <span className="text-sm text-text-secondary">

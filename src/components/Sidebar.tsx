@@ -255,7 +255,7 @@ function AIConfigPanel() {
   };
 
   return (
-    <div className="px-3 py-3">
+    <div className="px-3 py-3" data-tour="ai-config">
       <button
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between text-base font-medium tracking-widest text-text-secondary uppercase px-1 hover:text-text-primary"
@@ -371,7 +371,7 @@ export function Sidebar() {
           Workflow
         </span>
       </div>
-      <nav className="flex-1 px-2 space-y-0.5">
+      <nav className="flex-1 px-2 space-y-0.5" data-tour="workflow-nav">
         {NAV.map(({ to, label, icon: Icon }) => {
           const active = to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
           return (

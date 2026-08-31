@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { FileSpreadsheet, Table as TableIcon, FileText, Trash2, FolderOpen } from "lucide-react";
+import type { Step } from "react-joyride";
 import { PageHeader } from "@/components/Sidebar";
+import { ProductTour, TourReplayButton } from "@/components/ProductTour";
+import { useProductTour } from "@/hooks/useProductTour";
 import { useStudies, useUploadStudy, useDeleteStudy } from "@/api/client";
 import type { Study } from "@/types";
 import {
@@ -19,6 +22,35 @@ import {
 export const Route = createFileRoute("/upload-studies")({
   component: UploadStudiesPage,
 });
+
+const TOUR_STEPS: Step[] = [
+  {
+    target: '[data-tour="study-name"]',
+    title: "Name the study",
+    content:
+      "Give this study a short, unique name — you'll use it to identify it everywhere else in the app.",
+    placement: "right",
+  },
+  {
+    target: '[data-tour="variables-dropzone"]',
+    title: "Study Variables CSV",
+    content: "The only required file — the list of variable names found in this study's dataset.",
+    placement: "right",
+  },
+  {
+    target: '[data-tour="add-study-btn"]',
+    title: "Add it",
+    content: "Once you've filled these in, click here to add the study.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="uploaded-studies"]',
+    title: "Your studies",
+    content:
+      "Every study you've added shows up here, with its status and how many variables it has. You can delete one anytime with the trash icon — there's a confirmation step, so it's hard to trigger by accident.",
+    placement: "left",
+  },
+];
 
 function statusChip(status: Study["status"]) {
   const map: Record<Study["status"], string> = {
@@ -95,6 +127,7 @@ function UploadStudiesPage() {
   const [variablesFile, setVariablesFile] = useState<File | null>(null);
   const [exampleFile, setExampleFile] = useState<File | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const tour = useProductTour("upload-studies");
 
   const { data: studies = [] } = useStudies();
   const upload = useUploadStudy();
@@ -128,17 +161,22 @@ function UploadStudiesPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Upload Studies"
-        subtitle="Add each study dataset that needs to be mapped to the codebook."
-      />
+      <ProductTour steps={TOUR_STEPS} run={tour.run} onEvent={tour.handleEvent} />
+
+      <div className="flex items-center justify-between gap-4">
+        <PageHeader
+          title="Upload Studies"
+          subtitle="Add each study dataset that needs to be mapped to the codebook."
+        />
+        <TourReplayButton onClick={tour.start} />
+      </div>
 
       <div className="grid grid-cols-[400px_1fr] gap-6">
         {/* LEFT: add new study */}
         <div className="bg-surface border rounded-lg p-6 shadow-sm h-fit">
           <h2 className="section-heading mb-4">Add New Study</h2>
           <div className="space-y-3">
-            <div>
+            <div data-tour="study-name">
               <label className="label-caption">Study name</label>
               <input
                 value={studyName}
@@ -147,14 +185,16 @@ function UploadStudiesPage() {
                 className="mt-1 w-full h-9 px-3 rounded-md border bg-surface text-base"
               />
             </div>
-            <Dropzone
-              icon={FileSpreadsheet}
-              label="Drop CSV or click · required"
-              hint="Study Variables CSV"
-              file={variablesFile}
-              onFile={setVariablesFile}
-              accept=".csv"
-            />
+            <div data-tour="variables-dropzone">
+              <Dropzone
+                icon={FileSpreadsheet}
+                label="Drop CSV or click · required"
+                hint="Study Variables CSV"
+                file={variablesFile}
+                onFile={setVariablesFile}
+                accept=".csv"
+              />
+            </div>
             <Dropzone
               icon={TableIcon}
               label="Example Data CSV"
@@ -177,6 +217,7 @@ function UploadStudiesPage() {
               </div>
             )}
             <button
+              data-tour="add-study-btn"
               onClick={handleAdd}
               disabled={!canSubmit || upload.isPending}
               className="w-full h-10 bg-primary text-primary-foreground hover:bg-primary-hover rounded-md text-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -187,7 +228,7 @@ function UploadStudiesPage() {
         </div>
 
         {/* RIGHT: study list */}
-        <div>
+        <div data-tour="uploaded-studies">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="section-heading">Uploaded Studies</h2>
             <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary-light text-primary">

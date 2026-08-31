@@ -8,13 +8,44 @@ import {
   AlertTriangle,
   Info,
 } from "lucide-react";
+import type { Step } from "react-joyride";
 import { PageHeader } from "@/components/Sidebar";
+import { ProductTour, TourReplayButton } from "@/components/ProductTour";
+import { useProductTour } from "@/hooks/useProductTour";
 import { useCodebook, useCodebookMeta, useUploadCodebook } from "@/api/client";
 import type { CodebookVariable } from "@/types";
 
 export const Route = createFileRoute("/upload-codebook")({
   component: UploadCodebookPage,
 });
+
+const TOUR_STEPS: Step[] = [
+  {
+    target: '[data-tour="codebook-dropzone"]',
+    title: "Upload your codebook",
+    content:
+      "Drag your target codebook CSV here, or click to browse. This is the canonical variable list every study gets mapped to.",
+    placement: "right",
+  },
+  {
+    target: '[data-tour="codebook-upload-btn"]',
+    title: "Upload it",
+    content: "Once a file's selected, click here to upload it.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="codebook-format-help"]',
+    title: "CSV format",
+    content: "Not sure about the format? Expand this for the required columns and an example CSV.",
+    placement: "top",
+  },
+  {
+    target: '[data-tour="codebook-preview"]',
+    title: "Your current codebook",
+    content: "Once uploaded, your codebook's variables show up here for reference.",
+    placement: "left",
+  },
+];
 
 function formatTimestamp(iso: string): string {
   try {
@@ -59,6 +90,7 @@ function UploadCodebookPage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [formatOpen, setFormatOpen] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const tour = useProductTour("upload-codebook");
 
   const { data: codebook } = useCodebook();
   const { data: meta } = useCodebookMeta();
@@ -79,10 +111,15 @@ function UploadCodebookPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Upload Target Codebook"
-        subtitle="Upload the canonical variable list that all study datasets will be mapped to."
-      />
+      <ProductTour steps={TOUR_STEPS} run={tour.run} onEvent={tour.handleEvent} />
+
+      <div className="flex items-center justify-between gap-4">
+        <PageHeader
+          title="Upload Target Codebook"
+          subtitle="Upload the canonical variable list that all study datasets will be mapped to."
+        />
+        <TourReplayButton onClick={tour.start} />
+      </div>
 
       {/* ── Last upload banner ─────────────────────────────── */}
       {meta?.exists && meta.filename && (
@@ -107,6 +144,7 @@ function UploadCodebookPage() {
 
           {/* Drop zone */}
           <div
+            data-tour="codebook-dropzone"
             className="border-2 border-dashed border-border rounded-lg p-6 text-center bg-surface hover:border-primary transition-colors cursor-pointer"
             onClick={() => inputRef.current?.click()}
             onDrop={(e) => {
@@ -144,6 +182,7 @@ function UploadCodebookPage() {
 
           {/* Upload button */}
           <button
+            data-tour="codebook-upload-btn"
             onClick={handleUpload}
             disabled={!pendingFile || upload.isPending}
             className="w-full h-10 rounded-md border-2 border-primary text-primary font-medium text-md hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -171,7 +210,7 @@ function UploadCodebookPage() {
           )}
 
           {/* ── Format help expander ───────────────────────── */}
-          <div className="border rounded-lg bg-surface shadow-sm">
+          <div className="border rounded-lg bg-surface shadow-sm" data-tour="codebook-format-help">
             <button
               onClick={() => setFormatOpen((o) => !o)}
               className="w-full flex items-center justify-between px-4 py-3 text-base font-medium"
@@ -235,7 +274,7 @@ function UploadCodebookPage() {
         </div>
 
         {/* RIGHT: current codebook preview */}
-        <div>
+        <div data-tour="codebook-preview">
           <h2 className="section-heading mb-3">Target Codebook</h2>
           {rows.length === 0 ? (
             <div className="border rounded-lg bg-surface p-8 text-center text-base text-text-secondary">
