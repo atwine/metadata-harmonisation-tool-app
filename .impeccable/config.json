@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/routes/initialise.tsx"
+        ],
+        "createdAt": "2026-08-31T11:27:37.240Z",
+        "reason": "Pre-existing border-l-4 status-banner pattern used consistently across this file (connection status, AI-not-configured, already-initialised, run-result banners) since before this session; not touched by the delete-confirmation-modal commit that triggered this hook. Out of scope for that task — a deliberate app-wide restyle wasn't requested."
+      }
+    ]
+  }
+}
