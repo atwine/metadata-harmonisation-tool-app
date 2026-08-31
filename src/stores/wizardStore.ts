@@ -7,6 +7,10 @@ interface WizardState {
   toggleRelationalMode: () => void;
   operatorName: string;
   setOperatorName: (n: string) => void;
+  // Off by default (issue #18) — AfPO population/ethnicity mapping is an
+  // opt-in pathway, not something every study wants forced on it.
+  afpoMappingEnabled: boolean;
+  toggleAfpoMapping: () => void;
 }
 
 export const useWizardStore = create<WizardState>((set) => ({
@@ -16,4 +20,6 @@ export const useWizardStore = create<WizardState>((set) => ({
   toggleRelationalMode: () => set((st) => ({ relationalModeEnabled: !st.relationalModeEnabled })),
   operatorName: "",
   setOperatorName: (n) => set({ operatorName: n }),
+  afpoMappingEnabled: false,
+  toggleAfpoMapping: () => set((st) => ({ afpoMappingEnabled: !st.afpoMappingEnabled })),
 }));
