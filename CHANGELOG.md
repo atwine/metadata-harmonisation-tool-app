@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.6] — 2026-08-31
+
+### Added
+- **Onboarding tour** — every page (Home, Upload Codebook, Upload Studies, Initialise, Map Studies, Download Results) now shows a short guided tour (spotlight + tooltip, Next/Back/Skip) on a visitor's first visit to that page, tracked per-browser via localStorage so it never auto-plays again after Skip/Finish. Each page also has a "Take a tour" link to replay it anytime. Every step targets an element that's always present regardless of app/data state — pages with deeper, state-dependent content (Map Studies' mapping form, Download Results' per-study export cards) describe that content in a closing centered step instead of pointing at something that might not exist yet. Themed to the app's own palette rather than the `react-joyride` library's default black/white.
+
+### Fixed
+- `react-joyride` defaults clicking the dimmed tour backdrop to silently advancing to the next step instead of doing nothing — easy to trigger by accident since the overlay covers the whole viewport. Disabled (`overlayClickAction: false`).
+
+## [0.8.5] — 2026-08-31
+
+### Added
+- **Opt-in toggle for AfPO population/ethnicity mapping** (closes #18) — the AfPO section on Map Studies previously triggered automatically for any variable whose matched codebook column name contained an ethnicity keyword, with no way to turn it off. Now gated behind an explicit toggle on the Initialise page, off by default. When it's off but a variable still looks like ethnicity data, a hint on Map Studies points the user to Initialise instead of the section silently not appearing.
+
+## [0.8.4] — 2026-08-31
+
+### Changed
+- **Destructive-action confirmations are now real modal dialogs** (closes #19) — both "Clear Workspace" and deleting a study previously used an inline swap (the trigger button was replaced in place by confirm/cancel buttons occupying nearly the same screen position), making an accidental second click plausible for an irreversible action. Both now use the project's shadcn `AlertDialog` component, which was already installed but unused — gives focus trap and Esc-to-cancel for free. Each dialog also states exactly what will be deleted (study names, or a specific study's variable count) instead of a generic warning.
+
 ## [0.8.3] — 2026-08-24
 
 ### Added
