@@ -8,20 +8,22 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 Researchers upload one or more study datasets (CSV files of variable names) alongside a target codebook. An AI model generates natural-language descriptions for cryptic variable names, builds semantic embeddings, and recommends the best codebook matches for each variable. A human operator then reviews and approves each mapping, adds transformation rules, and exports the harmonised data.
 
-Variables that look like population/ethnicity data (e.g. mapped to a codebook variable named `ethnicity`) get an extra step: values found in the study data are looked up against the [AfPO](https://github.com/h3abionet/afpo) (African Population Ontology), with one-click submission of any unmatched terms as a new-term request on the AfPO GitHub repo.
+Variables that look like population/ethnicity data (e.g. mapped to a codebook variable named `ethnicity`) can get an extra step: values found in the study data are looked up against the [AfPO](https://github.com/h3abionet/afpo) (African Population Ontology), with one-click submission of any unmatched terms as a new-term request on the AfPO GitHub repo. This is opt-in — off by default, enabled per session with a toggle on the Initialise page, since not every study needs it.
+
+A first-time visitor to any page gets a short guided tour (spotlight + tooltip) pointing out what's where; it only auto-plays once per browser per page, and can be replayed anytime via the "Take a tour" link.
 
 **Workflow:**
 1. **Upload Codebook** — the canonical target variable list (CSV)
 2. **Upload Studies** — one or more study variable CSVs, with optional example-data CSV and context PDF
-3. **Initialise** — AI generates descriptions → embeddings → semantic recommendations (streamed live)
-4. **Map Studies** — operator reviews each variable, picks a codebook match, sets a transformation, marks it done; population/ethnicity variables get an AfPO ontology lookup sub-section
+3. **Initialise** — AI generates descriptions → embeddings → semantic recommendations (streamed live); also where the AfPO opt-in toggle lives
+4. **Map Studies** — operator reviews each variable, picks a codebook match, sets a transformation, marks it done; population/ethnicity variables get an AfPO ontology lookup sub-section when AfPO mapping is enabled
 5. **Download Results** — export the mapping table (CSV) or the transformed dataset (ZIP), plus the audit log
 
 ## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 19, TanStack Start + Router, TanStack Query, Zustand, Tailwind v4 |
+| Frontend | React 19, TanStack Start + Router, TanStack Query, Zustand, Tailwind v4, react-joyride (onboarding tour) |
 | Backend | FastAPI, Python 3.12, Pydantic v2, Pandas |
 | AI providers | Ollama (local), vLLM (self-hosted, OpenAI-compatible), OpenAI, Anthropic, Azure OpenAI — chat and embedding models are configured independently and can each point at a different provider |
 | Embeddings | Cosine similarity, weighted 0.8 × description + 0.2 × variable name |
@@ -64,17 +66,21 @@ Variables that look like population/ethnicity data (e.g. mapped to a codebook va
 ├── example_data/              # Sample codebooks + studies for local testing
 ├── src/                       # React frontend
 │   ├── api/client.ts          # Typed API client + TanStack Query hooks
-│   ├── components/Sidebar.tsx # Nav, AI Configuration panel, PageHeader + the workflow step strip
+│   ├── components/
+│   │   ├── Sidebar.tsx         # Nav, AI Configuration panel, PageHeader + the workflow step strip
+│   │   ├── ProductTour.tsx     # Themed react-joyride wrapper + the "Take a tour" replay button
+│   │   └── ui/alert-dialog.tsx # shadcn AlertDialog — used for destructive-action confirmations
+│   ├── hooks/useProductTour.ts # Per-page tour seen-state (localStorage) + replay control
 │   ├── routes/                # File-based routing (TanStack Router)
 │   │   ├── upload-codebook.tsx
 │   │   ├── upload-studies.tsx
-│   │   ├── initialise.tsx
+│   │   ├── initialise.tsx     # Includes the AfPO opt-in toggle and the Danger Zone (Clear Workspace)
 │   │   ├── map-studies.tsx    # Includes the AfPO population-mapping sub-section
 │   │   └── download-results.tsx
 │   ├── stores/                # Zustand stores
 │   │   ├── aiConfigStore.ts
 │   │   ├── mappingStore.ts
-│   │   └── wizardStore.ts
+│   │   └── wizardStore.ts     # afpoMappingEnabled, relationalModeEnabled — session-only toggles
 │   ├── styles.css             # Design tokens (colors, the text-xs..xl type scale)
 │   └── types.ts
 ├── docker-compose.yml         # Full-stack local packaging (frontend + backend + Ollama)
@@ -204,6 +210,7 @@ See `docs/docker.md` for how the AfPO ontology itself stays up to date.
 - Uploaded PDFs are validated against their magic bytes before processing.
 - The `logs/`, `input/`, `results/`, `db/`, and `ontology_cache/` directories are excluded from git — all runtime-generated, not source.
 - AfPO GitHub issue submission is always a manual click — the app never submits on the user's behalf. A local flag prevents this installation from re-filing a term it already submitted, and a live GitHub issue search (`GET /api/afpo/check-github`) catches duplicates across installations too, since every installation of this app points at the same shared AfPO repo.
+- Both destructive actions in the app (Clear Workspace, deleting a study) require an explicit confirmation dialog rather than a single click — a deliberate defense against accidental data loss.
 - ⚠️ A known gap (tracked in [issue #4](../../issues/4)): the API currently has no authentication — don't expose the backend beyond localhost/trusted networks as-is.
 
 ## License
