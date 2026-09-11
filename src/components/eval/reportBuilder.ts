@@ -66,6 +66,10 @@ function formatQuestionnaireSection(
     if (v) lines.push(`- **${q.label}** ${v}`);
   });
 
+  if (answers.other_comments) {
+    lines.push("", "**Part D — anything else**", String(answers.other_comments));
+  }
+
   return lines.join("\n");
 }
 

@@ -47,6 +47,7 @@ function hydrateFromStored(stored: Record<string, string | number> | null) {
   const sus: Record<number, number> = {};
   const open: Record<number, string> = {};
   const background: Record<string, string> = {};
+  let otherComments = "";
   if (stored) {
     for (const [key, value] of Object.entries(stored)) {
       if (key.startsWith("sus_") && typeof value === "number") {
@@ -55,10 +56,12 @@ function hydrateFromStored(stored: Record<string, string | number> | null) {
         open[Number(key.slice(5))] = String(value);
       } else if (key.startsWith("background_")) {
         background[key.slice("background_".length)] = String(value);
+      } else if (key === "other_comments") {
+        otherComments = String(value);
       }
     }
   }
-  return { sus, open, background };
+  return { sus, open, background, otherComments };
 }
 
 function EvalQuestionnairePage() {
@@ -71,6 +74,7 @@ function EvalQuestionnairePage() {
   const [susAnswers, setSusAnswers] = useState<Record<number, number>>(() => hydrateFromStored(storedAnswers).sus);
   const [openAnswers, setOpenAnswers] = useState<Record<number, string>>(() => hydrateFromStored(storedAnswers).open);
   const [backgroundAnswers, setBackgroundAnswers] = useState<Record<string, string>>(() => hydrateFromStored(storedAnswers).background);
+  const [otherComments, setOtherComments] = useState<string>(() => hydrateFromStored(storedAnswers).otherComments);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   if (!isEvalBuild()) {
@@ -82,6 +86,7 @@ function EvalQuestionnairePage() {
     setSusAnswers(hydrated.sus);
     setOpenAnswers(hydrated.open);
     setBackgroundAnswers(hydrated.background);
+    setOtherComments(hydrated.otherComments);
     setViewingForm(true);
   };
 
@@ -126,6 +131,7 @@ function EvalQuestionnairePage() {
     Object.entries(susAnswers).forEach(([i, v]) => (answers[`sus_${i}`] = v));
     Object.entries(openAnswers).forEach(([i, v]) => (answers[`open_${i}`] = v));
     Object.entries(backgroundAnswers).forEach(([k, v]) => (answers[`background_${k}`] = v));
+    if (otherComments.trim()) answers.other_comments = otherComments;
     setQuestionnaire(answers, skipped);
     setViewingForm(false);
   };
@@ -211,6 +217,23 @@ function EvalQuestionnairePage() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="mt-8">
+        <div className="flex items-baseline justify-between">
+          <h2 className="section-heading mb-3">Part D — Anything else?</h2>
+          <span className="text-sm text-text-secondary">Optional</span>
+        </div>
+        <label className="text-base font-medium">
+          Any other comments or thoughts you'd like the developers to know, to help improve the tool?
+        </label>
+        <textarea
+          rows={4}
+          value={otherComments}
+          onChange={(e) => setOtherComments(e.target.value)}
+          className="mt-1.5 w-full text-base p-2.5 rounded-md border bg-surface"
+          placeholder="Anything that wasn't covered above..."
+        />
       </section>
 
       {validationError && (
