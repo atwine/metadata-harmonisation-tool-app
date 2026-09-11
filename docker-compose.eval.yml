@@ -1,0 +1,89 @@
+# Evaluation testing build — pulls prebuilt images from Docker Hub instead
+# of building locally, so testers only need this one file plus Docker
+# installed. No git clone, no source code needed.
+#
+# Usage:
+#   1. Save this file anywhere as docker-compose.yml (or keep this name and
+#      pass -f docker-compose.eval.yml to every `docker compose` command).
+#   2. docker compose pull   (grabs the latest eval images)
+#   3. docker compose up
+#   4. Open http://localhost:8080
+#
+# This is the SAME application as the normal build — same Dockerfiles, same
+# code — just with EVAL_BUILD / VITE_EVAL_BUILD turned on, which switches on
+# the performance logging, the disclosure screen, the step check-ins, and
+# the "Submit Report" button. None of that exists in the real production
+# build; it only activates because of the two environment variables below.
+services:
+  ollama:
+    image: ollama/ollama:latest
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        CHAT_MODEL=$${OLLAMA_DEFAULT_CHAT_MODEL:-llama3.2:3b}
+        EMBEDDING_MODEL=$${OLLAMA_DEFAULT_EMBEDDING_MODEL:-nomic-embed-text}
+        ollama serve &
+        SERVE_PID=$$!
+        echo "[ollama-entrypoint] waiting for ollama to become ready..."
+        until ollama list >/dev/null 2>&1; do sleep 1; done
+        echo "[ollama-entrypoint] ollama is ready."
+        echo "[ollama-entrypoint] pulling chat model: $$CHAT_MODEL"
+        ollama pull "$$CHAT_MODEL"
+        echo "[ollama-entrypoint] pulling embedding model: $$EMBEDDING_MODEL"
+        ollama pull "$$EMBEDDING_MODEL"
+        echo "[ollama-entrypoint] models ready — serving."
+        wait $$SERVE_PID
+    environment:
+      OLLAMA_DEFAULT_CHAT_MODEL: llama3.2:3b
+      OLLAMA_DEFAULT_EMBEDDING_MODEL: nomic-embed-text
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    restart: unless-stopped
+
+  backend:
+    image: atwine/mht-backend:eval
+    environment:
+      EVAL_BUILD: "true"
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_DEFAULT_CHAT_MODEL: llama3.2:3b
+      OLLAMA_DEFAULT_EMBEDDING_MODEL: nomic-embed-text
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Bind mounts so the performance log (logs/benchmark_log.jsonl) and
+      # any uploaded test data are visible on the host, same as the normal
+      # compose file — see docs/docker.md.
+      - ./harmonisation-data/input:/app/input
+      - ./harmonisation-data/results:/app/results
+      - ./harmonisation-data/logs:/app/logs
+      - ./harmonisation-data/db:/app/db
+      - ./harmonisation-data/ontology-cache:/app/ontology_cache
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: atwine/mht-frontend:eval
+    environment:
+      VITE_EVAL_BUILD: "true"
+      VITE_API_URL: http://localhost:8000
+      VITE_OLLAMA_BASE_URL: http://ollama:11434
+      VITE_OLLAMA_CHAT_MODEL: llama3.2:3b
+      VITE_OLLAMA_EMBEDDING_MODEL: nomic-embed-text
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
