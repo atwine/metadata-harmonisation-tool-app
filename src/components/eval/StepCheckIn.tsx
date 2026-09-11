@@ -108,6 +108,9 @@ export function StepCheckIn({
 
               {q.type === "scale" && (
                 <div className="mt-2">
+                  <p className="text-sm text-text-secondary mb-2">
+                    1 = {q.lowLabel} · 5 = {q.highLabel}
+                  </p>
                   <ScaleRow
                     value={values[q.id] as number | undefined}
                     onChange={(n) => setValue(q.id, n)}
