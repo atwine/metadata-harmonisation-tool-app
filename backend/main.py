@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from routers import codebook, studies, initialise, mappings, download, ai_config, afpo
 from core.afpo_lookup import refresh_ontology
+from core.eval_logger import log_hardware_profile
 from storage.db import init_db
 
 
@@ -13,6 +14,7 @@ async def lifespan(app: FastAPI):
     for d in ["input", "results", "logs"]:
         Path(d).mkdir(exist_ok=True)
     init_db()
+    log_hardware_profile()  # no-op unless EVAL_BUILD is set
     # Best-effort and async — refresh_ontology() already catches network/parse
     # errors and falls back to whatever's already loaded, and awaiting it
     # (rather than a blocking call) keeps the event loop free for other

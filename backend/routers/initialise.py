@@ -9,8 +9,28 @@ from fastapi.responses import StreamingResponse
 from models.schemas import InitialiseRequest, InitialiseStatusResponse, StudyInitStatus
 from storage import db
 from storage.files import list_studies
+from core.eval_logger import stage_timer, log_ai_config, log_variable_counts
 
 router = APIRouter()
+
+
+def _log_variable_counts_best_effort() -> None:
+    """Best-effort row counts for the benchmark log — never lets a read
+    failure (missing file, bad CSV) interrupt the actual pipeline."""
+    import pandas as pd
+
+    n_codebook_vars = 0
+    try:
+        n_codebook_vars = len(pd.read_csv(Path("input") / "target_variables.csv"))
+    except Exception:
+        pass
+
+    for study in list_studies():
+        try:
+            n_study_vars = len(pd.read_csv(Path("input") / study / "dataset_variables.csv"))
+        except Exception:
+            continue
+        log_variable_counts(study, n_study_vars, n_codebook_vars)
 
 
 # ── SSE streaming endpoint ────────────────────────────────────────────────────
@@ -21,10 +41,14 @@ async def run_initialise(body: InitialiseRequest):
         def emit(step: str, status: str, message: str) -> str:
             return f"data: {json.dumps({'step': step, 'status': status, 'message': message})}\n\n"
 
+        log_ai_config(body.ai_config)
+        await asyncio.to_thread(_log_variable_counts_best_effort)
+
         # Phase 1 — PDF conversion (no AI required)
         yield emit("pdf_conversion", "running", "Converting PDFs to text...")
         try:
-            await asyncio.to_thread(_run_pdf_conversion)
+            with stage_timer("pdf_conversion"):
+                await asyncio.to_thread(_run_pdf_conversion)
             yield emit("pdf_conversion", "done", "PDFs converted.")
         except Exception as e:
             yield emit("pdf_conversion", "error", f"PDF conversion failed: {e}")
@@ -33,9 +57,10 @@ async def run_initialise(body: InitialiseRequest):
         # Phase 2 — Description generation
         yield emit("descriptions", "running", "Generating variable descriptions...")
         try:
-            await asyncio.to_thread(
-                _run_descriptions, body.ai_config, body.init_prompt, body.force_rerun
-            )
+            with stage_timer("descriptions"):
+                await asyncio.to_thread(
+                    _run_descriptions, body.ai_config, body.init_prompt, body.force_rerun
+                )
             yield emit("descriptions", "done", "Descriptions generated.")
         except Exception as e:
             yield emit("descriptions", "error", f"Description generation failed: {e}")
@@ -44,7 +69,8 @@ async def run_initialise(body: InitialiseRequest):
         # Phase 3 — Embeddings
         yield emit("embeddings", "running", "Generating embeddings...")
         try:
-            await asyncio.to_thread(_run_embeddings, body.ai_config, body.force_rerun)
+            with stage_timer("embeddings"):
+                await asyncio.to_thread(_run_embeddings, body.ai_config, body.force_rerun)
             yield emit("embeddings", "done", "Embeddings complete.")
         except Exception as e:
             yield emit("embeddings", "error", f"Embedding failed: {e}")
@@ -53,7 +79,8 @@ async def run_initialise(body: InitialiseRequest):
         # Phase 4 — Semantic recommendations
         yield emit("recommendations", "running", "Building semantic recommendations...")
         try:
-            await asyncio.to_thread(_run_recommendations, body.force_rerun)
+            with stage_timer("recommendations"):
+                await asyncio.to_thread(_run_recommendations, body.force_rerun)
             yield emit("recommendations", "done", "Recommendations ready.")
         except Exception as e:
             yield emit("recommendations", "error", f"Recommendation generation failed: {e}")
@@ -62,7 +89,8 @@ async def run_initialise(body: InitialiseRequest):
         # Phase 5 — PID / Date recommendations
         yield emit("pid_date", "running", "Generating PID/Date recommendations...")
         try:
-            await asyncio.to_thread(_run_pid_date, body.ai_config, body.force_rerun)
+            with stage_timer("pid_date"):
+                await asyncio.to_thread(_run_pid_date, body.ai_config, body.force_rerun)
             yield emit("pid_date", "done", "PID/Date recommendations ready.")
         except Exception as e:
             yield emit("pid_date", "error", f"PID/Date recommendation failed: {e}")
