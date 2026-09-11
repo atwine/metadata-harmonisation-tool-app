@@ -10,7 +10,17 @@ import {
 } from "@/components/ui/dialog";
 
 export type CheckInQuestion =
-  | { id: string; type: "yes_no"; label: string; followUpLabel?: string }
+  | {
+      id: string;
+      type: "yes_no";
+      label: string;
+      followUpLabel?: string;
+      /** Which answer reveals the follow-up text box — e.g. "No" for "Was
+       * this clear?" (the problem answer), "Yes" for "Did you hit any
+       * errors?" (the problem answer is the other way round). Defaults to
+       * "No" since that's the more common case among these questions. */
+      followUpOn?: "Yes" | "No";
+    }
   | { id: string; type: "scale"; label: string; lowLabel: string; highLabel: string }
   | { id: string; type: "choice"; label: string; options: string[] }
   | { id: string; type: "text"; label: string };
@@ -85,7 +95,7 @@ export function StepCheckIn({
                 </div>
               )}
 
-              {q.type === "yes_no" && values[q.id] === "No" && q.followUpLabel && (
+              {q.type === "yes_no" && values[q.id] === (q.followUpOn ?? "No") && q.followUpLabel && (
                 <input
                   type="text"
                   placeholder={q.followUpLabel}

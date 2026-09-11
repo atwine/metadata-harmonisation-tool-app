@@ -18,8 +18,8 @@ export const CHECK_IN_QUESTIONS: Record<string, CheckInQuestion[]> = {
   install: [
     { id: "started_ok", type: "yes_no", label: "Did the app start successfully after running the pull/run command?", followUpLabel: "What happened instead?" },
     { id: "ease", type: "scale", label: "How easy was getting it running?", lowLabel: "Very difficult", highLabel: "Very easy" },
-    { id: "errors", type: "yes_no", label: "Did you hit any errors?", followUpLabel: "Paste the exact error text" },
-    { id: "outside_help", type: "yes_no", label: "Did you need to search online or ask someone for help beyond our instructions?", followUpLabel: "What for?" },
+    { id: "errors", type: "yes_no", label: "Did you hit any errors?", followUpLabel: "Paste the exact error text", followUpOn: "Yes" },
+    { id: "outside_help", type: "yes_no", label: "Did you need to search online or ask someone for help beyond our instructions?", followUpLabel: "What for?", followUpOn: "Yes" },
     { id: "startup_minutes", type: "text", label: "Roughly how long from running the command to seeing the homepage? (e.g. \"2 minutes\")" },
   ],
   upload_codebook: [
