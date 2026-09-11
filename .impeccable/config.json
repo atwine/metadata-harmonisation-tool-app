@@ -26,6 +26,15 @@
         ],
         "createdAt": "2026-09-11T10:31:25.650Z",
         "reason": "matches the existing border-l-4 status-banner pattern already used app-wide (e.g. src/routes/initialise.tsx), predates this branch, not a new choice introduced here"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/components/eval/SubmitReportButton.tsx"
+        ],
+        "createdAt": "2026-09-11T11:14:35.019Z",
+        "reason": "matches the existing border-l-4 warning-banner pattern already used app-wide (e.g. src/routes/initialise.tsx's AI-not-configured notice), not a new choice introduced here"
       }
     ]
   }
