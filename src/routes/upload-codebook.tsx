@@ -17,6 +17,7 @@ import type { CodebookVariable } from "@/types";
 import { StepCheckIn } from "@/components/eval/StepCheckIn";
 import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
 import { useForceCheckIn } from "@/components/eval/useForceCheckIn";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 export const Route = createFileRoute("/upload-codebook")({
   component: UploadCodebookPage,
@@ -153,42 +154,53 @@ function UploadCodebookPage() {
           </p>
 
           {/* Drop zone */}
-          <div
-            data-tour="codebook-dropzone"
-            className="border-2 border-dashed border-border rounded-lg p-6 text-center bg-surface hover:border-primary transition-colors cursor-pointer"
-            onClick={() => inputRef.current?.click()}
-            onDrop={(e) => {
-              e.preventDefault();
-              const f = e.dataTransfer.files[0];
-              if (f) handleFile(f);
-            }}
-            onDragOver={(e) => e.preventDefault()}
-          >
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFile(f);
-              }}
-            />
-            <UploadCloud className="size-7 text-text-secondary mx-auto" />
-            <div className="mt-2 text-base font-medium text-text-primary">
-              {pendingFile ? pendingFile.name : "Target Codebook"}
-            </div>
-            <div className="text-xs text-text-secondary mt-0.5">
-              {pendingFile
-                ? `${(pendingFile.size / 1024).toFixed(0)} KB — ready to upload`
-                : "Drag and drop file here · CSV only · max 10 MB"}
-            </div>
-            {!pendingFile && (
-              <span className="mt-3 inline-block px-3 py-1 rounded border text-sm text-text-primary hover:bg-[#F5F0EE]">
-                Browse files
-              </span>
-            )}
-          </div>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  data-tour="codebook-dropzone"
+                  className="border-2 border-dashed border-border rounded-lg p-6 text-center bg-surface hover:border-primary transition-colors cursor-pointer"
+                  onClick={() => inputRef.current?.click()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const f = e.dataTransfer.files[0];
+                    if (f) handleFile(f);
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                >
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleFile(f);
+                    }}
+                  />
+                  <UploadCloud className="size-7 text-text-secondary mx-auto" />
+                  <div className="mt-2 text-base font-medium text-text-primary">
+                    {pendingFile ? pendingFile.name : "Target Codebook"}
+                  </div>
+                  <div className="text-xs text-text-secondary mt-0.5">
+                    {pendingFile
+                      ? `${(pendingFile.size / 1024).toFixed(0)} KB — ready to upload`
+                      : "Drag and drop file here · CSV only · max 10 MB"}
+                  </div>
+                  {!pendingFile && (
+                    <span className="mt-3 inline-block px-3 py-1 rounded border text-sm text-text-primary hover:bg-[#F5F0EE]">
+                      Browse files
+                    </span>
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[260px]">
+                Drop the CSV containing your target codebook here — the canonical list of variables
+                every study's data will be mapped to (needs variable_name and description columns).
+                Click to browse your computer instead of dragging. Required — max 10 MB.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           {/* Upload button */}
           <button
