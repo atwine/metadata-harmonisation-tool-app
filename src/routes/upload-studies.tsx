@@ -7,6 +7,8 @@ import { ProductTour, TourReplayButton } from "@/components/ProductTour";
 import { useProductTour } from "@/hooks/useProductTour";
 import { useStudies, useUploadStudy, useDeleteStudy } from "@/api/client";
 import type { Study } from "@/types";
+import { StepCheckIn } from "@/components/eval/StepCheckIn";
+import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -162,6 +164,12 @@ function UploadStudiesPage() {
   return (
     <div>
       <ProductTour steps={TOUR_STEPS} run={tour.run} onEvent={tour.handleEvent} />
+      <StepCheckIn
+        step="upload_study"
+        title="Quick check-in: Upload Study Data"
+        questions={CHECK_IN_QUESTIONS.upload_study}
+        trigger={upload.isSuccess}
+      />
 
       <div className="flex items-center justify-between gap-4">
         <PageHeader

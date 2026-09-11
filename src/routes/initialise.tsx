@@ -28,6 +28,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { StepCheckIn } from "@/components/eval/StepCheckIn";
+import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000";
 
@@ -213,6 +215,12 @@ function InitialisePage() {
   return (
     <div className="max-w-[1200px]">
       <ProductTour steps={TOUR_STEPS} run={tour.run} onEvent={tour.handleEvent} />
+      <StepCheckIn
+        step="initialise"
+        title="Quick check-in: Initialise"
+        questions={CHECK_IN_QUESTIONS.initialise}
+        trigger={!running && runResult !== "idle"}
+      />
 
       <div className="flex items-center justify-between gap-4">
         <PageHeader

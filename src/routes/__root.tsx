@@ -10,6 +10,9 @@ import {
 
 import appCss from "../styles.css?url";
 import { Sidebar } from "@/components/Sidebar";
+import { EvalBanner } from "@/components/eval/EvalBanner";
+import { EvalDisclosure } from "@/components/eval/EvalDisclosure";
+import { isEvalBuild } from "@/lib/evalBuild";
 
 function NotFoundComponent() {
   return (
@@ -104,7 +107,9 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-background">
+      <EvalBanner />
+      <EvalDisclosure />
+      <div className={`min-h-screen bg-background ${isEvalBuild() ? "pt-9" : ""}`}>
         <Sidebar />
         <main className="ml-[350px] min-h-screen p-8">
           <Outlet />

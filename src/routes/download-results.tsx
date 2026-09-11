@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/Sidebar";
 import { ProductTour, TourReplayButton } from "@/components/ProductTour";
 import { useProductTour } from "@/hooks/useProductTour";
 import { useStudies, api, triggerDownload } from "@/api/client";
+import { StepCheckIn } from "@/components/eval/StepCheckIn";
+import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
 
 export const Route = createFileRoute("/download-results")({
   component: DownloadResultsPage,
@@ -46,6 +48,7 @@ function DownloadResultsPage() {
   const [downloading, setDownloading] = useState<Record<string, boolean>>({});
   const [zipError, setZipError] = useState<Record<string, string>>({});
   const [auditLogAvailable, setAuditLogAvailable] = useState(false);
+  const [downloadedOnce, setDownloadedOnce] = useState(false);
 
   useEffect(() => {
     api.checkAuditLogExists().then(setAuditLogAvailable);
@@ -55,6 +58,7 @@ function DownloadResultsPage() {
 
   const handleCsv = (name: string) => {
     window.open(api.getMappingCsvUrl(name), "_blank");
+    setDownloadedOnce(true);
   };
 
   const handleZip = async (name: string) => {
@@ -63,6 +67,7 @@ function DownloadResultsPage() {
     try {
       const blob = await api.downloadTransformedData([name]);
       triggerDownload(blob, `${name}_transformed.zip`);
+      setDownloadedOnce(true);
     } catch (err) {
       setZipError((e) => ({ ...e, [name]: String(err) }));
     } finally {
@@ -75,6 +80,12 @@ function DownloadResultsPage() {
   return (
     <div className="max-w-[1200px]">
       <ProductTour steps={TOUR_STEPS} run={tour.run} onEvent={tour.handleEvent} />
+      <StepCheckIn
+        step="download_results"
+        title="Last check-in: Download Results"
+        questions={CHECK_IN_QUESTIONS.download_results}
+        trigger={downloadedOnce}
+      />
 
       <div className="flex items-center justify-between gap-4">
         <PageHeader

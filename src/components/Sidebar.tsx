@@ -11,12 +11,14 @@ import {
   ChevronRight,
   MessageSquare,
   Layers,
+  ClipboardCheck,
 } from "lucide-react";
 import { OLLAMA_BASE_URL, OLLAMA_CHAT_MODEL, OLLAMA_EMBEDDING_MODEL } from "@/lib/ollamaDefaults";
 import { useAIConfigStore } from "@/stores/aiConfigStore";
 import { useTestConnection, useProviderModels } from "@/api/client";
 import type { AIConfig, AIProviderId, ProviderSlot } from "@/types";
 import type { SlotTestResult } from "@/api/client";
+import { isEvalBuild } from "@/lib/evalBuild";
 
 const NAV = [
   { to: "/", label: "Home", icon: Home },
@@ -357,7 +359,11 @@ function AIConfigPanel() {
 export function Sidebar() {
   const location = useLocation();
   return (
-    <aside className="fixed top-0 left-0 h-screen w-[350px] bg-surface border-r flex flex-col z-30">
+    <aside
+      className={`fixed left-0 w-[350px] bg-surface border-r flex flex-col z-30 ${
+        isEvalBuild() ? "top-9 h-[calc(100vh-2.25rem)]" : "top-0 h-screen"
+      }`}
+    >
       <div className="px-4 py-3 flex items-center gap-3">
         <BrandDots />
         <div className="leading-tight">
@@ -389,6 +395,19 @@ export function Sidebar() {
             </Link>
           );
         })}
+        {isEvalBuild() && (
+          <Link
+            to="/eval-questionnaire"
+            className={`flex items-center gap-2.5 text-lg px-3 py-2 rounded-md transition-colors border-l-[3px] ${
+              location.pathname.startsWith("/eval-questionnaire")
+                ? "bg-primary-light border-primary text-primary font-medium"
+                : "border-transparent text-text-primary hover:bg-[#F5F0EE]"
+            }`}
+          >
+            <ClipboardCheck className="size-5" />
+            <span>Evaluation Report</span>
+          </Link>
+        )}
       </nav>
       <div className="border-t" />
       <div className="overflow-y-auto flex-shrink-0 max-h-[60vh]">

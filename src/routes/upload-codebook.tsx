@@ -14,6 +14,8 @@ import { ProductTour, TourReplayButton } from "@/components/ProductTour";
 import { useProductTour } from "@/hooks/useProductTour";
 import { useCodebook, useCodebookMeta, useUploadCodebook } from "@/api/client";
 import type { CodebookVariable } from "@/types";
+import { StepCheckIn } from "@/components/eval/StepCheckIn";
+import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
 
 export const Route = createFileRoute("/upload-codebook")({
   component: UploadCodebookPage,
@@ -112,6 +114,12 @@ function UploadCodebookPage() {
   return (
     <div>
       <ProductTour steps={TOUR_STEPS} run={tour.run} onEvent={tour.handleEvent} />
+      <StepCheckIn
+        step="upload_codebook"
+        title="Quick check-in: Upload Target Codebook"
+        questions={CHECK_IN_QUESTIONS.upload_codebook}
+        trigger={upload.isSuccess}
+      />
 
       <div className="flex items-center justify-between gap-4">
         <PageHeader

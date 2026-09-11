@@ -22,6 +22,8 @@ import {
   type AfpoLookupResult,
   type GithubCheckResponse,
 } from "@/api/client";
+import { StepCheckIn } from "@/components/eval/StepCheckIn";
+import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
 
 export const Route = createFileRoute("/map-studies")({
   component: MapStudiesPage,
@@ -456,6 +458,20 @@ function MapStudiesPage() {
   return (
     <div className="max-w-[1200px]">
       <ProductTour steps={TOUR_STEPS} run={tour.run} onEvent={tour.handleEvent} />
+      <StepCheckIn
+        step="map_studies"
+        title="Quick check-in: Map Studies"
+        questions={CHECK_IN_QUESTIONS.map_studies}
+        trigger={!!mappingsData && mappingsData.total > 0 && mappingsData.progress >= 1}
+      />
+      {afpoMappingEnabled && (
+        <StepCheckIn
+          step="map_studies_afpo"
+          title="One more thing: the ethnicity/population lookup"
+          questions={CHECK_IN_QUESTIONS.map_studies_afpo}
+          trigger={!!mappingsData && mappingsData.total > 0 && mappingsData.progress >= 1}
+        />
+      )}
 
       <div className="flex items-center justify-between gap-4">
         <PageHeader title="Map Studies" />

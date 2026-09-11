@@ -13,6 +13,7 @@ import { Route as UploadStudiesRouteImport } from './routes/upload-studies'
 import { Route as UploadCodebookRouteImport } from './routes/upload-codebook'
 import { Route as MapStudiesRouteImport } from './routes/map-studies'
 import { Route as InitialiseRouteImport } from './routes/initialise'
+import { Route as EvalQuestionnaireRouteImport } from './routes/eval-questionnaire'
 import { Route as DownloadResultsRouteImport } from './routes/download-results'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -36,6 +37,11 @@ const InitialiseRoute = InitialiseRouteImport.update({
   path: '/initialise',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EvalQuestionnaireRoute = EvalQuestionnaireRouteImport.update({
+  id: '/eval-questionnaire',
+  path: '/eval-questionnaire',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DownloadResultsRoute = DownloadResultsRouteImport.update({
   id: '/download-results',
   path: '/download-results',
@@ -50,6 +56,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/download-results': typeof DownloadResultsRoute
+  '/eval-questionnaire': typeof EvalQuestionnaireRoute
   '/initialise': typeof InitialiseRoute
   '/map-studies': typeof MapStudiesRoute
   '/upload-codebook': typeof UploadCodebookRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/download-results': typeof DownloadResultsRoute
+  '/eval-questionnaire': typeof EvalQuestionnaireRoute
   '/initialise': typeof InitialiseRoute
   '/map-studies': typeof MapStudiesRoute
   '/upload-codebook': typeof UploadCodebookRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/download-results': typeof DownloadResultsRoute
+  '/eval-questionnaire': typeof EvalQuestionnaireRoute
   '/initialise': typeof InitialiseRoute
   '/map-studies': typeof MapStudiesRoute
   '/upload-codebook': typeof UploadCodebookRoute
@@ -77,6 +86,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/download-results'
+    | '/eval-questionnaire'
     | '/initialise'
     | '/map-studies'
     | '/upload-codebook'
@@ -85,6 +95,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/download-results'
+    | '/eval-questionnaire'
     | '/initialise'
     | '/map-studies'
     | '/upload-codebook'
@@ -93,6 +104,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/download-results'
+    | '/eval-questionnaire'
     | '/initialise'
     | '/map-studies'
     | '/upload-codebook'
@@ -102,6 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DownloadResultsRoute: typeof DownloadResultsRoute
+  EvalQuestionnaireRoute: typeof EvalQuestionnaireRoute
   InitialiseRoute: typeof InitialiseRoute
   MapStudiesRoute: typeof MapStudiesRoute
   UploadCodebookRoute: typeof UploadCodebookRoute
@@ -138,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InitialiseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/eval-questionnaire': {
+      id: '/eval-questionnaire'
+      path: '/eval-questionnaire'
+      fullPath: '/eval-questionnaire'
+      preLoaderRoute: typeof EvalQuestionnaireRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/download-results': {
       id: '/download-results'
       path: '/download-results'
@@ -158,6 +178,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DownloadResultsRoute: DownloadResultsRoute,
+  EvalQuestionnaireRoute: EvalQuestionnaireRoute,
   InitialiseRoute: InitialiseRoute,
   MapStudiesRoute: MapStudiesRoute,
   UploadCodebookRoute: UploadCodebookRoute,
