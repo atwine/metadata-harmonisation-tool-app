@@ -273,3 +273,14 @@ class OntologyStatusResponse(BaseModel):
     fetched_at: Optional[str] = None
     source_url: str
     using_cache: bool
+
+
+# ─── Evaluation report (testing build only) ────────────────────────────────
+
+class EvalReportRequest(BaseModel):
+    # Each entry is one already-formatted Markdown block (one per workflow
+    # step, one for the final questionnaire) — the frontend owns the question
+    # wording (see src/components/eval/checkInQuestions.ts), this just
+    # assembles them alongside the performance log summary.
+    sections_markdown: list[str]
+    has_skips: bool

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import codebook, studies, initialise, mappings, download, ai_config, afpo
+from routers import codebook, studies, initialise, mappings, download, ai_config, afpo, eval_report
 from core.afpo_lookup import refresh_ontology
 from core.eval_logger import log_hardware_profile
 from storage.db import init_db
@@ -45,3 +45,4 @@ app.include_router(mappings.router,   prefix="/api/mappings")
 app.include_router(download.router,   prefix="/api/download")
 app.include_router(ai_config.router,  prefix="/api/ai-config")
 app.include_router(afpo.router,       prefix="/api/afpo")
+app.include_router(eval_report.router, prefix="/api/eval")

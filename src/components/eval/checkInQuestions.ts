@@ -1,5 +1,17 @@
 import type { CheckInQuestion } from "./StepCheckIn";
 
+/** Human-readable step titles, shared between the check-in popups and the
+ * report builder (so the GitHub issue body uses the same names). */
+export const STEP_TITLES: Record<string, string> = {
+  install: "Installation",
+  upload_codebook: "Upload Target Codebook",
+  upload_study: "Upload Study Data",
+  initialise: "Initialise",
+  map_studies: "Map Studies",
+  map_studies_afpo: "Map Studies — ethnicity/population lookup",
+  download_results: "Download Results",
+};
+
 /** One question set per workflow step. Shared here so wording stays
  * consistent and each route file only needs to reference a step id. */
 export const CHECK_IN_QUESTIONS: Record<string, CheckInQuestion[]> = {

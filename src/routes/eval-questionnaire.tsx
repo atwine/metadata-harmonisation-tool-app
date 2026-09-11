@@ -4,52 +4,12 @@ import { CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/Sidebar";
 import { isEvalBuild } from "@/lib/evalBuild";
 import { useEvalStore } from "@/stores/evalStore";
+import { SUS_STATEMENTS, OPEN_ENDED, BACKGROUND } from "@/components/eval/questionnaireContent";
+import { SubmitReportButton } from "@/components/eval/SubmitReportButton";
 
 export const Route = createFileRoute("/eval-questionnaire")({
   component: EvalQuestionnairePage,
 });
-
-const SUS_STATEMENTS = [
-  "I think that I would like to use this tool frequently.",
-  "I found the tool unnecessarily complex.",
-  "I thought the tool was easy to use.",
-  "I think that I would need the support of a technical person to be able to use this tool.",
-  "I found the various functions in this tool were well integrated.",
-  "I thought there was too much inconsistency in this tool.",
-  "I would imagine that most people would learn to use this tool very quickly.",
-  "I found the tool very cumbersome to use.",
-  "I felt very confident using the tool.",
-  "I needed to learn a lot of things before I could get going with this tool.",
-];
-
-const OPEN_ENDED = [
-  "What was the most confusing part of the entire process (installation and/or harmonisation)?",
-  "Was there a point where you were unsure what to do next? If so, what were you trying to do?",
-  "Did the tool's recommendations match your expectations? Were they helpful, or did you feel you were overriding them most of the time?",
-  "If you could change one thing about the tool, what would it be?",
-  "Would you use this tool for your own harmonisation work? Why or why not?",
-  "How does this compare to how you currently harmonise data (if applicable)? Is it faster, slower, easier, harder?",
-];
-
-const BACKGROUND: { id: string; label: string; options?: string[] }[] = [
-  { id: "role", label: "What is your role? (e.g., researcher, data manager, statistician)" },
-  { id: "experience_years", label: "How many years of experience do you have working with health research data?" },
-  {
-    id: "harmonisation_experience",
-    label: "Have you done data harmonisation before?",
-    options: ["Never", "Once or twice", "Regularly"],
-  },
-  {
-    id: "cli_comfort",
-    label: "How comfortable are you with command-line tools?",
-    options: ["Not at all", "Somewhat", "Very"],
-  },
-  {
-    id: "docker_comfort",
-    label: "How comfortable are you with Docker?",
-    options: ["Not at all", "Somewhat", "Very"],
-  },
-];
 
 function ScaleRow({ value, onChange }: { value?: number; onChange: (n: number) => void }) {
   return (
@@ -121,6 +81,9 @@ function EvalQuestionnairePage() {
           <div className="text-base">
             Thanks — your questionnaire response has been recorded for this session.
           </div>
+        </div>
+        <div className="mt-6">
+          <SubmitReportButton />
         </div>
       </div>
     );

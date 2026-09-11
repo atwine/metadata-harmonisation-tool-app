@@ -344,6 +344,10 @@ export const api = {
     const r = await fetch(`${BASE}/api/download/audit-log`, { method: "HEAD" });
     return r.ok;
   },
+
+  // Evaluation report (testing build only)
+  getEvalReportUrl: (body: { sections_markdown: string[]; has_skips: boolean }): Promise<{ url: string }> =>
+    post("/api/eval/report-url", body),
 };
 
 export function triggerDownload(blob: Blob, filename: string) {

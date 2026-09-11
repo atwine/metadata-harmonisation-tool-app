@@ -21,6 +21,9 @@ interface EvalState {
   questionnaireSkipped: boolean;
   setQuestionnaire: (answers: Record<string, string | number>, skipped: boolean) => void;
 
+  reportSubmitted: boolean;
+  markReportSubmitted: () => void;
+
   reset: () => void;
 }
 
@@ -39,12 +42,16 @@ export const useEvalStore = create<EvalState>()(
       setQuestionnaire: (answers, skipped) =>
         set({ questionnaireAnswers: answers, questionnaireSkipped: skipped }),
 
+      reportSubmitted: false,
+      markReportSubmitted: () => set({ reportSubmitted: true }),
+
       reset: () =>
         set({
           disclosureAcknowledged: false,
           stepAnswers: {},
           questionnaireAnswers: null,
           questionnaireSkipped: false,
+          reportSubmitted: false,
         }),
     }),
     { name: "mht-eval-session" },
