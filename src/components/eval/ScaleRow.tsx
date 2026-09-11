@@ -35,13 +35,13 @@ export function ScaleRow({
   return (
     <TooltipProvider delayDuration={150}>
       <div>
-        <div className="flex gap-1.5 shrink-0">
+        <div className="flex gap-3 shrink-0">
           {[1, 2, 3, 4, 5].map((n) => (
             <Tooltip key={n}>
               <TooltipTrigger asChild>
                 <button
                   onClick={() => onChange(n)}
-                  className={`size-9 rounded-md border text-sm font-medium transition-colors ${
+                  className={`size-10 rounded-md border text-base font-medium transition-colors ${
                     value === n
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-surface hover:bg-accent-light"
@@ -54,7 +54,7 @@ export function ScaleRow({
             </Tooltip>
           ))}
         </div>
-        <div className="flex justify-between text-xs text-text-secondary mt-1">
+        <div className="flex justify-between text-sm text-text-secondary mt-1.5">
           <span>{lowLabel}</span>
           <span>{highLabel}</span>
         </div>

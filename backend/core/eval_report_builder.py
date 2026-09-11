@@ -85,12 +85,14 @@ def _read_performance_summary() -> str:
     return "\n".join(lines)
 
 
-def build_report_issue_url(sections_markdown: list[str], has_skips: bool) -> str:
+def build_report_issue_url(sections_markdown: list[str], has_skips: bool, session_id: str) -> str:
     today = datetime.date.today().isoformat()
-    title = f"[Eval] Testing report — {today}"
+    title = f"[Eval] Testing report — {today} — {session_id}"
 
     body_parts = [
         "## Metadata Harmonisation Tool — Evaluation Report",
+        "",
+        f"**Anonymous session ID:** `{session_id}` _(random, not linked to any name — lets separate submissions be told apart)_",
         "",
         "### Performance log summary",
         _read_performance_summary(),

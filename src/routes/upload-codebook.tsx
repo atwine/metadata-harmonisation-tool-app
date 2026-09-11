@@ -16,6 +16,7 @@ import { useCodebook, useCodebookMeta, useUploadCodebook } from "@/api/client";
 import type { CodebookVariable } from "@/types";
 import { StepCheckIn } from "@/components/eval/StepCheckIn";
 import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
+import { useForceCheckIn } from "@/components/eval/useForceCheckIn";
 
 export const Route = createFileRoute("/upload-codebook")({
   component: UploadCodebookPage,
@@ -93,6 +94,7 @@ function UploadCodebookPage() {
   const [formatOpen, setFormatOpen] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const tour = useProductTour("upload-codebook");
+  const forceCheckIn = useForceCheckIn("upload_codebook");
 
   const { data: codebook } = useCodebook();
   const { data: meta } = useCodebookMeta();
@@ -118,7 +120,7 @@ function UploadCodebookPage() {
         step="upload_codebook"
         title="Quick check-in: Upload Target Codebook"
         questions={CHECK_IN_QUESTIONS.upload_codebook}
-        trigger={upload.isSuccess}
+        trigger={upload.isSuccess || forceCheckIn}
       />
 
       <div className="flex items-center justify-between gap-4">

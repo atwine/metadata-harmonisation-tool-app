@@ -8,6 +8,7 @@ import { useProductTour } from "@/hooks/useProductTour";
 import { useStudies, api, triggerDownload } from "@/api/client";
 import { StepCheckIn } from "@/components/eval/StepCheckIn";
 import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
+import { useForceCheckIn } from "@/components/eval/useForceCheckIn";
 
 export const Route = createFileRoute("/download-results")({
   component: DownloadResultsPage,
@@ -42,6 +43,7 @@ const TOUR_STEPS: Step[] = [
 
 function DownloadResultsPage() {
   const tour = useProductTour("download-results");
+  const forceCheckIn = useForceCheckIn("download_results");
   const { data: studies = [] } = useStudies();
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [reportOpen, setReportOpen] = useState(true);
@@ -84,7 +86,7 @@ function DownloadResultsPage() {
         step="download_results"
         title="Last check-in: Download Results"
         questions={CHECK_IN_QUESTIONS.download_results}
-        trigger={downloadedOnce}
+        trigger={downloadedOnce || forceCheckIn}
       />
 
       <div className="flex items-center justify-between gap-4">

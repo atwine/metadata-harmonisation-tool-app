@@ -7,7 +7,15 @@ export interface StepAnswer {
   answeredAt: string;
 }
 
+/** Short, random, non-identifying — lets separate submissions be told apart
+ * without collecting any name/email. Regenerated only on reset(). */
+function newSessionId(): string {
+  return crypto.randomUUID().slice(0, 8);
+}
+
 interface EvalState {
+  sessionId: string;
+
   disclosureAcknowledged: boolean;
   acknowledgeDisclosure: () => void;
 
@@ -30,6 +38,8 @@ interface EvalState {
 export const useEvalStore = create<EvalState>()(
   persist(
     (set) => ({
+      sessionId: newSessionId(),
+
       disclosureAcknowledged: false,
       acknowledgeDisclosure: () => set({ disclosureAcknowledged: true }),
 
@@ -47,6 +57,7 @@ export const useEvalStore = create<EvalState>()(
 
       reset: () =>
         set({
+          sessionId: newSessionId(),
           disclosureAcknowledged: false,
           stepAnswers: {},
           questionnaireAnswers: null,

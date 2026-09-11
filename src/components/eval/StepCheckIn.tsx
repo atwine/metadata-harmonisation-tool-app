@@ -76,7 +76,7 @@ export function StepCheckIn({
         <div className="space-y-5">
           {questions.map((q) => (
             <div key={q.id}>
-              <label className="text-sm font-medium text-text-primary">{q.label}</label>
+              <label className="text-base font-medium text-text-primary">{q.label}</label>
 
               {q.type === "yes_no" && (
                 <div className="mt-2 flex gap-2">
@@ -84,7 +84,7 @@ export function StepCheckIn({
                     <button
                       key={opt}
                       onClick={() => setValue(q.id, opt)}
-                      className={`h-9 px-4 rounded-md border text-sm font-medium transition-colors ${
+                      className={`h-10 px-4 rounded-md border text-base font-medium transition-colors ${
                         values[q.id] === opt
                           ? "bg-primary text-primary-foreground border-primary"
                           : "bg-surface hover:bg-accent-light"
@@ -102,7 +102,7 @@ export function StepCheckIn({
                   placeholder={q.followUpLabel}
                   value={(values[`${q.id}_note`] as string) ?? ""}
                   onChange={(e) => setValue(`${q.id}_note`, e.target.value)}
-                  className="mt-2 w-full text-sm p-2 rounded-md border bg-surface"
+                  className="mt-2 w-full text-base p-2.5 rounded-md border bg-surface"
                 />
               )}
 
@@ -123,7 +123,7 @@ export function StepCheckIn({
                     <button
                       key={opt}
                       onClick={() => setValue(q.id, opt)}
-                      className={`h-9 px-3 rounded-md border text-sm font-medium transition-colors ${
+                      className={`h-10 px-4 rounded-md border text-base font-medium transition-colors ${
                         values[q.id] === opt
                           ? "bg-primary text-primary-foreground border-primary"
                           : "bg-surface hover:bg-accent-light"
@@ -140,7 +140,7 @@ export function StepCheckIn({
                   rows={2}
                   value={(values[q.id] as string) ?? ""}
                   onChange={(e) => setValue(q.id, e.target.value)}
-                  className="mt-2 w-full text-sm p-2 rounded-md border bg-surface"
+                  className="mt-2 w-full text-base p-2.5 rounded-md border bg-surface"
                 />
               )}
             </div>
@@ -150,13 +150,13 @@ export function StepCheckIn({
         <DialogFooter className="mt-2">
           <button
             onClick={skip}
-            className="h-9 px-4 rounded-md text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+            className="h-10 px-4 rounded-md text-base font-medium text-text-secondary hover:text-text-primary transition-colors"
           >
             Skip for now
           </button>
           <button
             onClick={submit}
-            className="h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary-hover text-sm font-medium transition-colors"
+            className="h-10 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary-hover text-base font-medium transition-colors"
           >
             Submit
           </button>

@@ -7,6 +7,7 @@ import { useProductTour } from "@/hooks/useProductTour";
 import { StepCheckIn } from "@/components/eval/StepCheckIn";
 import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
 import { useEvalStore } from "@/stores/evalStore";
+import { useForceCheckIn } from "@/components/eval/useForceCheckIn";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -45,6 +46,7 @@ const TOUR_STEPS: Step[] = [
 function HomePage() {
   const tour = useProductTour("home");
   const disclosureAcknowledged = useEvalStore((s) => s.disclosureAcknowledged);
+  const forceCheckIn = useForceCheckIn("install");
 
   return (
     <div className="max-w-[1200px]">
@@ -53,7 +55,7 @@ function HomePage() {
         step="install"
         title="Before you get started — a couple of questions about installing this"
         questions={CHECK_IN_QUESTIONS.install}
-        trigger={disclosureAcknowledged}
+        trigger={disclosureAcknowledged || forceCheckIn}
       />
 
       <div className="flex items-center justify-between gap-4">

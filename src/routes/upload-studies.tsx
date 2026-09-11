@@ -9,6 +9,7 @@ import { useStudies, useUploadStudy, useDeleteStudy } from "@/api/client";
 import type { Study } from "@/types";
 import { StepCheckIn } from "@/components/eval/StepCheckIn";
 import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
+import { useForceCheckIn } from "@/components/eval/useForceCheckIn";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -130,6 +131,7 @@ function UploadStudiesPage() {
   const [exampleFile, setExampleFile] = useState<File | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const tour = useProductTour("upload-studies");
+  const forceCheckIn = useForceCheckIn("upload_study");
 
   const { data: studies = [] } = useStudies();
   const upload = useUploadStudy();
@@ -168,7 +170,7 @@ function UploadStudiesPage() {
         step="upload_study"
         title="Quick check-in: Upload Study Data"
         questions={CHECK_IN_QUESTIONS.upload_study}
-        trigger={upload.isSuccess}
+        trigger={upload.isSuccess || forceCheckIn}
       />
 
       <div className="flex items-center justify-between gap-4">

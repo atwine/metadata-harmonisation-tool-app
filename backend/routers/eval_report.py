@@ -11,4 +11,4 @@ async def report_url(body: EvalReportRequest):
     """Builds the pre-filled GitHub issue URL for a participant's evaluation
     report. Same shape as /api/afpo/issue-url — server-side so the template
     and the performance-log read have one source of truth."""
-    return {"url": build_report_issue_url(body.sections_markdown, body.has_skips)}
+    return {"url": build_report_issue_url(body.sections_markdown, body.has_skips, body.session_id)}

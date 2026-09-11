@@ -24,6 +24,7 @@ import {
 } from "@/api/client";
 import { StepCheckIn } from "@/components/eval/StepCheckIn";
 import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
+import { useForceCheckIn } from "@/components/eval/useForceCheckIn";
 
 export const Route = createFileRoute("/map-studies")({
   component: MapStudiesPage,
@@ -94,6 +95,8 @@ function MapStudiesPage() {
     afpoMappingEnabled,
   } = useWizardStore();
   const tour = useProductTour("map-studies");
+  const forceCheckIn = useForceCheckIn("map_studies");
+  const forceCheckInAfpo = useForceCheckIn("map_studies_afpo");
 
   const [statusFilter, setStatusFilter] = useState<string>("To do");
   const [sort, setSort] = useState<"difficulty" | "original">("difficulty");
@@ -462,14 +465,14 @@ function MapStudiesPage() {
         step="map_studies"
         title="Quick check-in: Map Studies"
         questions={CHECK_IN_QUESTIONS.map_studies}
-        trigger={!!mappingsData && mappingsData.total > 0 && mappingsData.progress >= 1}
+        trigger={(!!mappingsData && mappingsData.total > 0 && mappingsData.progress >= 1) || forceCheckIn}
       />
       {afpoMappingEnabled && (
         <StepCheckIn
           step="map_studies_afpo"
           title="One more thing: the ethnicity/population lookup"
           questions={CHECK_IN_QUESTIONS.map_studies_afpo}
-          trigger={!!mappingsData && mappingsData.total > 0 && mappingsData.progress >= 1}
+          trigger={(!!mappingsData && mappingsData.total > 0 && mappingsData.progress >= 1) || forceCheckInAfpo}
         />
       )}
 

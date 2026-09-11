@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { StepCheckIn } from "@/components/eval/StepCheckIn";
 import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
+import { useForceCheckIn } from "@/components/eval/useForceCheckIn";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000";
 
@@ -98,6 +99,7 @@ function InitialisePage() {
   const { config, connectionStatus } = useAIConfigStore();
   const { afpoMappingEnabled, toggleAfpoMapping } = useWizardStore();
   const tour = useProductTour("initialise");
+  const forceCheckIn = useForceCheckIn("initialise");
 
   const studies = statusData?.studies ?? [];
 
@@ -219,7 +221,7 @@ function InitialisePage() {
         step="initialise"
         title="Quick check-in: Initialise"
         questions={CHECK_IN_QUESTIONS.initialise}
-        trigger={!running && runResult !== "idle"}
+        trigger={(!running && runResult !== "idle") || forceCheckIn}
       />
 
       <div className="flex items-center justify-between gap-4">

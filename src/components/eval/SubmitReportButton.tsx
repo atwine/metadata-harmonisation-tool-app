@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Github, ExternalLink, AlertTriangle } from "lucide-react";
+import { Github, ExternalLink, AlertTriangle, ArrowRight } from "lucide-react";
 import { api } from "@/api/client";
 import { useEvalStore } from "@/stores/evalStore";
+import { useWizardStore } from "@/stores/wizardStore";
 import { buildReportSections } from "./reportBuilder";
+import { REQUIRED_STEPS, STEP_ROUTES, STEP_TITLES } from "./checkInQuestions";
 
 /** Bundles every check-in answer + the questionnaire into a pre-filled
  * GitHub issue and opens it in a new tab — same no-credentials pattern as
@@ -14,15 +16,23 @@ export function SubmitReportButton() {
   const questionnaireSkipped = useEvalStore((s) => s.questionnaireSkipped);
   const reportSubmitted = useEvalStore((s) => s.reportSubmitted);
   const markReportSubmitted = useEvalStore((s) => s.markReportSubmitted);
+  const sessionId = useEvalStore((s) => s.sessionId);
+  const afpoMappingEnabled = useWizardStore((s) => s.afpoMappingEnabled);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const requiredSteps = afpoMappingEnabled ? [...REQUIRED_STEPS, "map_studies_afpo"] : REQUIRED_STEPS;
+  const missingSteps = requiredSteps.filter((step) => !stepAnswers[step]);
 
   const handleClick = async () => {
     setLoading(true);
     setError(null);
     try {
-      const payload = buildReportSections(stepAnswers, questionnaireAnswers, questionnaireSkipped);
+      const payload = {
+        ...buildReportSections(stepAnswers, questionnaireAnswers, questionnaireSkipped),
+        session_id: sessionId,
+      };
       const { url } = await api.getEvalReportUrl(payload);
       window.open(url, "_blank", "noopener,noreferrer");
       markReportSubmitted();
@@ -33,8 +43,43 @@ export function SubmitReportButton() {
     }
   };
 
+  if (missingSteps.length > 0) {
+    return (
+      <div className="bg-accent-light border border-l-4 border-l-accent rounded-md p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="size-5 text-accent mt-0.5 shrink-0" />
+          <div>
+            <p className="text-base font-medium">
+              A few steps still need your reaction before you can submit the report.
+            </p>
+            <p className="text-sm text-text-secondary mt-1">
+              You can still answer these even if you didn't finish that step — "I got stuck here" is
+              useful feedback too.
+            </p>
+            <div className="mt-3 space-y-2">
+              {missingSteps.map((step) => (
+                <a
+                  key={step}
+                  href={`${STEP_ROUTES[step]}?checkin=${step}`}
+                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline mr-4"
+                >
+                  {STEP_TITLES[step] ?? step}
+                  <ArrowRight className="size-3.5" />
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
+      <p className="text-xs text-text-secondary mb-2">
+        Anonymous session ID: <code className="bg-surface border rounded px-1">{sessionId}</code>{" "}
+        — random, not linked to your name, just lets separate submissions be told apart.
+      </p>
       <button
         onClick={() => void handleClick()}
         disabled={loading}

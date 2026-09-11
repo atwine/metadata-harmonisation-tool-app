@@ -12,6 +12,31 @@ export const STEP_TITLES: Record<string, string> = {
   download_results: "Download Results",
 };
 
+/** The route each step's check-in lives on — used to send a participant
+ * back to a step they skipped past before they can submit the final
+ * report. */
+export const STEP_ROUTES: Record<string, string> = {
+  install: "/",
+  upload_codebook: "/upload-codebook",
+  upload_study: "/upload-studies",
+  initialise: "/initialise",
+  map_studies: "/map-studies",
+  map_studies_afpo: "/map-studies",
+  download_results: "/download-results",
+};
+
+/** Every step whose check-in must be resolved (answered or skipped) before
+ * the final report can be submitted. map_studies_afpo is excluded — it's
+ * only relevant when the AfPO toggle was on, checked separately. */
+export const REQUIRED_STEPS = [
+  "install",
+  "upload_codebook",
+  "upload_study",
+  "initialise",
+  "map_studies",
+  "download_results",
+];
+
 /** One question set per workflow step. Shared here so wording stays
  * consistent and each route file only needs to reference a step id. */
 export const CHECK_IN_QUESTIONS: Record<string, CheckInQuestion[]> = {

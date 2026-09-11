@@ -284,3 +284,7 @@ class EvalReportRequest(BaseModel):
     # assembles them alongside the performance log summary.
     sections_markdown: list[str]
     has_skips: bool
+    # A short random id (not a name/email) generated once per browser
+    # session — the only thing distinguishing one participant's issue from
+    # another's without collecting any identity.
+    session_id: str
