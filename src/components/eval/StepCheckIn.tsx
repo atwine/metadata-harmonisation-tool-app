@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ScaleRow } from "./ScaleRow";
 
 export type CheckInQuestion =
   | {
@@ -107,25 +108,12 @@ export function StepCheckIn({
 
               {q.type === "scale" && (
                 <div className="mt-2">
-                  <div className="flex gap-1.5">
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => setValue(q.id, n)}
-                        className={`size-9 rounded-md border text-sm font-medium transition-colors ${
-                          values[q.id] === n
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-surface hover:bg-accent-light"
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-xs text-text-secondary mt-1">
-                    <span>{q.lowLabel}</span>
-                    <span>{q.highLabel}</span>
-                  </div>
+                  <ScaleRow
+                    value={values[q.id] as number | undefined}
+                    onChange={(n) => setValue(q.id, n)}
+                    lowLabel={q.lowLabel}
+                    highLabel={q.highLabel}
+                  />
                 </div>
               )}
 

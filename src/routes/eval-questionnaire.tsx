@@ -6,30 +6,11 @@ import { isEvalBuild } from "@/lib/evalBuild";
 import { useEvalStore } from "@/stores/evalStore";
 import { SUS_STATEMENTS, OPEN_ENDED, BACKGROUND } from "@/components/eval/questionnaireContent";
 import { SubmitReportButton } from "@/components/eval/SubmitReportButton";
+import { ScaleRow } from "@/components/eval/ScaleRow";
 
 export const Route = createFileRoute("/eval-questionnaire")({
   component: EvalQuestionnairePage,
 });
-
-function ScaleRow({ value, onChange }: { value?: number; onChange: (n: number) => void }) {
-  return (
-    <div className="flex gap-1.5 shrink-0">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          onClick={() => onChange(n)}
-          className={`size-9 rounded-md border text-sm font-medium transition-colors ${
-            value === n
-              ? "bg-primary text-primary-foreground border-primary"
-              : "bg-surface hover:bg-accent-light"
-          }`}
-        >
-          {n}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function ChoiceRow({
   options,
@@ -120,6 +101,8 @@ function EvalQuestionnairePage() {
               <ScaleRow
                 value={susAnswers[i]}
                 onChange={(n) => setSusAnswers((a) => ({ ...a, [i]: n }))}
+                lowLabel="Strongly Disagree"
+                highLabel="Strongly Agree"
               />
             </div>
           ))}
