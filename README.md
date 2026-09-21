@@ -154,6 +154,12 @@ updating the app never deletes it.
 **Which folder do I run these in?** Always the folder that contains
 `docker-compose.hub.yml` — Docker looks for the file in the folder you are in.
 
+**Already using Way 2 on this computer?** Stop it first (run `docker compose down` in its
+folder), because both ways use ports 8000 and 8080. The two are completely separate: Way 1
+keeps its own copy of the AI models (so they download once more) and its own
+`harmonisation-data` folder. To bring your existing work across, copy your old
+`harmonisation-data` folder into the new folder before you start.
+
 ### Way 2: clone the repository and build it yourself
 
 For developers, or anyone who wants to read or change the code. This builds the app
