@@ -86,7 +86,8 @@ A first-time visitor to any page gets a short guided tour (spotlight + tooltip) 
 │   │   └── wizardStore.ts     # afpoMappingEnabled, relationalModeEnabled — session-only toggles
 │   ├── styles.css             # Design tokens (colors, the text-xs..xl type scale)
 │   └── types.ts
-├── docker-compose.yml         # Full-stack local packaging (frontend + backend + Ollama)
+├── docker-compose.yml         # Full-stack local packaging — builds the app from source
+├── docker-compose.hub.yml     # Same stack from prebuilt images (download this one file and run)
 ├── Dockerfile.frontend
 └── run_backend.py             # Entry point — runs uvicorn from project root
 ```
@@ -94,8 +95,76 @@ A first-time visitor to any page gets a short guided tour (spotlight + tooltip) 
 ## Running via Docker Compose
 
 For non-technical end users, or anyone who'd rather not install Python/Node/Ollama
-separately. Needs [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-installed and running first.
+separately. Everything runs locally on your own computer — no shared or hosted AI
+backend, and your data never leaves the machine. There are two ways to start it.
+**Most people should use Way 1.**
+
+**Before either way, install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+and make sure it is running** (open it and wait until it says "Docker Desktop is
+running"). You need about 8 GB of free RAM and a few GB of free disk space for the AI models.
+
+### Way 1 (recommended): download and run — no cloning, no building
+
+Docker downloads ready-made copies of the app instead of assembling them on your
+computer. They are built automatically by GitHub every time the app is updated, and
+the same download works on Windows PCs, Intel Macs and Apple-Silicon Macs (Docker
+picks the right one for you). You only need **one small file**, not the whole repository.
+
+1. **Make an empty folder** anywhere (for example `mht`) and open a terminal in it.
+   On a Mac use *Terminal*; on Windows use *PowerShell*.
+   ```bash
+   mkdir mht
+   cd mht
+   ```
+
+2. **Download the one file** that tells Docker what to run.
+
+   Mac or Linux:
+   ```bash
+   curl -O https://raw.githubusercontent.com/atwine/metadata-harmonisation-tool-app/main/docker-compose.hub.yml
+   ```
+   Windows (PowerShell) — note it is `curl.exe`, not `curl`:
+   ```bash
+   curl.exe -O https://raw.githubusercontent.com/atwine/metadata-harmonisation-tool-app/main/docker-compose.hub.yml
+   ```
+
+3. **Download the app** (this fetches the ready-made copies):
+   ```bash
+   docker compose -f docker-compose.hub.yml pull
+   ```
+
+4. **Start it:**
+   ```bash
+   docker compose -f docker-compose.hub.yml up
+   ```
+   The **first** time, it also downloads the AI models (several GB), so be patient.
+   When you see `[ollama-entrypoint] models ready — serving.` it is ready.
+
+5. **Open the app** in your browser: <http://localhost:8080>
+
+**Your data** is saved in a folder called `harmonisation-data`, created next to the
+file you downloaded. It is a normal folder — back it up by copying it. Stopping or
+updating the app never deletes it.
+
+**Stopping:** press `Ctrl+C` in the terminal, then run
+`docker compose -f docker-compose.hub.yml down`.
+
+**Updating to the newest version:** run steps 3 and 4 again (`pull`, then `up`).
+
+**Which folder do I run these in?** Always the folder that contains
+`docker-compose.hub.yml` — Docker looks for the file in the folder you are in.
+
+**Already using Way 2 on this computer?** Stop it first (run `docker compose down` in its
+folder), because both ways use ports 8000 and 8080. The two are completely separate: Way 1
+keeps its own copy of the AI models (so they download once more) and its own
+`harmonisation-data` folder. To bring your existing work across, copy your old
+`harmonisation-data` folder into the new folder before you start.
+
+### Way 2: clone the repository and build it yourself
+
+For developers, or anyone who wants to read or change the code. This builds the app
+on your own computer, which is slower (it downloads and compiles packages) but needs
+nothing from Docker Hub.
 
 ```bash
 git clone https://github.com/atwine/metadata-harmonisation-tool-app.git
@@ -105,13 +174,10 @@ docker compose up
 
 Run that last command from *inside* the cloned folder — `docker compose` looks for
 `docker-compose.yml` in whatever directory you're in, and that file lives at the
-top level of this repo.
+top level of this repo. The app is then at <http://localhost:8080>.
 
-Runs the full stack (frontend, backend, and a bundled Ollama with models pre-pulled)
-locally — no shared/hosted AI backend, everything stays on the machine. First run is
-slow (downloads the AI models); every run after that is fast. See
-[`docs/docker.md`](docs/docker.md) for the full walkthrough, including where your data
-lives, how to back it up, and troubleshooting.
+See [`docs/docker.md`](docs/docker.md) for the full walkthrough, including where your
+data lives, how to back it up, and troubleshooting. It applies to both ways.
 
 ## Running locally
 

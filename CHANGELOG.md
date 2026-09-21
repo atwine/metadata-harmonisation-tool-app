@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.9] — 2026-09-21
+
+### Added
+- **Download-and-run install (no cloning, no building).** A new single file, `docker-compose.hub.yml`, starts the whole app from ready-made images on Docker Hub instead of building it on your own computer. GitHub now builds those images automatically every time `main` changes, for both PCs and Apple-Silicon Macs (Docker picks the right one), and publishes them as `atwine/mht-frontend` and `atwine/mht-backend` with the tag `latest` plus a permanent per-release tag (`main-<commit>`) for rolling back. The README's Docker section now has step-by-step instructions for Windows and Mac, and `docs/docker.md` explains how to pin an older version. The existing build-from-source `docker-compose.yml` is unchanged. The images contain the normal app only, none of the evaluation-build code.
+
 ## [0.8.8] — 2026-09-21
 
 ### Changed
