@@ -224,7 +224,7 @@ function SlotFeedback({ label, result }: { label: string; result: SlotTestResult
 function AIConfigPanel() {
   // Collapsed by default — this is setup content, not part of the everyday
   // workflow, and having it always expanded pushed the actual nav below the
-  // fold on shorter viewports. The Initialise page's "AI not configured"
+  // fold on shorter viewports. The Initialise page's "AI not connected yet"
   // banner already tells the user where to look if they need it.
   const [open, setOpen] = useState(false);
   const { config, setConfig, connectionStatus, setConnectionStatus } = useAIConfigStore();
@@ -327,6 +327,9 @@ function AIConfigPanel() {
             <div className="text-base font-medium tracking-widest text-text-secondary uppercase mb-2">
               🔍 Connection Test
             </div>
+            <p className="text-sm text-text-secondary mb-2">
+              Required: click Test Connection to link the model before running Initialise.
+            </p>
             <button
               onClick={handleTest}
               disabled={testConn.isPending}

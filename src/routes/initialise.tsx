@@ -248,8 +248,9 @@ function InitialisePage() {
         <div className="bg-accent-light border border-l-4 border-l-accent rounded-md p-4 flex items-start gap-3">
           <AlertTriangle className="size-5 text-accent mt-0.5" />
           <div className="text-base">
-            AI not configured. Open the AI Configuration panel in the sidebar and test your
-            connection before running.
+            AI not connected yet. Open <strong>AI Configuration</strong> in the sidebar and click{" "}
+            <strong>Test Connection</strong> — this step is required to link the model before you
+            can run.
           </div>
         </div>
       )}

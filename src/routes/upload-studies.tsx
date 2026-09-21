@@ -119,7 +119,9 @@ function Dropzone({ icon: Icon, label, hint, tooltip, file, onFile, accept }: Dr
               {file ? (
                 <>
                   <div className="text-base font-medium text-primary">{file.name}</div>
-                  <div className="text-xs text-text-secondary">{(file.size / 1024).toFixed(0)} KB</div>
+                  <div className="text-xs text-text-secondary">
+                    {(file.size / 1024).toFixed(0)} KB
+                  </div>
                 </>
               ) : (
                 <>
@@ -130,7 +132,7 @@ function Dropzone({ icon: Icon, label, hint, tooltip, file, onFile, accept }: Dr
             </div>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="right" className="max-w-[260px]">
+        <TooltipContent side="right" className="max-w-[320px]">
           {tooltip}
         </TooltipContent>
       </Tooltip>
@@ -231,8 +233,8 @@ function UploadStudiesPage() {
             <Dropzone
               icon={FileText}
               label="Context Document PDF"
-              hint="optional · max 50 MB"
-              tooltip="Drop a PDF with background info about the study — a protocol, data dictionary, or codebook — used to help generate better variable descriptions automatically. Click to browse instead of dragging. Optional — max 50 MB."
+              hint="optional · max 50 MB · larger = slower"
+              tooltip="One PDF describing this study — usually the protocol, the case report forms (CRFs) or a data dictionary. The AI reads it to write descriptions for variables that don't have one; consent forms rarely help. Only one PDF per study, so merge several documents into one first. The bigger the PDF, the longer Initialise takes. Click to browse instead of dragging. Optional — max 50 MB."
               file={pdfFile}
               onFile={setPdfFile}
               accept=".pdf"
