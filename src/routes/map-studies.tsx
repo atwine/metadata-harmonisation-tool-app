@@ -701,20 +701,26 @@ function MapStudiesPage() {
 
               {/* confidence */}
               {codebookMatch && (
-                <div className="flex items-center gap-3">
-                  <span className="text-xl font-semibold bg-primary-light text-primary px-2.5 py-1 rounded-md">
-                    {topConfidence}%
-                  </span>
-                  <div className="w-[200px] h-2 rounded-full bg-border overflow-hidden">
-                    <div
-                      className="h-full transition-all"
-                      style={{ width: `${topConfidence}%`, background: confidenceColor }}
-                    />
+                <div>
+                  <div className="label-caption mb-1.5">Codebook Confidence Match</div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl font-semibold bg-primary-light text-primary px-2.5 py-1 rounded-md">
+                      {topConfidence}%
+                    </span>
+                    <div className="w-[200px] h-2 rounded-full bg-border overflow-hidden">
+                      <div
+                        className="h-full transition-all"
+                        style={{ width: `${topConfidence}%`, background: confidenceColor }}
+                      />
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+                      <span
+                        className="size-2 rounded-full"
+                        style={{ background: confidenceColor }}
+                      />
+                      {confidenceLabel}
+                    </span>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium">
-                    <span className="size-2 rounded-full" style={{ background: confidenceColor }} />
-                    {confidenceLabel}
-                  </span>
                 </div>
               )}
 

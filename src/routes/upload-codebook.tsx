@@ -247,7 +247,8 @@ function UploadCodebookPage() {
                     <code className="font-mono">dType</code>,{" "}
                     <code className="font-mono">Unit</code>,{" "}
                     <code className="font-mono">Categories</code>,{" "}
-                    <code className="font-mono">Unit Example</code>
+                    <code className="font-mono">Unit Example</code> — these columns can be left out
+                    entirely; you'll just see a "Recommended column missing" note
                   </li>
                   <li>
                     <strong className="text-text-primary">dType supports:</strong>{" "}
@@ -258,9 +259,10 @@ function UploadCodebookPage() {
                     handling applies)
                   </li>
                   <li>
-                    <strong className="text-text-primary">Study variables CSV:</strong> must also
-                    have <code className="font-mono">variable_name</code>,{" "}
-                    <code className="font-mono">description</code> (description may be empty)
+                    <strong className="text-text-primary">Study variables CSV:</strong> needs{" "}
+                    <code className="font-mono">variable_name</code>;{" "}
+                    <code className="font-mono">description</code> is optional — the AI writes any
+                    that are missing during Initialise
                   </li>
                   <li>
                     <strong className="text-text-primary">Example data CSV (optional):</strong>{" "}

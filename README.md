@@ -12,6 +12,8 @@ Variables that look like population/ethnicity data (e.g. mapped to a codebook va
 
 A first-time visitor to any page gets a short guided tour (spotlight + tooltip) pointing out what's where; it only auto-plays once per browser per page, and can be replayed anytime via the "Take a tour" link.
 
+> **Before you start:** your codebook and study files need specific column names and a CSV format. See [Preparing your input files](docs/input-file-format.md) (includes a quick REDCap conversion), as this is the step that takes most people the longest.
+
 **Workflow:**
 1. **Upload Codebook** — the canonical target variable list (CSV)
 2. **Upload Studies** — one or more study variable CSVs, with optional example-data CSV and context PDF
@@ -62,6 +64,7 @@ A first-time visitor to any page gets a short guided tour (spotlight + tooltip) 
 ├── data/ontologies/           # AfPO ontology data (afpo-base.obo)
 ├── docs/
 │   ├── docker.md               # Docker Compose walkthrough (data location, troubleshooting)
+│   ├── input-file-format.md    # Column names, sizes and REDCap conversion for the CSV/PDF inputs
 │   └── harmonisation_spec.md   # Rebuild spec / architecture reference
 ├── example_data/              # Sample codebooks + studies for local testing
 ├── src/                       # React frontend
