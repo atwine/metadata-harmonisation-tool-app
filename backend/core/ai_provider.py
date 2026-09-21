@@ -2,7 +2,9 @@
 AIProviderWrapper — thin adapter over Ollama/vLLM/OpenAI/Anthropic/Azure.
 Chat and embeddings are independent slots: each can point at a different
 provider and server (e.g. chat via vLLM, embeddings via Ollama).
-Rate limiting: 60 req/min sliding window.
+Rate limiting: only for paid online providers (OpenAI/Anthropic/Azure) — a 60
+req/min sliding window that WAITS for a free slot instead of failing. Servers
+you run yourself (Ollama/vLLM) are never limited.
 Retry: exponential backoff, 3 attempts.
 Embedding cache: module-level dict (reset on process restart).
 """
@@ -17,6 +19,13 @@ from core.config import ModelConfig, AIProvider
 
 class AIProviderError(Exception):
     pass
+
+
+# Providers billed and rate-limited by someone else. Only these get a client-side
+# brake; for a server you run yourself (Ollama, vLLM) there is nothing to protect,
+# and a local server answers in milliseconds, so any per-minute cap only ever
+# aborted real-sized runs (a 43-variable codebook alone needs ~100 embedding calls).
+_METERED_PROVIDERS = frozenset({AIProvider.OPENAI, AIProvider.ANTHROPIC, AIProvider.AZURE_OPENAI})
 
 
 class SlotResult(NamedTuple):
@@ -62,17 +71,23 @@ class AIProviderWrapper:
 
     # ── rate limiting ────────────────────────────────────────────────────────
 
-    def _check_rate_limit(self):
-        with self._lock:
-            now = time.time()
-            while self._timestamps and self._timestamps[0] < now - self._rate_limit_window:
-                self._timestamps.popleft()
-            if len(self._timestamps) >= self._rate_limit_max:
-                raise AIProviderError("Rate limit exceeded (60 req/min)")
-            self._timestamps.append(now)
+    def _wait_for_rate_limit(self):
+        """Blocks until a request slot is free. Never raises: a run that has
+        already spent minutes on the AI should pause, not abort."""
+        while True:
+            with self._lock:
+                now = time.time()
+                while self._timestamps and self._timestamps[0] < now - self._rate_limit_window:
+                    self._timestamps.popleft()
+                if len(self._timestamps) < self._rate_limit_max:
+                    self._timestamps.append(now)
+                    return
+                wait = self._timestamps[0] + self._rate_limit_window - now
+            time.sleep(max(wait, 0.05))
 
-    def _retry(self, fn, *args, **kwargs):
-        self._check_rate_limit()
+    def _retry(self, provider, fn, *args, **kwargs):
+        if provider in _METERED_PROVIDERS:
+            self._wait_for_rate_limit()
         last_exc: Exception | None = None
         for attempt in range(self.max_retries):
             try:
@@ -88,7 +103,7 @@ class AIProviderWrapper:
     # ── chat ─────────────────────────────────────────────────────────────────
 
     def generate_chat_response(self, messages: list[dict]) -> str:
-        return self._retry(self._do_chat, messages)
+        return self._retry(self.chat_config.provider, self._do_chat, messages)
 
     def _do_chat(self, messages: list[dict]) -> str:
         client   = self._get_chat_client()
@@ -135,7 +150,8 @@ class AIProviderWrapper:
     def generate_embedding(self, text: str) -> list[float]:
         if text in self._EMBED_CACHE:
             return self._EMBED_CACHE[text]
-        result = self._retry(self._do_embed_single, text)
+        provider = self.embedding_config.provider if self.embedding_config else None
+        result = self._retry(provider, self._do_embed_single, text)
         self._EMBED_CACHE[text] = result
         return result
 
@@ -145,12 +161,12 @@ class AIProviderWrapper:
         if uncached:
             provider = self.embedding_config.provider if self.embedding_config else None
             if provider in (AIProvider.OPENAI, AIProvider.AZURE_OPENAI, AIProvider.VLLM):
-                embeddings = self._retry(self._do_embed_batch_openai, uncached)
+                embeddings = self._retry(provider, self._do_embed_batch_openai, uncached)
                 for t, emb in zip(uncached, embeddings):
                     self._EMBED_CACHE[t] = emb
             else:
                 for t in uncached:
-                    self._EMBED_CACHE[t] = self._retry(self._do_embed_single, t)
+                    self._EMBED_CACHE[t] = self._retry(provider, self._do_embed_single, t)
         return [self._EMBED_CACHE[t] for t in texts]
 
     def _do_embed_single(self, text: str) -> list[float]:
