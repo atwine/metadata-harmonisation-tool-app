@@ -1439,25 +1439,37 @@ class AIProviderWrapper:
 
 ### Rate limiting
 
-The wrapper enforces 60 requests/minute using a sliding window (deque of timestamps):
+Only providers that are billed and rate-limited by someone else (OpenAI, Anthropic,
+Azure OpenAI) get a client-side brake: 60 requests/minute in a sliding window (deque of
+timestamps). When the window is full the call **waits** for a free slot and then
+continues — it never raises, because a run that has already spent minutes on the AI
+should pause, not abort. Servers you run yourself (Ollama, vLLM) are never limited: a
+local server answers in milliseconds, so any per-minute cap only ever aborted real-sized
+runs (one 43-variable codebook needs ~100 embedding requests).
 
 ```python
-def _check_rate_limit(self):
-    with self._lock:
-        now = time.time()
-        # Evict expired entries
-        while self._timestamps and self._timestamps[0] < now - self._rate_limit_window:
-            self._timestamps.popleft()
-        if len(self._timestamps) >= self._rate_limit_max:
-            raise AIProviderError("Rate limit exceeded")
-        self._timestamps.append(now)
+_METERED_PROVIDERS = frozenset({AIProvider.OPENAI, AIProvider.ANTHROPIC, AIProvider.AZURE_OPENAI})
+
+def _wait_for_rate_limit(self):
+    while True:
+        with self._lock:
+            now = time.time()
+            # Evict expired entries
+            while self._timestamps and self._timestamps[0] < now - self._rate_limit_window:
+                self._timestamps.popleft()
+            if len(self._timestamps) < self._rate_limit_max:
+                self._timestamps.append(now)
+                return
+            wait = self._timestamps[0] + self._rate_limit_window - now
+        time.sleep(max(wait, 0.05))
 ```
 
 ### Retry with exponential backoff
 
 ```python
-def _retry(self, fn, *args, **kwargs):
-    self._check_rate_limit()
+def _retry(self, provider, fn, *args, **kwargs):
+    if provider in _METERED_PROVIDERS:
+        self._wait_for_rate_limit()
     for attempt in range(self.max_retries):
         try:
             return self._with_timeout(fn, self.request_timeout, *args, **kwargs)

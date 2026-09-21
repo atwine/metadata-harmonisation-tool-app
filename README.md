@@ -132,6 +132,9 @@ picks the right one for you). You only need **one small file**, not the whole re
    ```bash
    docker compose -f docker-compose.hub.yml pull
    ```
+   This is the **biggest download: several GB in total**, most of it the Ollama AI engine
+   (the AI models themselves come in step 4). Do it on a good connection. If it is
+   interrupted, just run the same command again — it skips whatever already finished.
 
 4. **Start it:**
    ```bash
