@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Home,
   FileSpreadsheet,
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { OLLAMA_BASE_URL, OLLAMA_CHAT_MODEL, OLLAMA_EMBEDDING_MODEL } from "@/lib/ollamaDefaults";
 import { useAIConfigStore } from "@/stores/aiConfigStore";
-import { useTestConnection, useProviderModels } from "@/api/client";
+import { api, useTestConnection, useProviderModels } from "@/api/client";
 import type { AIConfig, AIProviderId, ProviderSlot } from "@/types";
 import type { SlotTestResult } from "@/api/client";
 
@@ -227,6 +227,28 @@ function AIConfigPanel() {
   const [open, setOpen] = useState(false);
   const { config, setConfig, connectionStatus, setConnectionStatus } = useAIConfigStore();
   const testConn = useTestConnection();
+
+  // After a full page reload: restore the saved settings and, if the
+  // connection was working, quietly check it again.
+  const resumeStarted = useRef(false);
+  useEffect(() => {
+    if (resumeStarted.current) return;
+    resumeStarted.current = true;
+    void (async () => {
+      await useAIConfigStore.persist.rehydrate();
+      const { config: saved, resumeConnection, setConnectionStatus } = useAIConfigStore.getState();
+      if (!saved || !resumeConnection) return;
+      // Keys aren't saved, so a provider that needs one can't reconnect by itself.
+      if ([saved.chat, saved.embedding].some((s) => s && apiKeyRequired(s.provider))) return;
+      setConnectionStatus("checking");
+      try {
+        const res = await api.testConnection(saved);
+        setConnectionStatus(res.connected ? "connected" : "failed");
+      } catch {
+        setConnectionStatus("failed");
+      }
+    })();
+  }, []);
 
   const chatSlot: ProviderSlot = config?.chat ?? {
     provider: "ollama",
