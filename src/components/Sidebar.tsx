@@ -235,7 +235,8 @@ function AIConfigPanel() {
     if (resumeStarted.current) return;
     resumeStarted.current = true;
     void (async () => {
-      await useAIConfigStore.persist.rehydrate();
+      // `persist` is absent when the browser blocks session storage; the app then just works unsaved.
+      await useAIConfigStore.persist?.rehydrate();
       const { config: saved, resumeConnection, setConnectionStatus } = useAIConfigStore.getState();
       if (!saved || !resumeConnection) return;
       // Keys aren't saved, so a provider that needs one can't reconnect by itself.
