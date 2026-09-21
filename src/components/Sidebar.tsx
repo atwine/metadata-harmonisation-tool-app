@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Home,
   FileSpreadsheet,
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { OLLAMA_BASE_URL, OLLAMA_CHAT_MODEL, OLLAMA_EMBEDDING_MODEL } from "@/lib/ollamaDefaults";
 import { useAIConfigStore } from "@/stores/aiConfigStore";
-import { useTestConnection, useProviderModels } from "@/api/client";
+import { api, useTestConnection, useProviderModels } from "@/api/client";
 import type { AIConfig, AIProviderId, ProviderSlot } from "@/types";
 import type { SlotTestResult } from "@/api/client";
 
@@ -228,6 +228,31 @@ function AIConfigPanel() {
   const { config, setConfig, connectionStatus, setConnectionStatus } = useAIConfigStore();
   const testConn = useTestConnection();
 
+  // After a full page reload: restore the saved settings and, if the
+  // connection was working, quietly check it again.
+  const resumeStarted = useRef(false);
+  useEffect(() => {
+    if (resumeStarted.current) return;
+    resumeStarted.current = true;
+    void (async () => {
+      // `persist` is absent when the browser blocks session storage; the app then just works unsaved.
+      await useAIConfigStore.persist?.rehydrate();
+      const { config: saved, resumeConnection, setConnectionStatus } = useAIConfigStore.getState();
+      if (!saved || !resumeConnection) return;
+      // Keys aren't saved, so a provider that needs one can't reconnect by itself.
+      if ([saved.chat, saved.embedding].some((s) => s && apiKeyRequired(s.provider))) return;
+      setConnectionStatus("checking");
+      // If the user ran their own Test Connection meanwhile, that newer result wins.
+      const superseded = () => useAIConfigStore.getState().connectionStatus !== "checking";
+      try {
+        const res = await api.testConnection(saved);
+        if (!superseded()) setConnectionStatus(res.connected ? "connected" : "failed");
+      } catch {
+        if (!superseded()) setConnectionStatus("failed");
+      }
+    })();
+  }, []);
+
   const chatSlot: ProviderSlot = config?.chat ?? {
     provider: "ollama",
     model: OLLAMA_CHAT_MODEL,
@@ -398,7 +423,7 @@ export function Sidebar() {
         <AIConfigPanel />
       </div>
       <div className="border-t" />
-      <div className="px-4 py-2 text-base text-text-secondary shrink-0">v0.8.7</div>
+      <div className="px-4 py-2 text-base text-text-secondary shrink-0">v0.8.8</div>
     </aside>
   );
 }

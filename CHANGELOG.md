@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.8] — 2026-09-21
+
+### Changed
+- **The AI connection now survives a page reload.** Previously the AI settings and the connection test lived only in memory, so any full reload meant redoing Test Connection and re-entering custom provider settings. Provider, model, address and timeout are now kept for the browser session (cleared when the tab is closed), and if the connection was working, a reload re-checks it automatically ("Reconnecting to your AI provider…") before showing connected or not connected. **API keys are never stored** — providers that need one (OpenAI, Anthropic, Azure OpenAI) ask for it again after a reload.
+
+### Fixed
+- **The codebook upload now enforces what the screen says.** The Upload Codebook help lists `variable_name` and `description` as required, but the server only rejected a file missing *both*, so a file with just one was accepted and matched poorly. It now rejects a file missing either, and the message names exactly which column is missing. If a column is present but spelled differently (e.g. `Variable Name`), the message points to what it found, since names must match exactly. Study variables files use the same wording for their one required column (`variable_name`).
+
 ## [0.8.7] — 2026-09-21
 
 ### Added
