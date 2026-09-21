@@ -1,0 +1,93 @@
+# Prebuilt-image install — run the app WITHOUT cloning the repo or building
+# anything. Docker downloads ready-made images (built automatically by GitHub
+# every time the main branch changes) instead of assembling them on your
+# computer. This one file is everything you need.
+#
+# Usage (Docker Desktop must be installed AND running first):
+#   1. Put this file in an empty folder and open a terminal there.
+#   2. docker compose -f docker-compose.hub.yml pull
+#   3. docker compose -f docker-compose.hub.yml up
+#   4. Open http://localhost:8080
+#
+# Full step-by-step (including how to download this file): see the
+# "Running via Docker Compose" section of the README.
+#
+# This is the SAME application as the normal `docker-compose.yml` — same code,
+# same behaviour. The only difference is where the images come from
+# (downloaded here, built from source there). The images work on both PCs and
+# Apple-Silicon Macs; Docker picks the right one automatically.
+services:
+  ollama:
+    image: ollama/ollama:latest
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        CHAT_MODEL=$${OLLAMA_DEFAULT_CHAT_MODEL:-llama3.2:3b}
+        EMBEDDING_MODEL=$${OLLAMA_DEFAULT_EMBEDDING_MODEL:-nomic-embed-text}
+        ollama serve &
+        SERVE_PID=$$!
+        echo "[ollama-entrypoint] waiting for ollama to become ready..."
+        until ollama list >/dev/null 2>&1; do sleep 1; done
+        echo "[ollama-entrypoint] ollama is ready."
+        echo "[ollama-entrypoint] pulling chat model: $$CHAT_MODEL"
+        ollama pull "$$CHAT_MODEL"
+        echo "[ollama-entrypoint] pulling embedding model: $$EMBEDDING_MODEL"
+        ollama pull "$$EMBEDDING_MODEL"
+        echo "[ollama-entrypoint] models ready — serving."
+        wait $$SERVE_PID
+    environment:
+      OLLAMA_DEFAULT_CHAT_MODEL: llama3.2:3b
+      OLLAMA_DEFAULT_EMBEDDING_MODEL: nomic-embed-text
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    restart: unless-stopped
+
+  backend:
+    image: atwine/mht-backend:latest
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_DEFAULT_CHAT_MODEL: llama3.2:3b
+      OLLAMA_DEFAULT_EMBEDDING_MODEL: nomic-embed-text
+      # Optional: raises the GitHub search API rate limit used by the AfPO
+      # duplicate-request check from 10/min (unauthenticated) to 30/min.
+      # Leave unset to run without one.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Normal folders next to this file (not hidden Docker volumes), so you
+      # can see and back up your studies, results and database. Deleting the
+      # containers or images never touches them. See docs/docker.md.
+      - ./harmonisation-data/input:/app/input
+      - ./harmonisation-data/results:/app/results
+      - ./harmonisation-data/logs:/app/logs
+      - ./harmonisation-data/db:/app/db
+      - ./harmonisation-data/ontology-cache:/app/ontology_cache
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: atwine/mht-frontend:latest
+    environment:
+      VITE_API_URL: http://localhost:8000
+      VITE_OLLAMA_BASE_URL: http://ollama:11434
+      VITE_OLLAMA_CHAT_MODEL: llama3.2:3b
+      VITE_OLLAMA_EMBEDDING_MODEL: nomic-embed-text
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  # Ollama's model cache — losing it only means re-downloading the models.
+  ollama_data:

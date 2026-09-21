@@ -1,0 +1,146 @@
+# Rebuilds the two normal-app images and publishes them to Docker Hub, for both
+# PCs (linux/amd64) and Apple-Silicon Macs (linux/arm64), so anyone using
+# docker-compose.hub.yml gets the latest release with `docker compose pull`
+# and never has to build the app on their own computer.
+#
+# Runs every time the main branch changes (i.e. when a pull request is merged),
+# or by hand from the Actions tab ("Run workflow"). Built from main, so the
+# images contain the normal app only — none of the testing-build code.
+#
+# Needs the DOCKERHUB_TOKEN repository secret (Docker Hub access token with
+# "Read & Write" access): GitHub repo -> Settings -> Secrets and variables ->
+# Actions. The same secret is used by the testing-build workflow.
+#
+# How it works: each image is built twice at the same time, once on a PC-type
+# machine and once on a native ARM machine (no slow emulation). Each half is
+# pushed by digest only; the "merge" job then joins the halves under one name
+# so Docker gives every user the right one for their computer. It publishes
+#   atwine/mht-<frontend|backend>:latest          <- what docker-compose.hub.yml pulls
+#   atwine/mht-<frontend|backend>:main-<sha7>     <- the same build, kept for rollback
+# (The testing build has its own tags, ":eval" and ":eval-<sha7>", and its own
+# workflow on the testing branch. The two never touch each other's tags.)
+name: Publish main images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer merge replaces a build still in progress, so an older build can never
+# finish last and overwrite `:latest` with stale code.
+concurrency:
+  group: publish-main-images
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOCKERHUB_USER: atwine
+
+jobs:
+  build:
+    # Forks have no Docker Hub secret, so don't try there.
+    if: github.repository == 'atwine/metadata-harmonisation-tool-app'
+    name: build ${{ matrix.image }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: true
+      matrix:
+        image: [frontend, backend]
+        platform: [linux/amd64, linux/arm64]
+        include:
+          - platform: linux/amd64
+            arch: amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - image: frontend
+            dockerfile: Dockerfile.frontend
+          - image: backend
+            dockerfile: backend/Dockerfile
+    steps:
+      - name: Check the Docker Hub token is set
+        env:
+          TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::The DOCKERHUB_TOKEN secret is not set. See the note at the top of .github/workflows/publish-main-images.yml."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push (by digest)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ env.DOCKERHUB_USER }}/mht-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=main-${{ matrix.image }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=main-${{ matrix.image }}-${{ matrix.arch }}
+
+      - name: Save the digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.image }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: publish ${{ matrix.image }}
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        image: [frontend, backend]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-${{ matrix.image }}-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Join the PC and Mac builds under one name
+        working-directory: ${{ runner.temp }}/digests
+        env:
+          IMAGE: ${{ env.DOCKERHUB_USER }}/mht-${{ matrix.image }}
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          sources=()
+          for digest in *; do
+            sources+=("$IMAGE@sha256:$digest")
+          done
+          docker buildx imagetools create \
+            -t "$IMAGE:latest" \
+            -t "$IMAGE:main-$SHORT_SHA" \
+            "${sources[@]}"
+
+      - name: Show what was published
+        env:
+          IMAGE: ${{ env.DOCKERHUB_USER }}/mht-${{ matrix.image }}
+        run: docker buildx imagetools inspect "$IMAGE:latest"

@@ -12,6 +12,25 @@ and no shared/hosted AI backend is used.
   otherwise `docker compose up` fails with "Cannot connect to the Docker daemon."
 - At least ~8GB free RAM and a few GB of free disk space for the bundled AI models.
 
+## Two ways to run
+
+- **Prebuilt (recommended):** download the single file `docker-compose.hub.yml` and run
+  `docker compose -f docker-compose.hub.yml pull`, then `... up`. No cloning, no building.
+  The README ("Running via Docker Compose", Way 1) has the exact steps for Windows and Mac.
+- **Build from source:** clone the repo and run `docker compose up`. Slower, for developers.
+
+The commands in the rest of this page are written for the build-from-source way. If you
+use the prebuilt file, add `-f docker-compose.hub.yml` to each one — for example
+`docker compose -f docker-compose.hub.yml down`. Your data folder works the same way in both.
+
+### Going back to an older version (prebuilt way)
+
+Every time the app is updated, GitHub publishes the new images as `:latest` **and** saves
+that build under a permanent name like `:main-1a2b3c4` (the first 7 characters of the
+commit). If a new release ever misbehaves, open `docker-compose.hub.yml`, change the two
+`image:` lines from `:latest` to that older name, then run `pull` and `up` again. The list
+of names is on Docker Hub under `atwine/mht-backend` and `atwine/mht-frontend` (Tags tab).
+
 ## First run
 
 1. Clone the repo (or download and unzip it) — anywhere on your machine:
