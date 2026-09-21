@@ -13,6 +13,12 @@ export interface LogLine {
 
 export type RunResult = "idle" | "success" | "error";
 
+const LOG_TYPE_BY_STATUS: Record<string, LogLine["type"]> = {
+  done: "ok",
+  error: "error",
+  running: "running",
+};
+
 interface InitialiseState {
   prompt: string;
   setPrompt: (p: string) => void;
@@ -91,14 +97,7 @@ export const useInitialiseStore = create<InitialiseState>((set, get) => ({
               status: string;
               message: string;
             };
-            const type: LogLine["type"] =
-              ev.status === "done"
-                ? "ok"
-                : ev.status === "error"
-                  ? "error"
-                  : ev.status === "running"
-                    ? "running"
-                    : "info";
+            const type = LOG_TYPE_BY_STATUS[ev.status] ?? "info";
             if (type === "error") sawError = true;
             if (ev.step === "complete" && ev.status === "done") sawComplete = true;
             appendLog({ text: ev.message, type });
