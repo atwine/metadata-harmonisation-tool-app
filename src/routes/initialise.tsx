@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   XCircle,
@@ -17,6 +18,7 @@ import { useProductTour } from "@/hooks/useProductTour";
 import { useInitialiseStatus, useClearWorkspace } from "@/api/client";
 import { useAIConfigStore } from "@/stores/aiConfigStore";
 import { useWizardStore } from "@/stores/wizardStore";
+import { useInitialiseStore, DEFAULT_PROMPT } from "@/stores/initialiseStore";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,8 +33,6 @@ import {
 import { StepCheckIn } from "@/components/eval/StepCheckIn";
 import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
 import { useForceCheckIn } from "@/components/eval/useForceCheckIn";
-
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000";
 
 export const Route = createFileRoute("/initialise")({
   component: InitialisePage,
@@ -75,24 +75,23 @@ const TOUR_STEPS: Step[] = [
   },
 ];
 
-const DEFAULT_PROMPT =
-  "As an AI, you're given the task of translating short variable names from a public health study into the most likely full variable name.";
-
-interface LogLine {
-  text: string;
-  type: "info" | "ok" | "running" | "error";
-}
-
-type RunResult = "idle" | "success" | "error";
-
 function InitialisePage() {
   const [tipsOpen, setTipsOpen] = useState(false);
-  const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
-  const [forceRerun, setForceRerun] = useState(false);
-  const [running, setRunning] = useState(false);
-  const [log, setLog] = useState<LogLine[]>([]);
-  const [runResult, setRunResult] = useState<RunResult>("idle");
   const [alreadyDoneNotice, setAlreadyDoneNotice] = useState(false);
+
+  // Run state lives in a store (not here) so it survives leaving this page.
+  const {
+    prompt,
+    setPrompt,
+    forceRerun,
+    setForceRerun,
+    running,
+    log,
+    runResult,
+    startRun,
+    resetRun,
+  } = useInitialiseStore();
+  const queryClient = useQueryClient();
 
   const { data: statusData, refetch: refetchStatus } = useInitialiseStatus();
   const clearWorkspace = useClearWorkspace();
@@ -108,9 +107,7 @@ function InitialisePage() {
     studies.length > 0 &&
     studies.every((s) => s.recommendations_ready && s.pid_date_ready);
 
-  const appendLog = (line: LogLine) => setLog((prev) => [...prev, line]);
-
-  const handleRun = async () => {
+  const handleRun = () => {
     if (!config) return;
 
     if (!forceRerun && allAlreadyInitialised) {
@@ -119,83 +116,15 @@ function InitialisePage() {
     }
     setAlreadyDoneNotice(false);
 
-    setRunning(true);
-    setRunResult("idle");
-    setLog([]);
-    let sawError = false;
-    let sawComplete = false;
-
-    const body = {
-      ai_config: config,
-      init_prompt: prompt,
-      force_rerun: forceRerun,
-    };
-
-    try {
-      const resp = await fetch(`${BASE}/api/initialise/run`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!resp.ok || !resp.body) {
-        appendLog({ text: `Error: ${resp.statusText}`, type: "error" });
-        sawError = true;
-        setRunning(false);
-        setRunResult("error");
-        return;
-      }
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-
-        const parts = buf.split("\n\n");
-        buf = parts.pop() ?? "";
-
-        for (const part of parts) {
-          const dataLine = part.split("\n").find((l) => l.startsWith("data:"));
-          if (!dataLine) continue;
-          try {
-            const ev = JSON.parse(dataLine.slice(5)) as {
-              step: string;
-              status: string;
-              message: string;
-            };
-            const type: LogLine["type"] =
-              ev.status === "done"
-                ? "ok"
-                : ev.status === "error"
-                  ? "error"
-                  : ev.status === "running"
-                    ? "running"
-                    : "info";
-            if (type === "error") sawError = true;
-            if (ev.step === "complete" && ev.status === "done") sawComplete = true;
-            appendLog({ text: ev.message, type });
-          } catch {
-            /* skip malformed SSE */
-          }
-        }
-      }
-    } catch (err) {
-      appendLog({ text: `Connection error: ${String(err)}`, type: "error" });
-      sawError = true;
-    } finally {
-      setRunning(false);
-      setRunResult(sawError || !sawComplete ? "error" : "success");
-      void refetchStatus();
-    }
+    void startRun(config, queryClient);
   };
 
   const handleClear = () => {
     clearWorkspace.mutate(undefined, {
-      onSuccess: () => void refetchStatus(),
+      onSuccess: () => {
+        resetRun();
+        void refetchStatus();
+      },
     });
   };
 
@@ -362,7 +291,7 @@ function InitialisePage() {
           <div className="mt-6">
             <button
               data-tour="run-button"
-              onClick={() => void handleRun()}
+              onClick={handleRun}
               disabled={running || connectionStatus !== "connected"}
               className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary-hover rounded-md text-md font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >

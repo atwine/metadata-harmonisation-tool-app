@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.7] — 2026-09-21
+
+### Added
+- **"Preparing your input files" guide** ([`docs/input-file-format.md`](docs/input-file-format.md), linked from the README) — the exact column names, size limits and CSV rules for the codebook, study variables, example data and context PDF, plus a quick REDCap data-dictionary conversion. Getting files into shape was the step that took first-time testers longest, and until now the format was only visible after opening the app.
+- Hover tooltips on the Upload Studies drop zones and the Upload Codebook drop zone, explaining what belongs in each.
+
+### Changed
+- **Map Studies:** the match score is now labelled "Codebook Confidence Match" — testers weren't sure what the percentage measured.
+- **Context Document PDF:** the label, hint and tooltip now say what to upload (protocol, case report forms or a data dictionary), that only one PDF is used per study (merge several first), and that larger files make Initialise slower.
+- **Test Connection is now stated as required** on the Initialise banner and in the AI Configuration panel — testers didn't realise the model isn't linked until the test is run.
+- The in-app codebook format help no longer says a study variables file needs a `description` column (only `variable_name` is required; missing descriptions are generated during Initialise), and states that optional codebook columns can be left out entirely.
+
+### Fixed
+- **Leaving the Initialise page mid-run hid the run.** The progress log and result lived inside the page, so navigating away and back showed "Waiting to start" with the Run button enabled even though the run was still going — inviting a second, overlapping run. The run now lives in an app-wide store: coming back shows the live log or finished result, the prompt and "Force re-run" tick are kept, and starting a second run while one is active is refused. Clear Workspace also clears the previous run's log. (A full browser reload still resets everything, including the connection test — that's a separate change.)
+
 ## [0.8.6] — 2026-08-31
 
 ### Added
