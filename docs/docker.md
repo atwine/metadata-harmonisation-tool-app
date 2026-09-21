@@ -94,7 +94,7 @@ rather not use the bundled Ollama.
 
 ## Troubleshooting
 
-- **"AI not configured" / connection fails right after `up`**: the model pull can take
+- **"AI not connected yet" / connection fails right after `up`**: the model pull can take
   several minutes on first run. Check `docker compose logs ollama` — wait for
   "models ready — serving."
 - **Permission errors writing to `./harmonisation-data/` on Linux**: Docker auto-creates

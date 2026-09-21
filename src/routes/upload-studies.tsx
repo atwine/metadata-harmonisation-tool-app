@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 export const Route = createFileRoute("/upload-studies")({
   component: UploadStudiesPage,
@@ -76,49 +77,63 @@ interface DropzoneProps {
   icon: typeof FileSpreadsheet;
   label: string;
   hint?: string;
+  /** Shown on hover — a fuller explanation for someone new to the tool who
+   * isn't sure what belongs in this drop zone. */
+  tooltip: string;
   file?: File | null;
   onFile: (f: File) => void;
   accept: string;
 }
 
-function Dropzone({ icon: Icon, label, hint, file, onFile, accept }: DropzoneProps) {
+function Dropzone({ icon: Icon, label, hint, tooltip, file, onFile, accept }: DropzoneProps) {
   const ref = useRef<HTMLInputElement>(null);
   return (
-    <div
-      className="border-2 border-dashed rounded-md p-3 h-20 flex items-center gap-3 hover:border-primary transition-colors cursor-pointer bg-background/50"
-      onClick={() => ref.current?.click()}
-      onDrop={(e) => {
-        e.preventDefault();
-        const f = e.dataTransfer.files[0];
-        if (f) onFile(f);
-      }}
-      onDragOver={(e) => e.preventDefault()}
-    >
-      <input
-        ref={ref}
-        type="file"
-        accept={accept}
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onFile(f);
-        }}
-      />
-      <Icon className="size-5 text-text-secondary shrink-0" />
-      <div className="leading-tight">
-        {file ? (
-          <>
-            <div className="text-base font-medium text-primary">{file.name}</div>
-            <div className="text-xs text-text-secondary">{(file.size / 1024).toFixed(0)} KB</div>
-          </>
-        ) : (
-          <>
-            <div className="text-base">{label}</div>
-            {hint && <div className="text-xs text-text-secondary">{hint}</div>}
-          </>
-        )}
-      </div>
-    </div>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className="border-2 border-dashed rounded-md p-3 h-20 flex items-center gap-3 hover:border-primary transition-colors cursor-pointer bg-background/50"
+            onClick={() => ref.current?.click()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const f = e.dataTransfer.files[0];
+              if (f) onFile(f);
+            }}
+            onDragOver={(e) => e.preventDefault()}
+          >
+            <input
+              ref={ref}
+              type="file"
+              accept={accept}
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onFile(f);
+              }}
+            />
+            <Icon className="size-5 text-text-secondary shrink-0" />
+            <div className="leading-tight">
+              {file ? (
+                <>
+                  <div className="text-base font-medium text-primary">{file.name}</div>
+                  <div className="text-xs text-text-secondary">
+                    {(file.size / 1024).toFixed(0)} KB
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-base">{label}</div>
+                  {hint && <div className="text-xs text-text-secondary">{hint}</div>}
+                </>
+              )}
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-[320px]">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -189,7 +204,8 @@ function UploadStudiesPage() {
               <Dropzone
                 icon={FileSpreadsheet}
                 label="Drop CSV or click · required"
-                hint="Study Variables CSV"
+                hint="Study Variables CSV · max 10 MB"
+                tooltip="Drop a CSV with this study's variable names here (one per row) — the list of columns/fields that exist in this study's dataset. Click to browse your computer instead of dragging. Required — max 10 MB."
                 file={variablesFile}
                 onFile={setVariablesFile}
                 accept=".csv"
@@ -198,7 +214,8 @@ function UploadStudiesPage() {
             <Dropzone
               icon={TableIcon}
               label="Example Data CSV"
-              hint="optional"
+              hint="optional · max 100 MB"
+              tooltip="Drop a CSV with a few real (or realistic) example rows of this study's actual data — helps the AI understand what real values for each variable look like, for a better match. Click to browse instead of dragging. Optional — max 100 MB."
               file={exampleFile}
               onFile={setExampleFile}
               accept=".csv"
@@ -206,7 +223,8 @@ function UploadStudiesPage() {
             <Dropzone
               icon={FileText}
               label="Context Document PDF"
-              hint="optional · max 50 MB"
+              hint="optional · max 50 MB · larger = slower"
+              tooltip="One PDF describing this study — usually the protocol, the case report forms (CRFs) or a data dictionary. The AI reads it to write descriptions for variables that don't have one; consent forms rarely help. Only one PDF per study, so merge several documents into one first. The bigger the PDF, the longer Initialise takes. Click to browse instead of dragging. Optional — max 50 MB."
               file={pdfFile}
               onFile={setPdfFile}
               accept=".pdf"
