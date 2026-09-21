@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.10] — 2026-09-21
+
+### Fixed
+- **Initialise no longer stops with "Rate limit exceeded (60 req/min)" on real-sized data.** A built-in cap of 60 AI requests per minute, inherited from the original Streamlit app, aborted the run with an error instead of slowing down. A local Ollama or vLLM server answers in milliseconds, so the cap tripped within seconds and made real projects impossible: the 43-variable sample codebook needs about 109 embedding requests on its own, and the same cap hit any study over roughly 30 variables and any large PDF (which the AI reads in many pieces). It surfaced only at the end, after minutes of description writing. Servers you run yourself (Ollama, vLLM) now have no cap. Paid online services (OpenAI, Anthropic, Azure OpenAI) keep a 60-per-minute brake, but it now waits for a free slot and continues instead of failing the run. Found by running the full download-and-run flow with the real Ollama models on the sample data.
+
+### Changed
+- README: the download step of "Way 1" now says plainly that it is a large download (several GB, mostly the Ollama AI engine) and that re-running it resumes.
+
 ## [0.8.9] — 2026-09-21
 
 ### Added
