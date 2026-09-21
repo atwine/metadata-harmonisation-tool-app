@@ -398,7 +398,7 @@ export function Sidebar() {
         <AIConfigPanel />
       </div>
       <div className="border-t" />
-      <div className="px-4 py-2 text-base text-text-secondary shrink-0">v0.8.6</div>
+      <div className="px-4 py-2 text-base text-text-secondary shrink-0">v0.8.7</div>
     </aside>
   );
 }
