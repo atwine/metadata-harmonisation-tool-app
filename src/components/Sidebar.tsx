@@ -241,11 +241,13 @@ function AIConfigPanel() {
       // Keys aren't saved, so a provider that needs one can't reconnect by itself.
       if ([saved.chat, saved.embedding].some((s) => s && apiKeyRequired(s.provider))) return;
       setConnectionStatus("checking");
+      // If the user ran their own Test Connection meanwhile, that newer result wins.
+      const superseded = () => useAIConfigStore.getState().connectionStatus !== "checking";
       try {
         const res = await api.testConnection(saved);
-        setConnectionStatus(res.connected ? "connected" : "failed");
+        if (!superseded()) setConnectionStatus(res.connected ? "connected" : "failed");
       } catch {
-        setConnectionStatus("failed");
+        if (!superseded()) setConnectionStatus("failed");
       }
     })();
   }, []);
