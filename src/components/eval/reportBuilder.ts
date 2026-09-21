@@ -1,5 +1,5 @@
 import type { StepAnswer } from "@/stores/evalStore";
-import { CHECK_IN_QUESTIONS, STEP_TITLES } from "./checkInQuestions";
+import { questionsForStep, STEP_TITLES } from "./checkInQuestions";
 import { SUS_STATEMENTS, OPEN_ENDED, BACKGROUND, computeSusScore } from "./questionnaireContent";
 
 /** Turns one step's recorded answer into a Markdown block using the same
@@ -11,14 +11,15 @@ function formatStepSection(step: string, answer: StepAnswer): string {
     return `### ${title}\n_Skipped by the participant._`;
   }
 
-  const questions = CHECK_IN_QUESTIONS[step] ?? [];
-  const lines = questions.map((q) => {
-    const value = answer.answers[q.id];
-    if (value === undefined) return null;
-    const note = answer.answers[`${q.id}_note`];
-    const noteSuffix = note ? ` — "${note}"` : "";
-    return `- **${q.label}** ${value}${noteSuffix}`;
-  }).filter(Boolean);
+  const lines = questionsForStep(step)
+    .map((q) => {
+      const value = answer.answers[q.id];
+      if (value === undefined) return null;
+      const note = answer.answers[`${q.id}_note`];
+      const noteSuffix = note ? ` — "${note}"` : "";
+      return `- **${q.label}** ${value}${noteSuffix}`;
+    })
+    .filter(Boolean);
 
   return `### ${title}\n${lines.join("\n") || "_No answers recorded._"}`;
 }
@@ -80,7 +81,15 @@ export function buildReportSections(
   questionnaireAnswers: Record<string, string | number> | null,
   questionnaireSkipped: boolean,
 ): { sections_markdown: string[]; has_skips: boolean } {
-  const stepOrder = ["install", "upload_codebook", "upload_study", "initialise", "map_studies", "map_studies_afpo", "download_results"];
+  const stepOrder = [
+    "install",
+    "upload_codebook",
+    "upload_study",
+    "initialise",
+    "map_studies",
+    "map_studies_afpo",
+    "download_results",
+  ];
 
   const sections = stepOrder
     .filter((step) => stepAnswers[step])
@@ -88,8 +97,7 @@ export function buildReportSections(
 
   sections.push(formatQuestionnaireSection(questionnaireAnswers, questionnaireSkipped));
 
-  const has_skips =
-    Object.values(stepAnswers).some((a) => a.skipped) || questionnaireSkipped;
+  const has_skips = Object.values(stepAnswers).some((a) => a.skipped) || questionnaireSkipped;
 
   return { sections_markdown: sections, has_skips };
 }

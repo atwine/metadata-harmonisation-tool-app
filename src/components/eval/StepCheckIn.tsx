@@ -60,7 +60,11 @@ export function StepCheckIn({
   };
 
   const submit = () => {
-    recordStepAnswer(step, { skipped: false, answers: values, answeredAt: new Date().toISOString() });
+    recordStepAnswer(step, {
+      skipped: false,
+      answers: values,
+      answeredAt: new Date().toISOString(),
+    });
     setOpen(false);
   };
 
@@ -96,15 +100,17 @@ export function StepCheckIn({
                 </div>
               )}
 
-              {q.type === "yes_no" && values[q.id] === (q.followUpOn ?? "No") && q.followUpLabel && (
-                <input
-                  type="text"
-                  placeholder={q.followUpLabel}
-                  value={(values[`${q.id}_note`] as string) ?? ""}
-                  onChange={(e) => setValue(`${q.id}_note`, e.target.value)}
-                  className="mt-2 w-full text-base p-2.5 rounded-md border bg-surface"
-                />
-              )}
+              {q.type === "yes_no" &&
+                values[q.id] === (q.followUpOn ?? "No") &&
+                q.followUpLabel && (
+                  <input
+                    type="text"
+                    placeholder={q.followUpLabel}
+                    value={(values[`${q.id}_note`] as string) ?? ""}
+                    onChange={(e) => setValue(`${q.id}_note`, e.target.value)}
+                    className="mt-2 w-full text-base p-2.5 rounded-md border bg-surface"
+                  />
+                )}
 
               {q.type === "scale" && (
                 <div className="mt-2">
@@ -149,6 +155,13 @@ export function StepCheckIn({
             </div>
           ))}
         </div>
+
+        {questions.some((q) => q.type === "text" || (q.type === "yes_no" && q.followUpLabel)) && (
+          <p className="text-sm text-text-secondary">
+            Anything you type is included in a public GitHub report — please leave out names and
+            personal details.
+          </p>
+        )}
 
         <DialogFooter className="mt-2">
           <button

@@ -22,7 +22,9 @@ export function SubmitReportButton() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const requiredSteps = afpoMappingEnabled ? [...REQUIRED_STEPS, "map_studies_afpo"] : REQUIRED_STEPS;
+  const requiredSteps = afpoMappingEnabled
+    ? [...REQUIRED_STEPS, "map_studies_afpo"]
+    : REQUIRED_STEPS;
   const missingSteps = requiredSteps.filter((step) => !stepAnswers[step]);
 
   const handleClick = async () => {
@@ -77,8 +79,8 @@ export function SubmitReportButton() {
   return (
     <div>
       <p className="text-xs text-text-secondary mb-2">
-        Anonymous session ID: <code className="bg-surface border rounded px-1">{sessionId}</code>{" "}
-        — random, not linked to your name, just lets separate submissions be told apart.
+        Anonymous session ID: <code className="bg-surface border rounded px-1">{sessionId}</code> —
+        random, not linked to your name, just lets separate submissions be told apart.
       </p>
       <button
         onClick={() => void handleClick()}
@@ -89,9 +91,10 @@ export function SubmitReportButton() {
         {loading ? "Preparing…" : reportSubmitted ? "Open report again" : "Submit Report"}
       </button>
       <p className="text-sm text-text-secondary mt-2 max-w-md">
-        Opens a pre-filled GitHub issue in a new tab. Nothing is sent until you review it and
-        click GitHub's own Submit button, under your own GitHub account. If you'd like to
-        include the full performance log, attach{" "}
+        Opens a pre-filled GitHub issue in a new tab. <strong>It will be public</strong> — anyone
+        can read what you wrote, so check it for names and personal details. Nothing is sent until
+        you review it and click GitHub's own Submit button, under your own GitHub account. If you'd
+        like to include the full performance log, attach{" "}
         <code className="text-xs bg-surface border rounded px-1">logs/benchmark_log.jsonl</code>{" "}
         before submitting.
       </p>

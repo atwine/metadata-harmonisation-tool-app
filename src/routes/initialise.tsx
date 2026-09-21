@@ -220,7 +220,11 @@ function InitialisePage() {
       <StepCheckIn
         step="initialise"
         title="Quick check-in: Initialise"
-        questions={CHECK_IN_QUESTIONS.initialise}
+        questions={
+          runResult === "error"
+            ? CHECK_IN_QUESTIONS.initialise_failed
+            : CHECK_IN_QUESTIONS.initialise
+        }
         trigger={(!running && runResult !== "idle") || forceCheckIn}
       />
 

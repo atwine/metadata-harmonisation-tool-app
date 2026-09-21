@@ -71,10 +71,18 @@ function EvalQuestionnairePage() {
   const alreadySubmitted = storedAnswers !== null || questionnaireSkipped;
 
   const [viewingForm, setViewingForm] = useState(false);
-  const [susAnswers, setSusAnswers] = useState<Record<number, number>>(() => hydrateFromStored(storedAnswers).sus);
-  const [openAnswers, setOpenAnswers] = useState<Record<number, string>>(() => hydrateFromStored(storedAnswers).open);
-  const [backgroundAnswers, setBackgroundAnswers] = useState<Record<string, string>>(() => hydrateFromStored(storedAnswers).background);
-  const [otherComments, setOtherComments] = useState<string>(() => hydrateFromStored(storedAnswers).otherComments);
+  const [susAnswers, setSusAnswers] = useState<Record<number, number>>(
+    () => hydrateFromStored(storedAnswers).sus,
+  );
+  const [openAnswers, setOpenAnswers] = useState<Record<number, string>>(
+    () => hydrateFromStored(storedAnswers).open,
+  );
+  const [backgroundAnswers, setBackgroundAnswers] = useState<Record<string, string>>(
+    () => hydrateFromStored(storedAnswers).background,
+  );
+  const [otherComments, setOtherComments] = useState<string>(
+    () => hydrateFromStored(storedAnswers).otherComments,
+  );
   const [validationError, setValidationError] = useState<string | null>(null);
 
   if (!isEvalBuild()) {
@@ -143,14 +151,23 @@ function EvalQuestionnairePage() {
         subtitle="This is the important part for our research — it takes about 5 minutes."
       />
 
+      <div className="mt-4 bg-accent-light border border-l-4 border-l-accent rounded-md p-4 flex items-start gap-3">
+        <AlertTriangle className="size-5 text-accent mt-0.5 shrink-0" />
+        <div className="text-base">
+          <span className="font-semibold">Your written answers will be public.</span> They are
+          posted as a GitHub issue that anyone can read. Please leave out names, phone numbers and
+          other personal details.
+        </div>
+      </div>
+
       <section className="mt-6">
         <div className="flex items-baseline justify-between">
           <h2 className="section-heading mb-3">Part A — Quick reactions</h2>
           <span className="text-sm text-text-secondary">Required</span>
         </div>
         <p className="text-base text-text-secondary mb-4">
-          For each statement, pick a number from 1 (Strongly Disagree) to 5 (Strongly Agree).
-          Don't overthink it — first reaction is best.
+          For each statement, pick a number from 1 (Strongly Disagree) to 5 (Strongly Agree). Don't
+          overthink it — first reaction is best.
         </p>
         <div className="space-y-4">
           {SUS_STATEMENTS.map((statement, i) => (
@@ -208,9 +225,7 @@ function EvalQuestionnairePage() {
                 <input
                   type="text"
                   value={backgroundAnswers[q.id] ?? ""}
-                  onChange={(e) =>
-                    setBackgroundAnswers((a) => ({ ...a, [q.id]: e.target.value }))
-                  }
+                  onChange={(e) => setBackgroundAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
                   className="mt-1.5 w-full text-base p-2.5 rounded-md border bg-surface"
                 />
               )}
@@ -225,7 +240,8 @@ function EvalQuestionnairePage() {
           <span className="text-sm text-text-secondary">Optional</span>
         </div>
         <label className="text-base font-medium">
-          Any other comments or thoughts you'd like the developers to know, to help improve the tool?
+          Any other comments or thoughts you'd like the developers to know, to help improve the
+          tool?
         </label>
         <textarea
           rows={4}
