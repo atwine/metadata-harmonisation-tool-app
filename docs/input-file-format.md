@@ -29,9 +29,13 @@ files are optional and improve the AI's suggestions.
 **What "optional" means:** an optional column can be left out of the file entirely. The upload
 still succeeds and shows a "Recommended column missing" note. Fill them in if you have them.
 
+**If a required column is missing**, the upload is rejected and the message names exactly which
+one (or both), for example `Codebook is missing required column: 'description'`. If the column is
+there but spelled differently (say `Variable Name` instead of `variable_name`), the message tells
+you what it found.
+
 **Why `description` matters:** the tool matches by meaning, and the description carries most of
 the weight (80% description, 20% variable name). A codebook with empty descriptions matches poorly.
-The upload only rejects a file that has *neither* `variable_name` nor `description`, but include both.
 
 Size limit: 10 MB. Extra columns (for example ontology codes, as in the example file below) are allowed.
 

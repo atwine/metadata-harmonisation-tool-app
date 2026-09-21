@@ -100,6 +100,9 @@ function InitialisePage() {
   const tour = useProductTour("initialise");
   const forceCheckIn = useForceCheckIn("initialise");
 
+  const showNotConnected =
+    connectionStatus !== "checking" && !(connectionStatus === "connected" && config);
+
   const studies = statusData?.studies ?? [];
 
   const allAlreadyInitialised =
@@ -166,7 +169,7 @@ function InitialisePage() {
       </div>
 
       {/* connection banner */}
-      {connectionStatus === "connected" && config ? (
+      {connectionStatus === "connected" && config && (
         <div className="bg-success-light border border-l-4 border-l-success rounded-md p-4 flex items-start gap-3">
           <CheckCircle2 className="size-5 text-success mt-0.5" />
           <div className="text-base">
@@ -177,7 +180,13 @@ function InitialisePage() {
               : ""}
           </div>
         </div>
-      ) : (
+      )}
+      {connectionStatus === "checking" && (
+        <div className="bg-surface border rounded-md p-4 text-base text-text-secondary">
+          Reconnecting to your AI provider…
+        </div>
+      )}
+      {showNotConnected && (
         <div className="bg-accent-light border border-l-4 border-l-accent rounded-md p-4 flex items-start gap-3">
           <AlertTriangle className="size-5 text-accent mt-0.5" />
           <div className="text-base">
