@@ -36,6 +36,9 @@ python transform_CH_SIB.py --input my_full_data.csv --output out.csv
 | `--decimal ","` | Read `78,6` as 78.6 (default `"."`). Only changes how the text is read; the app has no such option. |
 | `--ignore-case-and-spaces` | Match a mapped column to a file column that differs only in letter case or surrounding spaces. Off by default; the report lists what was matched. |
 | `--overwrite` | Replace the output and report files if they exist. By default the script refuses and changes nothing. |
+| `--debug` | If something unexpected goes wrong, print the full error details instead of one plain line. Send these to us. |
+
+A run that is force-closed (closing the window, killing the process, power loss) can leave a file named `.tmp_<random>.part` next to the output. It is safe to delete.
 
 Large files are read in chunks of 50,000 rows, so memory use stays flat. The file is read three times (work out column types, count results, write the output), so very large files take a few times longer than a single read.
 

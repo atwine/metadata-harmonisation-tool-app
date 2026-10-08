@@ -96,3 +96,50 @@ def test_garbled_message_suggests_le_and_be(tmp_path):
     result = run_script(make(tmp_path), "--input", source, "--output", tmp_path / "o.csv")
     assert result.returncode == 2
     assert "--encoding utf-16-le or utf-16-be" in result.stderr
+
+
+# ---- 3. safety net ----
+
+def force_error(module, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("secret detail")
+    monkeypatch.setattr(module, "transform_chunk", boom)
+
+
+def good_input(tmp_path):
+    source = tmp_path / "d.csv"
+    source.write_text("sbsmk,wt\n1,70\n", encoding="utf-8")
+    return source
+
+
+def test_unexpected_error_is_one_plain_line(tmp_path, monkeypatch, capsys):
+    module = load_script_module(make(tmp_path))
+    force_error(module, monkeypatch)
+    with pytest.raises(SystemExit) as stopped:
+        module.main(["--input", str(good_input(tmp_path)), "--output", str(tmp_path / "o.csv")])
+    assert stopped.value.code == 1
+    err = capsys.readouterr().err
+    assert "Something unexpected went wrong (RuntimeError). Nothing was written. Re-run with --debug and send us the details." in err
+    assert "Traceback" not in err
+    assert only(tmp_path, "d.csv", "tool.py")
+
+
+def test_debug_shows_the_traceback(tmp_path, monkeypatch, capsys):
+    module = load_script_module(make(tmp_path))
+    force_error(module, monkeypatch)
+    with pytest.raises(SystemExit) as stopped:
+        module.main(["--input", str(good_input(tmp_path)), "--output", str(tmp_path / "o.csv"), "--debug"])
+    assert stopped.value.code == 1
+    err = capsys.readouterr().err
+    assert "Traceback" in err and "RuntimeError: secret detail" in err
+    assert only(tmp_path, "d.csv", "tool.py")
+
+
+def test_expected_errors_still_have_no_traceback(tmp_path):
+    result = run_script(make(tmp_path), "--input", tmp_path / "missing.csv", "--output", tmp_path / "o.csv")
+    assert result.returncode == 2 and "Traceback" not in result.stderr
+
+
+def test_docs_mention_the_part_file():
+    text = (script_export._TEMPLATE_PATH.parent.parent.parent / "docs" / "script-export.md").read_text(encoding="utf-8")
+    assert ".tmp_<random>.part" in text

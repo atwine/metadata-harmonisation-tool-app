@@ -199,3 +199,11 @@ Item 6 makes the report explain them without changing any result.
   "The file could not be read as utf-16 (it has no byte-order mark). Try --encoding utf-16-le or --encoding utf-16-be." (same for utf-32). Nothing is left behind.
 - The garbled-text message now says "Try --encoding utf-16-le or utf-16-be, or cp1252." instead of bare `utf-16`.
 - Tests: 4 in tests/test_script_round3.py (utf-16 and utf-32 without mark, `utf-16-le` still works, garbled wording); 3 seen failing first.
+
+### 3. Safety net for anything unexpected, plus one line of documentation
+- `main()` now wraps the real work: an unexpected error (anything that is not an exit already handled with a message) prints
+  "ERROR: Something unexpected went wrong (<ErrorType>). Nothing was written. Re-run with --debug and send us the details." and exits 1.
+  The existing cleanup still removes temporary files. `--debug` re-raises, so the full traceback shows. Expected errors (exit 2 etc.) are untouched.
+- docs/script-export.md: `--debug` row and the line about `.tmp_<random>.part` after a force-closed run.
+- Tests: 4 in tests/test_script_round3.py (plain line, exit code and no files; `--debug` traceback; an expected error still has no traceback;
+  the docs line); 3 seen failing first.

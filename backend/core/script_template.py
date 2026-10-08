@@ -17,8 +17,9 @@ Options:
     --overwrite        replace the output and report files if they already exist (default: refuse)
     --decimal ","      read 78,6 as 78.6 (default "."); only changes how the text is read
     --report BASE      report files are BASE.txt and BASE.json (default: <output>_report)
+    --debug            print the full error details if something unexpected goes wrong
 
-Exit codes: 0 done, 1 the output or report could not be written, 2 bad arguments or unreadable input.
+Exit codes: 0 done, 1 the output or report could not be written or something unexpected went wrong, 2 bad arguments or unreadable input.
 
 The mappings below are plain data (JSON). They are never run as code.
 """
@@ -698,7 +699,25 @@ class Staging:
         self.temp_of = {}
 
 
+_debug_requested = False
+
+
 def main(argv=None):
+    """Safety net: an unexpected error prints one plain line (the full traceback with --debug) and exits 1."""
+    try:
+        return _main(argv)
+    except Exception as e:
+        if _debug_requested:
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+        print("ERROR: Something unexpected went wrong (%s). Nothing was written. Re-run with --debug and send us the details."
+              % type(e).__name__, file=sys.stderr)
+        sys.exit(1)
+
+
+def _main(argv=None):
+    global _debug_requested
     try:
         sys.stdout.reconfigure(errors="replace")
         sys.stderr.reconfigure(errors="replace")
@@ -717,7 +736,9 @@ def main(argv=None):
     parser.add_argument("--overwrite", action="store_true", help="replace the output and report files if they already exist")
     parser.add_argument("--decimal", choices=[".", ","], default=".",
                         help='decimal mark in the numbers of your file (default: "."); only changes how the text is read')
+    parser.add_argument("--debug", action="store_true", help="print the full error details if something unexpected goes wrong")
     args = parser.parse_args(argv)
+    _debug_requested = args.debug
 
     try:
         import pandas as pd
