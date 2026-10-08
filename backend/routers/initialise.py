@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
-from core.errors import server_error
+from core.errors import log_failure, server_error
 from models.schemas import InitialiseRequest, InitialiseStatusResponse, StudyInitStatus
 from storage import db
 from storage.files import list_studies
@@ -28,7 +28,8 @@ async def run_initialise(body: InitialiseRequest):
             await asyncio.to_thread(_run_pdf_conversion)
             yield emit("pdf_conversion", "done", "PDFs converted.")
         except Exception as e:
-            yield emit("pdf_conversion", "error", f"PDF conversion failed: {e}")
+            log_failure("initialise/pdf_conversion", e)
+            yield emit("pdf_conversion", "error", "PDF conversion failed. The study will continue without its context document.")
             # Non-fatal — continue
 
         # Phase 2 — Description generation
@@ -39,7 +40,8 @@ async def run_initialise(body: InitialiseRequest):
             )
             yield emit("descriptions", "done", "Descriptions generated.")
         except Exception as e:
-            yield emit("descriptions", "error", f"Description generation failed: {e}")
+            log_failure("initialise/descriptions", e)
+            yield emit("descriptions", "error", "Description generation failed. Check the AI connection (Test Connection) and that the chat model is running.")
             return  # Fatal — embeddings depend on descriptions
 
         # Phase 3 — Embeddings
@@ -48,7 +50,8 @@ async def run_initialise(body: InitialiseRequest):
             await asyncio.to_thread(_run_embeddings, body.ai_config, body.force_rerun)
             yield emit("embeddings", "done", "Embeddings complete.")
         except Exception as e:
-            yield emit("embeddings", "error", f"Embedding failed: {e}")
+            log_failure("initialise/embeddings", e)
+            yield emit("embeddings", "error", "Embedding failed. Check the AI connection (Test Connection) and that the embedding model is running.")
             return
 
         # Phase 4 — Semantic recommendations
@@ -57,7 +60,8 @@ async def run_initialise(body: InitialiseRequest):
             await asyncio.to_thread(_run_recommendations, body.force_rerun)
             yield emit("recommendations", "done", "Recommendations ready.")
         except Exception as e:
-            yield emit("recommendations", "error", f"Recommendation generation failed: {e}")
+            log_failure("initialise/recommendations", e)
+            yield emit("recommendations", "error", "Recommendation generation failed. Check the server log for details.")
             return
 
         # Phase 5 — PID / Date recommendations
@@ -66,7 +70,8 @@ async def run_initialise(body: InitialiseRequest):
             await asyncio.to_thread(_run_pid_date, body.ai_config, body.force_rerun)
             yield emit("pid_date", "done", "PID/Date recommendations ready.")
         except Exception as e:
-            yield emit("pid_date", "error", f"PID/Date recommendation failed: {e}")
+            log_failure("initialise/pid_date", e)
+            yield emit("pid_date", "error", "PID/Date recommendation failed. Check the AI connection and the server log.")
             return
 
         yield emit("complete", "done", "Recommendation engine finished.")
