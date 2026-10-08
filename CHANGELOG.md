@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.21] — 2026-10-08
+
+### Added
+- **Incident plan draft (`SECURITY.md`).** One page covering how to report a problem, who decides, the first steps in an incident (take the app offline with `docker compose down`, keep the evidence, make a backup), where each key lives and how to rotate it (AI provider keys, the optional `GITHUB_TOKEN`, the maintainers' `DOCKERHUB_TOKEN`), and how and when data owners and regulators are told. The names, contact details and notification deadlines are deliberately left as clearly marked **[OWNER TO FILL]** blanks; nothing was invented. Also notes that GitHub's private vulnerability reporting is not enabled on the repository yet.
+
+## [0.8.20] — 2026-10-08
+
+### Added
+- **Backup and restore scripts** (`scripts/backup.sh`, `restore.sh`, `backup.ps1`, `restore.ps1`). The only backup advice was "copy the folder", but the database runs in SQLite WAL mode, so a copy made while the app is running can be inconsistent. The scripts stop the backend, write a dated `.tar.gz` to `harmonisation-backups/`, and start it again; restore keeps the current data in `harmonisation-data.before-restore-<date>` instead of deleting it. Tested with a real cycle on the running Docker app (back up, Clear Workspace, restore) from both bash and PowerShell. Documented in `docs/docker.md`, including that Windows needs `-ExecutionPolicy Bypass` for the `.ps1` files. `harmonisation-backups/` is git-ignored because it holds participant data.
+
 ## [0.8.19] — 2026-10-08
 
 ### Security
