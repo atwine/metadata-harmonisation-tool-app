@@ -482,7 +482,7 @@ def main(argv=None):
         pass
     config = json.loads(_CONFIG_JSON)
     parser = argparse.ArgumentParser(
-        description="Apply the confirmed mappings of study %s to your own data." % config["study"])
+        description="Apply the confirmed mappings of study %s to your own data." % config["study"].replace("%", "%%"))
     parser.add_argument("--input", required=True, help="your full data file (CSV)")
     parser.add_argument("--output", required=True, help="where to write the transformed CSV")
     parser.add_argument("--report", help="base name for the report files (default: <output>_report)")
@@ -536,7 +536,8 @@ def main(argv=None):
         fail(2, "The text looks garbled with encoding %s. Try --encoding utf-16 or cp1252." % encoding)
 
     header = read_header(pd, args.input, sep, encoding)
-    if len(header) < 2 and not args.sep:
+    mapped_cols = [spec["study_var"] for spec in config["variables"]]
+    if len(header) < 2 and not args.sep and not any(c in header for c in mapped_cols):
         fail(2, "Only one column was found with separator %s. Re-run with --sep (for example --sep \";\") "
                 "and check --encoding." % quote(sep))
 
