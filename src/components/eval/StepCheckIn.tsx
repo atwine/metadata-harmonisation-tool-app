@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScaleRow } from "./ScaleRow";
 
-export type CheckInQuestion =
+type CheckInQuestionBase =
   | {
       id: string;
       type: "yes_no";
@@ -24,7 +24,21 @@ export type CheckInQuestion =
     }
   | { id: string; type: "scale"; label: string; lowLabel: string; highLabel: string }
   | { id: string; type: "choice"; label: string; options: string[] }
+  | {
+      id: string;
+      type: "multi";
+      label: string;
+      options: string[];
+      /** Small helper line under the question. */
+      hint?: string;
+    }
   | { id: string; type: "text"; label: string };
+
+/** A question that only appears once an earlier question has a given answer
+ * (for example "where did the problem happen?" only after "yes, I hit errors"). */
+export type CheckInQuestion = CheckInQuestionBase & {
+  showIf?: { id: string; equals: string };
+};
 
 /** A short, dismissable check-in shown once a step completes. Two ways out:
  * answer it, or hit "Skip for now" — both are recorded (a skip is itself a
@@ -59,13 +73,33 @@ export function StepCheckIn({
     setOpen(false);
   };
 
+  const isVisible = (q: CheckInQuestion) => !q.showIf || values[q.showIf.id] === q.showIf.equals;
+  const visibleQuestions = questions.filter(isVisible);
+
   const submit = () => {
+    // Drop answers to questions that are hidden again (for example the
+    // participant changed "Yes" to "No" after ticking boxes).
+    const keep = new Set(visibleQuestions.flatMap((q) => [q.id, `${q.id}_note`]));
+    const answers = Object.fromEntries(Object.entries(values).filter(([k]) => keep.has(k)));
     recordStepAnswer(step, {
       skipped: false,
-      answers: values,
+      answers,
       answeredAt: new Date().toISOString(),
     });
     setOpen(false);
+  };
+
+  const toggleMulti = (id: string, option: string, options: string[]) => {
+    // Built from the latest state, so two quick taps in a row both count.
+    setValues((prev) => {
+      const current = String(prev[id] ?? "")
+        .split(", ")
+        .filter(Boolean);
+      const next = current.includes(option)
+        ? current.filter((o) => o !== option)
+        : [...current, option];
+      return { ...prev, [id]: options.filter((o) => next.includes(o)).join(", ") };
+    });
   };
 
   const setValue = (id: string, v: string | number) => setValues((prev) => ({ ...prev, [id]: v }));
@@ -78,7 +112,7 @@ export function StepCheckIn({
         </DialogHeader>
 
         <div className="space-y-5">
-          {questions.map((q) => (
+          {visibleQuestions.map((q) => (
             <div key={q.id}>
               <label className="text-base font-medium text-text-primary">{q.label}</label>
 
@@ -144,6 +178,33 @@ export function StepCheckIn({
                 </div>
               )}
 
+              {q.type === "multi" && (
+                <div className="mt-2">
+                  {q.hint && <p className="text-sm text-text-secondary mb-2">{q.hint}</p>}
+                  <div className="flex flex-wrap gap-2">
+                    {q.options.map((opt) => {
+                      const picked = String(values[q.id] ?? "")
+                        .split(", ")
+                        .includes(opt);
+                      return (
+                        <button
+                          key={opt}
+                          aria-pressed={picked}
+                          onClick={() => toggleMulti(q.id, opt, q.options)}
+                          className={`h-10 px-4 rounded-md border text-base font-medium transition-colors ${
+                            picked
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-surface hover:bg-accent-light"
+                          }`}
+                        >
+                          {opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {q.type === "text" && (
                 <textarea
                   rows={2}
@@ -156,7 +217,7 @@ export function StepCheckIn({
           ))}
         </div>
 
-        {questions.some((q) => q.type === "text" || (q.type === "yes_no" && q.followUpLabel)) && (
+        {visibleQuestions.some((q) => q.type === "text" || (q.type === "yes_no" && q.followUpLabel)) && (
           <p className="text-sm text-text-secondary">
             Anything you type is included in a public GitHub report — please leave out names and
             personal details.

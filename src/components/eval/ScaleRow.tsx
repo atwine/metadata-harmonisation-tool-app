@@ -8,7 +8,8 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 const SCALE_WORDS: Record<string, string[]> = {
   "Very easy": ["Very difficult", "Difficult", "Neutral", "Easy", "Very easy"],
   "Very useful": ["Not useful", "Slightly useful", "Moderately useful", "Useful", "Very useful"],
-  "Strongly Agree": ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"],
+  "Extremely well": ["Not at all well", "Not very well", "Moderately well", "Well", "Extremely well"],
+  Excellent: ["Very poor", "Poor", "Average", "Good", "Excellent"],
 };
 
 function wordsFor(lowLabel: string, highLabel: string): string[] {

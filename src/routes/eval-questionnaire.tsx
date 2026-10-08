@@ -4,7 +4,7 @@ import { CheckCircle2, Pencil, AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/Sidebar";
 import { isEvalBuild } from "@/lib/evalBuild";
 import { useEvalStore } from "@/stores/evalStore";
-import { SUS_STATEMENTS, OPEN_ENDED, BACKGROUND } from "@/components/eval/questionnaireContent";
+import { RATING_QUESTIONS, OPEN_ENDED, BACKGROUND } from "@/components/eval/questionnaireContent";
 import { SubmitReportButton } from "@/components/eval/SubmitReportButton";
 import { ScaleRow } from "@/components/eval/ScaleRow";
 
@@ -40,28 +40,25 @@ function ChoiceRow({
   );
 }
 
-/** Parses the flat stored record (keys like sus_0, open_3, background_role
+/** Parses the flat stored record (keys like rating_0, open_3, background_role
  * — see reportBuilder.ts) back into the three local maps the form edits, so
  * "Edit answers" reopens the form pre-filled instead of blank. */
 function hydrateFromStored(stored: Record<string, string | number> | null) {
-  const sus: Record<number, number> = {};
+  const ratings: Record<number, number> = {};
   const open: Record<number, string> = {};
   const background: Record<string, string> = {};
-  let otherComments = "";
   if (stored) {
     for (const [key, value] of Object.entries(stored)) {
-      if (key.startsWith("sus_") && typeof value === "number") {
-        sus[Number(key.slice(4))] = value;
+      if (key.startsWith("rating_") && typeof value === "number") {
+        ratings[Number(key.slice("rating_".length))] = value;
       } else if (key.startsWith("open_")) {
         open[Number(key.slice(5))] = String(value);
       } else if (key.startsWith("background_")) {
         background[key.slice("background_".length)] = String(value);
-      } else if (key === "other_comments") {
-        otherComments = String(value);
       }
     }
   }
-  return { sus, open, background, otherComments };
+  return { ratings, open, background };
 }
 
 function EvalQuestionnairePage() {
@@ -71,17 +68,14 @@ function EvalQuestionnairePage() {
   const alreadySubmitted = storedAnswers !== null || questionnaireSkipped;
 
   const [viewingForm, setViewingForm] = useState(false);
-  const [susAnswers, setSusAnswers] = useState<Record<number, number>>(
-    () => hydrateFromStored(storedAnswers).sus,
+  const [ratingAnswers, setRatingAnswers] = useState<Record<number, number>>(
+    () => hydrateFromStored(storedAnswers).ratings,
   );
   const [openAnswers, setOpenAnswers] = useState<Record<number, string>>(
     () => hydrateFromStored(storedAnswers).open,
   );
   const [backgroundAnswers, setBackgroundAnswers] = useState<Record<string, string>>(
     () => hydrateFromStored(storedAnswers).background,
-  );
-  const [otherComments, setOtherComments] = useState<string>(
-    () => hydrateFromStored(storedAnswers).otherComments,
   );
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -91,10 +85,9 @@ function EvalQuestionnairePage() {
 
   const startEditing = () => {
     const hydrated = hydrateFromStored(storedAnswers);
-    setSusAnswers(hydrated.sus);
+    setRatingAnswers(hydrated.ratings);
     setOpenAnswers(hydrated.open);
     setBackgroundAnswers(hydrated.background);
-    setOtherComments(hydrated.otherComments);
     setViewingForm(true);
   };
 
@@ -126,20 +119,19 @@ function EvalQuestionnairePage() {
 
   const submit = (skipped: boolean) => {
     if (!skipped) {
-      const missing = SUS_STATEMENTS.length - Object.keys(susAnswers).length;
+      const missing = RATING_QUESTIONS.length - Object.keys(ratingAnswers).length;
       if (missing > 0) {
         setValidationError(
-          `Please answer all of Part A before submitting — ${missing} statement${missing === 1 ? "" : "s"} still unanswered. (You can always use "Skip for now" instead if you'd rather not fill this in at all.)`,
+          `Please answer all of Part A before submitting — ${missing} question${missing === 1 ? "" : "s"} still unanswered. (You can always use "Skip for now" instead if you'd rather not fill this in at all.)`,
         );
         return;
       }
     }
     setValidationError(null);
     const answers: Record<string, string | number> = {};
-    Object.entries(susAnswers).forEach(([i, v]) => (answers[`sus_${i}`] = v));
+    Object.entries(ratingAnswers).forEach(([i, v]) => (answers[`rating_${i}`] = v));
     Object.entries(openAnswers).forEach(([i, v]) => (answers[`open_${i}`] = v));
     Object.entries(backgroundAnswers).forEach(([k, v]) => (answers[`background_${k}`] = v));
-    if (otherComments.trim()) answers.other_comments = otherComments;
     setQuestionnaire(answers, skipped);
     setViewingForm(false);
   };
@@ -162,22 +154,26 @@ function EvalQuestionnairePage() {
 
       <section className="mt-6">
         <div className="flex items-baseline justify-between">
-          <h2 className="section-heading mb-3">Part A — Quick reactions</h2>
+          <h2 className="section-heading mb-3">Part A — Quick ratings</h2>
           <span className="text-sm text-text-secondary">Required</span>
         </div>
         <p className="text-base text-text-secondary mb-4">
-          For each statement, pick a number from 1 (Strongly Disagree) to 5 (Strongly Agree). Don't
-          overthink it — first reaction is best.
+          For each question, pick a number from 1 to 5. The line under each question shows what 1
+          and 5 mean, and hovering a number shows its meaning. Don't overthink it — first reaction
+          is best.
         </p>
         <div className="space-y-4">
-          {SUS_STATEMENTS.map((statement, i) => (
+          {RATING_QUESTIONS.map((q, i) => (
             <div key={i} className="bg-surface border rounded-md p-4">
-              <p className="text-base mb-3">{statement}</p>
+              <p className="text-base">{q.label}</p>
+              <p className="text-sm text-text-secondary mt-1 mb-3">
+                1 = {q.lowLabel} · 5 = {q.highLabel}
+              </p>
               <ScaleRow
-                value={susAnswers[i]}
-                onChange={(n) => setSusAnswers((a) => ({ ...a, [i]: n }))}
-                lowLabel="Strongly Disagree"
-                highLabel="Strongly Agree"
+                value={ratingAnswers[i]}
+                onChange={(n) => setRatingAnswers((a) => ({ ...a, [i]: n }))}
+                lowLabel={q.lowLabel}
+                highLabel={q.highLabel}
               />
             </div>
           ))}
@@ -232,24 +228,6 @@ function EvalQuestionnairePage() {
             </div>
           ))}
         </div>
-      </section>
-
-      <section className="mt-8">
-        <div className="flex items-baseline justify-between">
-          <h2 className="section-heading mb-3">Part D — Anything else?</h2>
-          <span className="text-sm text-text-secondary">Optional</span>
-        </div>
-        <label className="text-base font-medium">
-          Any other comments or thoughts you'd like the developers to know, to help improve the
-          tool?
-        </label>
-        <textarea
-          rows={4}
-          value={otherComments}
-          onChange={(e) => setOtherComments(e.target.value)}
-          className="mt-1.5 w-full text-base p-2.5 rounded-md border bg-surface"
-          placeholder="Anything that wasn't covered above..."
-        />
       </section>
 
       {validationError && (
