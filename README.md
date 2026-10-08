@@ -154,7 +154,14 @@ updating the app never deletes it.
 **Stopping:** press `Ctrl+C` in the terminal, then run
 `docker compose -f docker-compose.hub.yml down`.
 
-**Updating to the newest version:** run steps 3 and 4 again (`pull`, then `up`).
+**Updating to the newest version:** run steps 2, 3 and 4 again (download the file, `pull`,
+then `up`). **Do not skip step 2.** Since version 0.8.12 the compose file keeps the app
+reachable from your own computer only; an old copy of the file still opens it to everyone on
+your network, even with the newest images. To check yours, run
+`docker compose -f docker-compose.hub.yml config | grep -E "host_ip|published"` (in
+PowerShell, replace `grep -E "host_ip|published"` with `Select-String "host_ip|published"`).
+You should see `host_ip: 127.0.0.1` above each `published` line. If there is no `host_ip` line,
+or it says `0.0.0.0`, download the file again (step 2).
 
 **Which folder do I run these in?** Always the folder that contains
 `docker-compose.hub.yml` — Docker looks for the file in the folder you are in.

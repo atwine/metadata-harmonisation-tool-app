@@ -7,6 +7,25 @@ All notable changes to this project are documented here. Format loosely follows 
 ### Added
 - **Download a script to transform your full dataset.** The Download Results page has a new "Download script" button for each study. The script (`transform_<study>.py`) applies the study's confirmed mappings and transformations to your own full CSV on your own computer, so the full data never goes through the app. Run `python transform_<study>.py --input my_data.csv --output out.csv` (needs Python and pandas). It reads in chunks, guesses the separator and text encoding (override with `--sep` and `--encoding`), and writes a results report next to the output (`_report.txt` and `_report.json`) listing what was converted, what came out empty, every lookup value the rule had never seen with its row count, and skipped variables. The report may contain participant values, so keep it private. A test requires the script's output to match the app's, cell for cell. New route `GET /api/download/{study}/script` (listed in `ACCESS.md`). See `docs/script-export.md`.
 
+## [0.8.24] — 2026-10-08
+
+### Security
+- **Updating the app now tells you to download the compose file again.** The "listen on your own computer only" setting (0.8.12) lives in `docker-compose.hub.yml`, not in the images. Someone who only ran `pull` and `up` kept their old file, which still opens ports 8000 and 8080 to the whole network, even with the newest images. The README's update steps now include re-downloading the file, with a one-line check (`docker compose config` should show `host_ip: 127.0.0.1`). Checked against the real old and new files.
+- **Only `main` can publish the public images.** Running the publish workflow by hand from another branch could have tagged that branch's build as `:latest`. It is now refused.
+
+### Fixed
+- **Rootless Docker and Podman keep your file ownership.** There, "root" inside the container is you, so the startup script now detects that setup and leaves ownership alone instead of handing your files to a stranger user id.
+- **Upgrading from the old root image no longer leaves unwritable files.** After the earlier versions, files created by root could sit inside folders you own. The startup script now hands those over (and only those: files owned by anyone else are left alone), so rewriting a study, deleting a study or Clear Workspace no longer hit "permission denied". Checked with real containers: a fresh start, a restart, and root-owned files inside user-owned folders.
+- **A failed restore can no longer leave you without data.** `restore.sh` and `restore.ps1` now unpack the backup into a temporary folder first and only swap it in when that worked. A damaged or truncated archive is refused with your current data untouched. They also refuse archives that hold files outside `harmonisation-data/` (or paths that climb out of it), so a wrong or edited archive cannot overwrite your compose file or scripts. Tested with a good, a foreign, a path-climbing and a truncated archive, in both bash and PowerShell.
+- **The backup and restore scripts stop cleanly when Docker fails.** The PowerShell versions now check whether stopping and restarting the backend worked, instead of carrying on, and the bash versions set up the restart before stopping the backend.
+
+## [0.8.23] — 2026-10-08
+
+### Security
+- **The backend app no longer runs as root.** The container still starts as root for a moment, only to make the data folders (`harmonisation-data/...`) writable, then hands over to an ordinary user. A folder you already own keeps its owner and the app runs as you, so files stay editable on your computer; a root-owned folder (Docker creates these on Linux) is given to a new user, id 10001. No extra setup for researchers. Checked with real containers in both cases: the app process ran as the expected user and a real upload wrote its files.
+- **Raw error text is replaced with fixed messages in more places.** CSV upload failures, Initialise step failures, the AI connection test, the transformation preview and the download step's "could not read data" reason no longer repeat the library's error text, which can hold file paths, URLs, key fragments or participant values. The server log records only the kind of error. AI failures now say the real reason in plain words (server unreachable, key rejected, timed out, model not found).
+- **`.env` files and keys can no longer be copied into an image.** `.dockerignore` now excludes `.env`, `.env.*`, `*.pem` and `*.key`.
+
 ## [0.8.22] — 2026-10-08
 
 ### Fixed
