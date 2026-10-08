@@ -15,6 +15,7 @@ from collections import deque
 from typing import NamedTuple, Optional
 
 from core.config import ModelConfig, AIProvider
+from core.errors import ai_error_message, log_failure
 
 
 class AIProviderError(Exception):
@@ -98,7 +99,7 @@ class AIProviderWrapper:
                 last_exc = e
                 if attempt < self.max_retries - 1:
                     time.sleep(self.retry_delay * (2 ** attempt))
-        raise AIProviderError(f"Failed after {self.max_retries} attempts: {last_exc}")
+        raise AIProviderError(f"Failed after {self.max_retries} attempts: {last_exc}") from last_exc
 
     # ── chat ─────────────────────────────────────────────────────────────────
 
@@ -263,7 +264,8 @@ class AIProviderWrapper:
             return SlotResult(False, f"Unsupported provider: {provider}")
 
         except Exception as e:
-            return SlotResult(False, str(e))
+            log_failure("ai connection test", e)
+            return SlotResult(False, ai_error_message(e))
 
 
 def extract_ollama_names(items) -> list[str]:

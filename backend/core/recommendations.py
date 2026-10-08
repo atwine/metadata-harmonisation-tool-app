@@ -13,6 +13,8 @@ from typing import Callable, Optional
 import numpy as np
 import pandas as pd
 
+from core.errors import log_failure
+
 
 # ── Phase 1: PDF → Text ──────────────────────────────────────────────────────
 
@@ -28,7 +30,7 @@ def convert_pdf_to_txt():
                 text = extract_text(str(pdf_path))
                 txt_path.write_text(text, encoding="utf-8")
             except Exception as e:
-                print(f"[pdf_conversion] Failed for {study}: {e}")
+                log_failure("pdf_conversion", e)
 
 
 # ── Text chunking helpers (shared with descriptions.py) ─────────────────────

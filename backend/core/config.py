@@ -9,6 +9,8 @@ import re
 from enum import Enum
 from typing import Optional
 
+from core.errors import ConfigError
+
 # Overridable so the Docker Compose package can point the backend at the
 # bundled `ollama` service (http://ollama:11434) and a smaller default model,
 # without changing the defaults for a normal local/manual setup.
@@ -39,7 +41,7 @@ def normalise_openai_compat_base_url(base_url: str) -> str:
     'http://host:8000' or 'http://host:8000/v1' from the user."""
     base = (base_url or "").rstrip("/")
     if not base:
-        raise ValueError("Base URL is required")
+        raise ConfigError("Base URL is required")
     if not base.endswith("/v1"):
         base += "/v1"
     return base
@@ -95,23 +97,23 @@ class ModelConfig:
         elif self.provider == AIProvider.OPENAI:
             import openai
             if not re.match(r"^sk-[A-Za-z0-9]{20,}$", self.api_key or ""):
-                raise ValueError("Invalid OpenAI API key format")
+                raise ConfigError("Invalid OpenAI API key format")
             return openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
 
         elif self.provider == AIProvider.ANTHROPIC:
             import anthropic
             if not re.match(r"^sk-ant-[A-Za-z0-9_-]{20,}$", self.api_key or ""):
-                raise ValueError("Invalid Anthropic API key format")
+                raise ConfigError("Invalid Anthropic API key format")
             return anthropic.Anthropic(api_key=self.api_key, base_url=self.base_url)
 
         elif self.provider == AIProvider.AZURE_OPENAI:
             import openai
             if not re.match(r"^[a-fA-F0-9]{32}$", self.api_key or ""):
-                raise ValueError("Invalid Azure OpenAI API key format")
+                raise ConfigError("Invalid Azure OpenAI API key format")
             return openai.AzureOpenAI(
                 api_key=self.api_key,
                 azure_endpoint=self.base_url,
                 api_version=self.azure_api_version or "2024-02-01",
             )
 
-        raise ValueError(f"Unknown provider: {self.provider}")
+        raise ConfigError(f"Unknown provider: {self.provider}")

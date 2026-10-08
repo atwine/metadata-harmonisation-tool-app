@@ -7,7 +7,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from models.schemas import CodebookUploadResponse, CodebookVariable
 from storage.files import read_csv_robust
-from core.errors import server_error
+from core.errors import CSV_UNREADABLE, log_failure, server_error
 from core.validation import validate_codebook_df
 
 router = APIRouter()
@@ -31,7 +31,8 @@ async def upload_codebook(file: UploadFile = File(...)):
     try:
         df = read_csv_robust(text)
     except Exception as e:
-        raise HTTPException(400, f"Could not parse CSV: {e}")
+        log_failure("codebook CSV parse", e)
+        raise HTTPException(400, CSV_UNREADABLE)
 
     errors, warnings = validate_codebook_df(df)
     if errors:
