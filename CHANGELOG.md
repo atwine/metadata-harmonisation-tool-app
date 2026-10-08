@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.22] — 2026-10-08
+
+### Fixed
+- **Clear Workspace no longer fails in Docker.** In Docker, `input/`, `results/` and `logs/` are folders mounted from your computer, and the old code tried to delete the folder itself, which Docker refuses ("Device or resource busy"). The click returned an error after deleting the files but before clearing the database, so saved mappings stayed behind. It now deletes everything inside each folder and keeps the folder, then clears the database, and the button works as intended. If anything fails, the response is the generic "Something went wrong. Check the server log." message.
+
 ## [0.8.21] — 2026-10-08
 
 ### Added
