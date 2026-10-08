@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.18] — 2026-10-08
+
+### Security
+- **The AI provider API key is no longer sent in the web address.** Listing models for a vLLM server used `GET /api/ai-config/models?api_key=...`, so the key could end up in server logs, proxy logs and browser history. The key now travels in an `X-Api-Key` request header; the server no longer reads an `api_key` in the URL (such a request is treated as having no key). The AI Configuration panel sends the header automatically. Found by the access audit's "other observations".
+
 ## [0.8.17] — 2026-10-08
 
 ### Added
