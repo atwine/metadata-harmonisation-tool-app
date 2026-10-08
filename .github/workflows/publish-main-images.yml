@@ -42,8 +42,9 @@ env:
 
 jobs:
   build:
-    # Forks have no Docker Hub secret, so don't try there.
-    if: github.repository == 'atwine/metadata-harmonisation-tool-app'
+    # Forks have no Docker Hub secret, so don't try there. Only `main` may publish:
+    # a manual run from another branch would otherwise tag that branch's build as :latest.
+    if: github.repository == 'atwine/metadata-harmonisation-tool-app' && github.ref == 'refs/heads/main'
     name: build ${{ matrix.image }} (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
