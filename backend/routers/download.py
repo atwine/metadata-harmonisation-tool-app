@@ -5,6 +5,7 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+from core.errors import server_error
 from core.transform_engine import apply_transformations
 from models.schemas import TransformedDataRequest
 from storage import db
@@ -63,7 +64,7 @@ async def download_transformed_data(body: TransformedDataRequest):
     try:
         zip_bytes, results = apply_transformations(safe_studies)
     except Exception as e:
-        raise HTTPException(500, f"Transformation failed: {e}")
+        raise server_error("/api/download/transformed-data", e)
 
     if all(r["status"] == "skipped" for r in results):
         reasons = "; ".join(f"{r['study']}: {r['reason']}" for r in results)

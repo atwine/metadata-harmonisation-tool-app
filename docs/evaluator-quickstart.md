@@ -51,7 +51,9 @@ You do **not** need to install Python, Node, or Ollama separately, and you do
    ```
 3. The first run downloads the AI models (several GB — this is the slow part,
    several minutes). Wait until you see `models ready — serving.` in the terminal.
-4. Open **http://localhost:8080** in your browser.
+4. Open **http://localhost:8080** in your browser. Type `localhost`, not `127.0.0.1`: the
+   app refuses requests from any other address on purpose, and it can only be opened
+   from the computer it runs on.
 
 Every run after the first is fast — nothing gets re-downloaded.
 

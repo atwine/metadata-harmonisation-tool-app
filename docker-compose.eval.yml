@@ -55,8 +55,12 @@ services:
       OLLAMA_DEFAULT_CHAT_MODEL: llama3.2:3b
       OLLAMA_DEFAULT_EMBEDDING_MODEL: nomic-embed-text
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      # Extra host names the API answers to. Leave empty for normal use.
+      MHT_ALLOWED_HOSTS: ${MHT_ALLOWED_HOSTS:-}
     ports:
-      - "8000:8000"
+      # 127.0.0.1 means only this computer can reach the app, not other devices
+      # on the same Wi-Fi.
+      - "${MHT_BIND_ADDRESS:-127.0.0.1}:8000:8000"
     volumes:
       # Bind mounts so the performance log (logs/benchmark_log.jsonl) and
       # any uploaded test data are visible on the host, same as the normal
@@ -80,7 +84,7 @@ services:
       VITE_OLLAMA_CHAT_MODEL: llama3.2:3b
       VITE_OLLAMA_EMBEDDING_MODEL: nomic-embed-text
     ports:
-      - "8080:8080"
+      - "${MHT_BIND_ADDRESS:-127.0.0.1}:8080:8080"
     depends_on:
       - backend
     restart: unless-stopped

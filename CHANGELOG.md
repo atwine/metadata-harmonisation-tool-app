@@ -2,6 +2,61 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.21] — 2026-10-08
+
+### Added
+- **Incident plan draft (`SECURITY.md`).** One page covering how to report a problem, who decides, the first steps in an incident (take the app offline with `docker compose down`, keep the evidence, make a backup), where each key lives and how to rotate it (AI provider keys, the optional `GITHUB_TOKEN`, the maintainers' `DOCKERHUB_TOKEN`), and how and when data owners and regulators are told. The names, contact details and notification deadlines are deliberately left as clearly marked **[OWNER TO FILL]** blanks; nothing was invented. Also notes that GitHub's private vulnerability reporting is not enabled on the repository yet.
+
+## [0.8.20] — 2026-10-08
+
+### Added
+- **Backup and restore scripts** (`scripts/backup.sh`, `restore.sh`, `backup.ps1`, `restore.ps1`). The only backup advice was "copy the folder", but the database runs in SQLite WAL mode, so a copy made while the app is running can be inconsistent. The scripts stop the backend, write a dated `.tar.gz` to `harmonisation-backups/`, and start it again; restore keeps the current data in `harmonisation-data.before-restore-<date>` instead of deleting it. Tested with a real cycle on the running Docker app (back up, Clear Workspace, restore) from both bash and PowerShell. Documented in `docs/docker.md`, including that Windows needs `-ExecutionPolicy Bypass` for the `.ps1` files. `harmonisation-backups/` is git-ignored because it holds participant data.
+
+## [0.8.19] — 2026-10-08
+
+### Security
+- **Server errors no longer show raw Python error text.** When reading the codebook or building the transformed-data download failed, the API sent the exception text back to the caller (for example `Could not read codebook: <file path or data fragment>`). Both now answer a fixed message, "Something went wrong. Check the server log.", and the server log records only the route and the exception class (never the message text or request data, which can hold file paths or participant values). Helpful validation messages (400 errors such as "No studies specified", file-size and column-name problems) are unchanged.
+
+## [0.8.18] — 2026-10-08
+
+### Security
+- **The AI provider API key is no longer sent in the web address.** Listing models for a vLLM server used `GET /api/ai-config/models?api_key=...`, so the key could end up in server logs, proxy logs and browser history. The key now travels in an `X-Api-Key` request header; the server no longer reads an `api_key` in the URL (such a request is treated as having no key). The AI Configuration panel sends the header automatically. Found by the access audit's "other observations".
+
+## [0.8.17] — 2026-10-08
+
+### Added
+- **Automatic security scanners.** Every `git commit` is checked for leaked keys and tokens (gitleaks, via `.pre-commit-config.yaml`; run `python -m pip install pre-commit` then `python -m pre_commit install` once per clone). GitHub runs `.github/workflows/security-scans.yml` on every push and pull request, and every Monday: gitleaks over the whole history, `pip-audit` on `backend/requirements.txt`, `npm audit --omit=dev` on the JavaScript libraries, and Semgrep on the code. Actions are pinned to exact commits. The first local run found no leaked secrets and no vulnerable Python libraries, but 22 JavaScript findings (1 critical, 16 high) in build tooling (vite, TanStack Start, wrangler, undici, ws). By the owner's decision the npm job reports them without failing the run, and the exception is written in the workflow file; updating those packages is a separate follow-up.
+
+## [0.8.16] — 2026-10-08
+
+### Security
+- **A plain `.env` file can no longer be committed by accident.** `docs/docker.md` tells people to put `GITHUB_TOKEN` in a `.env` file next to `docker-compose.yml`, but `.gitignore` did not list it, so a careless `git add .` would have committed the token. `.gitignore` now ignores `.env` and `.env.*`, and still allows a future `.env.example`.
+
+## [0.8.15] — 2026-10-08
+
+### Changed
+- **Access audit closed out.** `pytest tests` is fully green (103 passed, no expected failures left), every one of the 28 API routes has a row in `ACCESS.md`, and the three findings in `ACCESS-AUDIT.md` are marked fixed. The output after the fixes is saved in `docs/access-audit-after.txt`. `ACCESS.md` now says both request checks answer 403 and that PATCH is covered like the other write methods. No app behaviour changes.
+
+## [0.8.14] — 2026-10-08
+
+### Security
+- **A malicious website can no longer read your data through DNS rebinding.** A website could point its own domain name at your computer, and your browser would then let that page call the API and read the replies, including participant data (finding F3 in `ACCESS-AUDIT.md`). The backend now refuses (403) any request whose `Host` is not `localhost`, `127.0.0.1` or `::1`. Extra names for the opt-in network mode go in the new `MHT_ALLOWED_HOSTS` setting (documented in `docs/docker.md`, passed through both compose files). Starlette's stock host check cannot read IPv6 addresses like `[::1]:8000`, so the app uses a thin wrapper around it. All access tests are now green with no expected failures left; `tests/test_host_check.py` adds checks for IPv6, look-alike names and the setting.
+
+## [0.8.13] — 2026-10-08
+
+### Security
+- **Other websites can no longer send hidden writes to the app.** A web page open in your browser could send a background form post to `localhost:8000` that wiped the workspace, replaced the codebook or planted a study (finding F2 in `ACCESS-AUDIT.md`). Browsers always label such requests with the page they came from (the `Origin` header). The backend now answers `403` to any POST, PUT, PATCH or DELETE whose `Origin` is not one of the tool's own localhost addresses, using the same list as the CORS settings. Requests with no `Origin` (curl, scripts) are still allowed, because only browsers can be tricked this way. The F2 tests, plus 14 DNS-rebinding write tests that the same check also closes, are off the expected-failure list; only the F3 read tests remain.
+
+## [0.8.12] — 2026-10-08
+
+### Security
+- **The app now listens on your own computer only.** Before, both Docker setups published ports 8080 and 8000 on every network card, and `python run_backend.py` listened on `0.0.0.0`, so anyone on the same Wi-Fi or lab network could open the API and download or delete participant data (finding F1 in `ACCESS-AUDIT.md`). Ports are now published on `127.0.0.1`, and `run_backend.py` defaults to `127.0.0.1`. To open the app to a network on purpose, set `MHT_BIND_ADDRESS=0.0.0.0` (documented in `docs/docker.md` and the README); only do that on a trusted network. The three F1 tests in `tests/test_access.py` now pass and are off the expected-failure list.
+
+## [0.8.11] — 2026-10-08
+
+### Added
+- **Access rules and the tests that prove them.** `ACCESS.md` says who may do what (only the researcher on the computer running the tool), `ACCESS-AUDIT.md` lists the three critical gaps found on 2026-10-07 (the API listens on the whole network, any website can send hidden writes, DNS rebinding), and `LAUNCH-CHECK.md` records the launch-readiness check. `tests/test_access.py` proves each rule; run it with `pytest tests/test_access.py`. The 36 tests that fail today because of those gaps are marked as expected failures in `tests/conftest.py`, so the build stays green, and each fix removes its own entries. The output before any fix is saved in `docs/access-audit-before.txt`. No app behaviour changes in this release.
+
 ## [0.8.10] — 2026-09-21
 
 ### Fixed

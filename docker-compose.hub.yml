@@ -59,8 +59,11 @@ services:
       # duplicate-request check from 10/min (unauthenticated) to 30/min.
       # Leave unset to run without one.
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      # Extra host names the API answers to (comma-separated). Only needed
+      # together with MHT_BIND_ADDRESS; see docs/docker.md.
+      MHT_ALLOWED_HOSTS: ${MHT_ALLOWED_HOSTS:-}
     ports:
-      - "8000:8000"
+      - "${MHT_BIND_ADDRESS:-127.0.0.1}:8000:8000"
     volumes:
       # Normal folders next to this file (not hidden Docker volumes), so you
       # can see and back up your studies, results and database. Deleting the
@@ -83,7 +86,7 @@ services:
       VITE_OLLAMA_CHAT_MODEL: llama3.2:3b
       VITE_OLLAMA_EMBEDDING_MODEL: nomic-embed-text
     ports:
-      - "8080:8080"
+      - "${MHT_BIND_ADDRESS:-127.0.0.1}:8080:8080"
     depends_on:
       - backend
     restart: unless-stopped

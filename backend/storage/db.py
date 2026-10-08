@@ -230,7 +230,8 @@ def upsert_mapping(study: str, study_var: str, values: dict[str, Any]) -> dict[s
     record = {c: values.get(c) for c in _MAPPING_COLS}
     record["study_var"] = study_var
     with get_connection() as conn:
-        conn.execute(
+        # Only the column NAMES come from the fixed _MAPPING_COLS list above; every value is a bound :parameter.
+        conn.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             f"""INSERT INTO mappings (study, {", ".join(_MAPPING_COLS)}, updated_at)
                 VALUES (:study, {", ".join(":" + c for c in _MAPPING_COLS)}, :updated_at)
                 ON CONFLICT (study, study_var) DO UPDATE SET

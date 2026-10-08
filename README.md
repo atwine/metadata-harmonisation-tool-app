@@ -86,6 +86,8 @@ A first-time visitor to any page gets a short guided tour (spotlight + tooltip) 
 │   │   └── wizardStore.ts     # afpoMappingEnabled, relationalModeEnabled — session-only toggles
 │   ├── styles.css             # Design tokens (colors, the text-xs..xl type scale)
 │   └── types.ts
+├── tests/                     # Access tests (test_access.py) + known-failure list (conftest.py)
+├── ACCESS.md                  # Who may do what; ACCESS-AUDIT.md / LAUNCH-CHECK.md hold the audit findings
 ├── docker-compose.yml         # Full-stack local packaging — builds the app from source
 ├── docker-compose.hub.yml     # Same stack from prebuilt images (download this one file and run)
 ├── Dockerfile.frontend
@@ -283,6 +285,11 @@ See `docs/docker.md` for how the AfPO ontology itself stays up to date.
 - The `logs/`, `input/`, `results/`, `db/`, and `ontology_cache/` directories are excluded from git — all runtime-generated, not source.
 - AfPO GitHub issue submission is always a manual click — the app never submits on the user's behalf. A local flag prevents this installation from re-filing a term it already submitted, and a live GitHub issue search (`GET /api/afpo/check-github`) catches duplicates across installations too, since every installation of this app points at the same shared AfPO repo.
 - Both destructive actions in the app (Clear Workspace, deleting a study) require an explicit confirmation dialog rather than a single click — a deliberate defense against accidental data loss.
+- Reporting a problem and what to do in an incident: see [SECURITY.md](SECURITY.md) (draft; the owner still has to fill in the contact and notification details).
+- Security scanners run on every commit (gitleaks pre-commit hook; install with `python -m pip install pre-commit && python -m pre_commit install`) and on every push and weekly in GitHub Actions (gitleaks, pip-audit, npm audit, Semgrep). See `.github/workflows/security-scans.yml`.
+- The app listens on `127.0.0.1` only by default (Docker ports and `run_backend.py`), so other devices on your network cannot reach it. Setting `MHT_BIND_ADDRESS=0.0.0.0` opens it to the network on purpose; do that only on a trusted network (see [docs/docker.md](docs/docker.md)).
+- State-changing requests (POST, PUT, PATCH, DELETE) that carry a browser `Origin` other than the tool's own `localhost` pages are refused with 403, so another website open in your browser cannot upload, overwrite or wipe data. Requests with no `Origin` (curl, scripts) are allowed.
+- The API only answers requests addressed to `localhost`, `127.0.0.1` or `::1` (the `Host` header); anything else gets 403. This blocks DNS-rebinding attacks. `MHT_ALLOWED_HOSTS` (comma-separated) adds names for the opt-in network mode.
 - ⚠️ A known gap (tracked in [issue #4](../../issues/4)): the API currently has no authentication — don't expose the backend beyond localhost/trusted networks as-is.
 
 ## License
