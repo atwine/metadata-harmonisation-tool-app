@@ -99,7 +99,7 @@ class AIProviderWrapper:
                 last_exc = e
                 if attempt < self.max_retries - 1:
                     time.sleep(self.retry_delay * (2 ** attempt))
-        raise AIProviderError(f"Failed after {self.max_retries} attempts: {last_exc}")
+        raise AIProviderError(f"Failed after {self.max_retries} attempts: {last_exc}") from last_exc
 
     # ── chat ─────────────────────────────────────────────────────────────────
 

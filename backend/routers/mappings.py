@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
+from core.errors import log_failure
 from core.transformation_utils import (
     categorical_convert,
     direct_convert,
@@ -434,12 +435,13 @@ async def preview_transformation(body: TransformationPreviewRequest):
             error=None,
         )
     except Exception as e:
+        log_failure("preview-transformation", e)
         return TransformationPreviewResponse(
             preview=[],
             transformed_count=0,
             blank_count=0,
             valid=False,
-            error=str(e),
+            error="Could not preview this transformation. Check the expression and the example data.",
         )
 
 
