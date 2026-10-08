@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Header, Query
 
 from core.ai_provider import extract_ollama_names
+from core.errors import ai_error_message, log_failure
 from core.config import OLLAMA_BASE_URL, OLLAMA_DEFAULT_CHAT_MODEL, OLLAMA_DEFAULT_EMBEDDING_MODEL
 from models.schemas import AIConfig, AITestResponse, OllamaModelsResponse, ProviderInfo, SlotTestResult
 
@@ -68,9 +69,10 @@ async def test_connection(config: AIConfig):
         wrapper = AIProviderWrapper(config)
         result = wrapper.validate_connection()
     except Exception as e:
+        log_failure("ai connection test", e)
         return AITestResponse(
             connected=False,
-            chat=SlotTestResult(connected=False, message=str(e)),
+            chat=SlotTestResult(connected=False, message=ai_error_message(e)),
             embedding=None,
         )
 
@@ -92,7 +94,7 @@ async def test_connection(config: AIConfig):
 async def list_models(
     provider: str = Query(...),
     base_url: str = Query(""),
-    api_key: str = Query(""),
+    api_key: str = Header("", alias="X-Api-Key"),
 ):
     """Lists available models for a live-fetchable provider (Ollama, vLLM)."""
     try:

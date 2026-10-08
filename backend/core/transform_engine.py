@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from core.transformation_utils import direct_convert, categorical_convert, dtype_cast
+from core.errors import log_failure
 from storage import db
 
 
@@ -61,7 +62,8 @@ def _transform_study(study: str) -> dict:
         source_df = pd.read_csv(example_path)
         mapping_df = pd.DataFrame(db.list_mappings(study))
     except Exception as e:
-        return {"study": study, "status": "skipped", "reason": f"Could not read source/mapping data: {e}"}
+        log_failure("transform read", e)
+        return {"study": study, "status": "skipped", "reason": "Could not read the study's data or mappings. Check the server log."}
 
     mapped_rows = mapping_df[mapping_df["marked"].astype(str).str.strip() == "Successfully mapped"]
     output_cols: dict[str, list] = {}

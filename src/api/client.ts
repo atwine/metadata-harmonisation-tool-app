@@ -27,8 +27,8 @@ async function extractErrorMessage(r: Response): Promise<string> {
   return text || r.statusText;
 }
 
-async function get<T>(path: string): Promise<T> {
-  const r = await fetch(`${BASE}${path}`);
+async function get<T>(path: string, headers?: Record<string, string>): Promise<T> {
+  const r = await fetch(`${BASE}${path}`, { headers });
   if (!r.ok) throw new Error(await extractErrorMessage(r));
   return r.json() as Promise<T>;
 }
@@ -265,8 +265,7 @@ export const api = {
   getProviderModels: (provider: string, baseUrl?: string, apiKey?: string): Promise<{ models: string[] }> => {
     const params = new URLSearchParams({ provider });
     if (baseUrl) params.set("base_url", baseUrl);
-    if (apiKey) params.set("api_key", apiKey);
-    return get(`/api/ai-config/models?${params.toString()}`);
+    return get(`/api/ai-config/models?${params.toString()}`, apiKey ? { "X-Api-Key": apiKey } : undefined);
   },
 
   // Initialise

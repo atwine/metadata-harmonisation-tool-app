@@ -156,7 +156,7 @@ def _load_initial() -> tuple[dict[str, AfpoTerm], Optional[str], Optional[str], 
             content = _CACHE_OBO_PATH.read_text(encoding="utf-8")
             table = _parse_obo(content)
         except (OSError, UnicodeDecodeError) as e:
-            logger.warning("AfPO ontology cache unreadable (%s) — falling back to shipped copy", e)
+            logger.warning("AfPO ontology cache unreadable (%s) — falling back to shipped copy", type(e).__name__)
             return _load_shipped()
 
         if not table:
@@ -200,7 +200,7 @@ async def refresh_ontology(timeout: float = 10.0) -> dict:
         resp.raise_for_status()
         content = resp.text
     except Exception as e:
-        logger.warning("AfPO ontology refresh failed (%s) — keeping %s copy", e, _current_source)
+        logger.warning("AfPO ontology refresh failed (%s) — keeping %s copy", type(e).__name__, _current_source)
         return {"status": "unavailable", "data_version": _current_data_version, "source": _current_source}
 
     new_version = _extract_data_version(content)

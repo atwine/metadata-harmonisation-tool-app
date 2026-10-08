@@ -29,6 +29,11 @@ dist-ssr
 .nitro
 *.local
 
+# Secrets: docs/docker.md tells people to put GITHUB_TOKEN in a plain .env
+.env
+.env.*
+!.env.example
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
@@ -48,3 +53,8 @@ dist-ssr
 # .impeccable/config.json IS tracked, since it records real suppression
 # decisions worth sharing with the team.
 .impeccable/hook.cache.json
+
+# Backups made by scripts/backup.sh hold participant data; never commit them
+harmonisation-backups/
+harmonisation-data.before-restore-*/
+harmonisation-data.restore-tmp.*/
