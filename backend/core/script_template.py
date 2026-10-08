@@ -19,6 +19,23 @@ Exit codes: 0 done, 1 the output or report could not be written, 2 bad arguments
 
 The mappings below are plain data (JSON). They are never run as code.
 """
+import sys
+
+
+def _drop_local_folders_from_path():
+    """Python puts the script's own folder (and the current folder) first on the module
+    search path, so a stray pandas.py or csv.py there would run instead of the real module.
+    Remove them before anything else is imported."""
+    import os
+    here = set()
+    for folder in (os.getcwd(), os.path.dirname(os.path.abspath(globals().get("__file__") or ""))):
+        here.add(os.path.normcase(os.path.abspath(folder)))
+    sys.path[:] = [p for p in sys.path
+                   if p not in ("", ".") and os.path.normcase(os.path.abspath(p)) not in here]
+
+
+_drop_local_folders_from_path()
+
 import argparse
 import ast
 import codecs
@@ -28,7 +45,6 @@ import json
 import math
 import operator as op
 import os
-import sys
 import tempfile
 
 CHUNK_ROWS = 50000
@@ -555,8 +571,12 @@ def main(argv=None):
 
     try:
         import pandas as pd
-    except ImportError:
-        fail(2, "pandas is not installed. Run: pip install pandas")
+    except ModuleNotFoundError as e:
+        if e.name == "pandas":
+            fail(2, "pandas is not installed. Run: pip install pandas")
+        fail(2, "pandas could not be loaded (%s: %s)." % (type(e).__name__, e))
+    except Exception as e:
+        fail(2, "pandas could not be loaded (%s: %s)." % (type(e).__name__, e))
     try:
         major, minor = [int(p) for p in pd.__version__.split(".")[:2]]
         if (major, minor) < (1, 5):

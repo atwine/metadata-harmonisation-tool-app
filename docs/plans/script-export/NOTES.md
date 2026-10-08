@@ -97,3 +97,21 @@ Each one below is the smallest, easiest to undo option. Overrule any of them.
 - Script route sends an RFC 6266 header (ASCII fallback `filename=` plus `filename*=UTF-8''...`), so Cyrillic study names work.
   Not changed: the existing mapping-csv route still builds its header from the raw name, so it will fail the same way for
   non-Latin study names (generic 500). Left alone as asked; worth a separate fix.
+
+## Round 2
+Baseline before round 2: 200 passed, 4 skipped.
+
+### Out of scope: app-level traps (not changed, owner decision needed)
+The script copies the app's engine on purpose, so these behave the same in both and were left alone:
+- Yes/No column with target `boolean` and no rule: every value becomes True (`bool("No")` is True).
+- Float with target `integer` truncates (78.6 becomes 78).
+- Text pandas reads as empty (`NA`, `N/A`, `null`, `None`) becomes an empty cell, so a rule for `NA` never fires.
+- Spreadsheet formulas (cells starting with `=`, `+`, `-`, `@`) are copied unchanged.
+Item 6 makes the report explain them without changing any result.
+
+### 1. Stray module files next to the script (fixed)
+- Cause: Python puts the script's folder first on `sys.path`, so a `pandas.py`, `csv.py`, `json.py` or `argparse.py` there ran instead of the real module.
+- Fix: before any other import the script removes `''`, `'.'`, the script's folder and the current folder from `sys.path`. A pandas import that
+  fails for another reason now prints the real error; "not installed" is kept only for a truly missing pandas.
+- Tests (tests/test_script_round2.py), run without `-I`/`-E`, seen failing first (6 failures): each fake module alone, all four together,
+  and a pandas that fails on a missing dependency.
