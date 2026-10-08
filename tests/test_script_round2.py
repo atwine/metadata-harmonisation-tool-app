@@ -179,3 +179,79 @@ def test_same_file_protection_still_wins_with_overwrite(tmp_path):
     result = run_script(script, "--input", source, "--output", source, "--overwrite")
     assert result.returncode == 2
     assert source.read_text(encoding="utf-8") == CSV
+
+
+# ---- 4. headers that differ from the sample ----
+
+SMOKE_ROWS = [m("id", "Id"), m("SBSMK", "Smoke")]
+
+
+def run_header(tmp_path, header, *extra):
+    script = make(tmp_path, rows=SMOKE_ROWS)
+    source = write_input(tmp_path, f"id,{header}\n1,yes\n2,no\n")
+    return run_script(script, "--input", source, "--output", tmp_path / "o.csv", *extra)
+
+
+def both_reports(tmp_path):
+    return ((tmp_path / "o_report.txt").read_text(encoding="utf-8"),
+            (tmp_path / "o_report.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("header,suggestion", [
+    ("sbsmk", "sbsmk"),
+    (" SBSMK ", " SBSMK "),
+    ("SBSMK2", "SBSMK2"),
+])
+def test_missing_column_lists_the_close_one_in_both_reports(tmp_path, header, suggestion):
+    result = run_header(tmp_path, header)
+    assert result.returncode == 0, result.stderr
+    expected = f'SBSMK not found; did you mean "{suggestion}"?'
+    text, js = both_reports(tmp_path)
+    assert expected in text
+    assert expected.replace('"', '\\"') in js
+    assert expected in result.stdout
+    assert "Smoke" not in read_cells(tmp_path / "o.csv").columns
+
+
+def test_none_found_message_includes_the_hint(tmp_path):
+    script = make(tmp_path, rows=[m("SBSMK", "Smoke")])
+    source = write_input(tmp_path, "a,sbsmk\n1,yes\n")
+    result = run_script(script, "--input", source, "--output", tmp_path / "o.csv")
+    assert result.returncode == 2
+    assert 'SBSMK not found; did you mean "sbsmk"?' in result.stderr
+    assert 'SBSMK not found; did you mean "sbsmk"?' in both_reports(tmp_path)[0]
+
+
+def test_two_close_candidates_are_both_listed_and_not_guessed(tmp_path):
+    result = run_header(tmp_path, 'sbsmk,"SbSmk"', "--ignore-case-and-spaces")
+    assert result.returncode == 0, result.stderr
+    text, _ = both_reports(tmp_path)
+    assert '"sbsmk" or "SbSmk"' in text
+    assert "Smoke" not in read_cells(tmp_path / "o.csv").columns
+
+
+@pytest.mark.parametrize("header", ["sbsmk", " SBSMK "])
+def test_flag_matches_the_column_and_says_so(tmp_path, header):
+    result = run_header(tmp_path, header, "--ignore-case-and-spaces")
+    assert result.returncode == 0, result.stderr
+    assert read_cells(tmp_path / "o.csv")["Smoke"].tolist() == ["yes", "no"]
+    text, js = both_reports(tmp_path)
+    assert "--ignore-case-and-spaces was used" in text
+    assert f'"{header}"' in text
+    assert "not found" not in text
+    import json
+    report = json.loads(js)
+    assert report["matched_columns"] == [{"mapped": "SBSMK", "found": header}]
+
+
+def test_flag_is_off_by_default(tmp_path):
+    result = run_header(tmp_path, "sbsmk")
+    assert result.returncode == 0, result.stderr
+    assert "--ignore-case-and-spaces was used" not in both_reports(tmp_path)[0]
+    assert "Smoke" not in read_cells(tmp_path / "o.csv").columns
+
+
+def test_flag_not_needed_when_names_agree_so_nothing_is_said(tmp_path):
+    result = run_header(tmp_path, "SBSMK", "--ignore-case-and-spaces")
+    assert result.returncode == 0, result.stderr
+    assert "was used" not in both_reports(tmp_path)[0]

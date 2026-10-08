@@ -131,3 +131,12 @@ Item 6 makes the report explain them without changing any result.
   unless `--overwrite` is given. The same-file checks from round 1 run first and still apply with `--overwrite`.
 - One round-1 test (`test_failure_keeps_an_existing_output_untouched`) now passes `--overwrite`; without it the new check would stop the run
   before the failure it wants to provoke. Tests: 5 new in tests/test_script_round2.py, all seen failing first (the same-file one already passed).
+
+### 4. Headers that differ from the sample (fixed)
+- When a mapped column is missing, the script lists up to three close columns (same name apart from letter case and surrounding spaces first,
+  else `difflib.get_close_matches`, cutoff 0.7). The line reads `SBSMK not found; did you mean "sbsmk"?` (names are quoted so padding is visible).
+  It appears in the console, the text report warnings, the JSON `warnings` list and the JSON `skipped[].hint`, and in the "none found" error.
+- New opt-in `--ignore-case-and-spaces`: a mapped column is matched to a file column only when exactly one file column differs by case and
+  surrounding spaces. Two candidates are listed and none is guessed. When used, both reports say so (`matched_columns`, `ignore_case_and_spaces_used`).
+  Output column names still come from the codebook, so results are the same as if the header had matched.
+- Tests: 9 new cases in tests/test_script_round2.py, 8 seen failing first.

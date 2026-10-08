@@ -13,6 +13,7 @@ Usage:
 Options:
     --sep ","          column separator (default: guessed)
     --encoding utf-8   text encoding (default: guessed)
+    --ignore-case-and-spaces  match columns that differ only in letter case or surrounding spaces
     --overwrite        replace the output and report files if they already exist (default: refuse)
     --decimal ","      read 78,6 as 78.6 (default "."); only changes how the text is read
     --report BASE      report files are BASE.txt and BASE.json (default: <output>_report)
@@ -43,6 +44,7 @@ import ast
 import codecs
 import collections
 import csv
+import difflib
 import json
 import math
 import operator as op
@@ -129,6 +131,7 @@ class Variable:
     def __init__(self, spec):
         self.study_var = spec["study_var"]
         self.col_name = spec["col_name"]
+        self.source_col = self.study_var
         self.t_type = spec["transformation_type"]
         self.instr = spec["transformation_instructions"]
         self.src_dtype = spec["source_dtype"]
@@ -347,7 +350,7 @@ def transform_chunk(pd, chunk, variables, stats_by_var, kinds_by_col):
         stats = stats_by_var[var.study_var]
         tracker = kinds_by_col[var.col_name]
         values = []
-        for val in chunk[var.study_var]:
+        for val in chunk[var.source_col]:
             stats.rows += 1
             if is_empty(val):
                 stats.source_empty += 1
@@ -387,14 +390,47 @@ def to_frame(pd, out, kinds_by_col):
     return pd.DataFrame(cols)
 
 
-def plan_variables(config, header):
-    variables, warnings, metrics, owner = [], [], [], {}
+def normalised(name):
+    return str(name).strip().casefold()
+
+
+def close_columns(name, header):
+    """Columns of the file that look like the mapped column: same name apart from letter case
+    and surrounding spaces first, else the closest spellings."""
+    key = normalised(name)
+    same = [h for h in header if normalised(h) == key]
+    if same:
+        return same
+    by_key = {}
+    for h in header:
+        by_key.setdefault(normalised(h), []).append(h)
+    close = difflib.get_close_matches(key, list(by_key), n=3, cutoff=0.7)
+    return [h for c in close for h in by_key[c]][:3]
+
+
+def did_you_mean(name, candidates):
+    return "%s not found; did you mean %s?" % (name, " or ".join(quote(c) for c in candidates))
+
+
+def plan_variables(config, header, ignore_case_and_spaces=False):
+    variables, warnings, metrics, owner, matched = [], [], [], {}, []
     for spec in config["variables"]:
         study_var = spec["study_var"]
-        if not study_var or study_var not in header:
+        source_col = study_var
+        if study_var and study_var not in header:
+            candidates = close_columns(study_var, header)
+            same = [h for h in candidates if normalised(h) == normalised(study_var)]
+            if ignore_case_and_spaces and len(same) == 1:
+                source_col = same[0]
+                matched.append({"mapped": study_var, "found": source_col})
+        if not study_var or source_col not in header:
             warnings.append("Source column missing: %s" % study_var)
-            metrics.append({"variable": study_var, "successes": 0, "errors": 1,
-                            "warning": "Source column not found in input data", "skipped": "missing_column"})
+            metric = {"variable": study_var, "successes": 0, "errors": 1,
+                      "warning": "Source column not found in input data", "skipped": "missing_column"}
+            if study_var and candidates:
+                metric["hint"] = did_you_mean(study_var, candidates)
+                warnings.append(metric["hint"])
+            metrics.append(metric)
             continue
         col_name = spec["col_name"]
         if col_name in owner:
@@ -406,6 +442,7 @@ def plan_variables(config, header):
                             "skipped": "duplicate_target"})
             continue
         var = Variable(spec)
+        var.source_col = source_col
         if not var.has_instr:
             warnings.append("No transformation for %s -> %s; copied through." % (study_var, spec["codebook_var"]))
         elif var.rule == "copy":
@@ -414,7 +451,7 @@ def plan_variables(config, header):
             warnings.append("The lookup rule for %s is longer than %d characters; every value is left empty." % (study_var, MAX_LOOKUP_RULE_CHARS))
         owner[col_name] = study_var
         variables.append(var)
-    return variables, warnings, metrics
+    return variables, warnings, metrics, matched
 
 
 def variable_notes(var, s, args):
@@ -425,7 +462,7 @@ def variable_notes(var, s, args):
     return notes
 
 
-def build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, skipped_metrics, total_rows):
+def build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, skipped_metrics, total_rows, matched=()):
     per_var = []
     metrics = list(skipped_metrics)
     for var in variables:
@@ -455,7 +492,8 @@ def build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, 
             entry["unconvertible_examples"] = list(s.examples)
         per_var.append(entry)
         metrics.append({"variable": var.study_var, "successes": s.rows - s.errors, "errors": s.errors})
-    skipped = [{"variable": m["variable"], "reason": m["skipped"]} for m in skipped_metrics]
+    skipped = [dict({"variable": m["variable"], "reason": m["skipped"]}, **({"hint": m["hint"]} if m.get("hint") else {}))
+               for m in skipped_metrics]
     total_success = sum(m["successes"] for m in metrics)
     total_errors = sum(m["errors"] for m in metrics)
     return {
@@ -470,6 +508,8 @@ def build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, 
         "metrics": metrics,
         "total_successes": total_success,
         "total_errors": total_errors,
+        "ignore_case_and_spaces_used": bool(matched),
+        "matched_columns": list(matched),
         "warnings": warnings,
     }
 
@@ -493,6 +533,9 @@ def report_text(report):
     L.append("Total errors: %d" % report["total_errors"])
     if report["warnings"]:
         L += ["", "Warnings:"] + ["- %s" % w for w in report["warnings"]]
+    if report["matched_columns"]:
+        L += ["", "--ignore-case-and-spaces was used; these columns were matched:"]
+        L += ["- mapped %s -> column in the file %s" % (quote(c["mapped"]), quote(c["found"])) for c in report["matched_columns"]]
     L += ["", "Per variable", "------------"]
     for v in report["variables"]:
         rule = {"math": "math rule", "lookup": "lookup rule", "none": "no rule, type change only"}[v["rule"]]
@@ -588,6 +631,8 @@ def main(argv=None):
     parser.add_argument("--report", help="base name for the report files (default: <output>_report)")
     parser.add_argument("--sep", help="column separator (default: guessed)")
     parser.add_argument("--encoding", help="text encoding (default: guessed)")
+    parser.add_argument("--ignore-case-and-spaces", action="store_true", dest="ignore_case_and_spaces",
+                        help="match mapped columns to file columns that differ only in letter case or surrounding spaces")
     parser.add_argument("--overwrite", action="store_true", help="replace the output and report files if they already exist")
     parser.add_argument("--decimal", choices=[".", ","], default=".",
                         help='decimal mark in the numbers of your file (default: "."); only changes how the text is read')
@@ -665,15 +710,17 @@ def run(args, config, pd, report_base, staging):
         fail(2, "Only one column was found with separator %s. Re-run with --sep (for example --sep \";\") "
                 "and check --encoding." % quote(sep))
 
-    variables, warnings, skipped_metrics = plan_variables(config, header)
+    variables, warnings, skipped_metrics, matched = plan_variables(config, header, args.ignore_case_and_spaces)
     if not variables:
-        report = build_report(config, args, [], {}, {}, warnings, skipped_metrics, 0)
+        report = build_report(config, args, [], {}, {}, warnings, skipped_metrics, 0, matched)
         staging.write_text(txt_final, report_text(report))
         staging.write_text(json_final, json.dumps(report, indent=2))
         staging.commit([txt_final, json_final])
-        fail(2, "None of the mapped columns were found in the input file, so nothing was written. See %s.txt" % report_base)
+        hints = [m["hint"] for m in skipped_metrics if m.get("hint")]
+        fail(2, "None of the mapped columns were found in the input file, so nothing was written. See %s.txt%s"
+                % (report_base, "".join("\n  " + h for h in hints[:10])))
 
-    usecols = [v.study_var for v in variables]
+    usecols = [v.source_col for v in variables]
     dtypes = infer_column_dtypes(pd, args.input, sep, encoding, usecols, args.decimal)
 
     stats_by_var = {v.study_var: Stats() for v in variables}
@@ -692,7 +739,7 @@ def run(args, config, pd, report_base, staging):
         for chunk in read_chunks(pd, args.input, sep, encoding, usecols, dtypes, args.decimal):
             out = transform_chunk(pd, chunk, variables, scratch_stats, scratch_kinds)
             to_frame(pd, out, kinds_by_col).to_csv(temp_out, mode="a", header=False, index=False, encoding="utf-8")
-        report = build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, skipped_metrics, total_rows)
+        report = build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, skipped_metrics, total_rows, matched)
         staging.write_text(txt_final, report_text(report))
         staging.write_text(json_final, json.dumps(report, indent=2))
     except OSError as e:
