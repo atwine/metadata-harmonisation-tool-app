@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.15] — 2026-10-08
+
+### Changed
+- **Access audit closed out.** `pytest tests` is fully green (103 passed, no expected failures left), every one of the 28 API routes has a row in `ACCESS.md`, and the three findings in `ACCESS-AUDIT.md` are marked fixed. The output after the fixes is saved in `docs/access-audit-after.txt`. `ACCESS.md` now says both request checks answer 403 and that PATCH is covered like the other write methods. No app behaviour changes.
+
 ## [0.8.14] — 2026-10-08
 
 ### Security

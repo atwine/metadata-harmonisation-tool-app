@@ -32,9 +32,9 @@ How the app tells them apart:
   `127.0.0.1` only, so other devices can't connect at all. Setting
   `MHT_BIND_ADDRESS=0.0.0.0` opens it to the network on purpose.
 - **website** is kept out by checking each request. A state-changing request
-  (POST, PUT, DELETE) must come from one of the tool's own `localhost`
+  (POST, PUT, PATCH, DELETE) must come from one of the tool's own `localhost`
   origins, and every request must be addressed to `localhost` or
-  `127.0.0.1` (the `Host` header), which stops DNS rebinding.
+  `127.0.0.1` (the `Host` header), which stops DNS rebinding. Both checks answer 403.
 
 ## 3. Permission grid
 
