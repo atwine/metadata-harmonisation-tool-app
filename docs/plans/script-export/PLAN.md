@@ -1,7 +1,7 @@
 # Plan: export a script that transforms a full dataset
 
 Branch: `feature/script-export` (cut from `origin/development`, the app line).
-Status: plan written, nothing built. Owner decisions are listed in `DECISIONS.md`.
+Status: plan written, nothing built. All owner decisions (D1 to D9) are answered in `DECISIONS.md`. Version 1 is a deliberately rough first pass: prove the path end to end, then poke holes.
 
 ## 1. The problem, in plain words
 
@@ -53,14 +53,16 @@ main success test (section 5, test P1).
    takes `--input` and `--output`, handles files too big for memory (reads in chunks),
    prints a short success/error summary like the in-app validation report.
 3. A "Download script" control on the Download Results page.
-4. Tests, including the parity test against the in-app engine.
-5. Documentation: README section, `docs/script-export.md`, CHANGELOG entry, ACCESS.md rows.
+4. A results report written after every run (see D8): what converted, what errored, every unseen lookup value with counts.
+5. Separator and encoding guessing with `--sep` and `--encoding` overrides (see D9).
+6. Tests, including the parity test against the in-app engine.
+7. Documentation: README section, `docs/script-export.md`, CHANGELOG entry, ACCESS.md rows.
 
 ### Out of scope (do not build)
 - Transformation-syntax help text or hints in the Map Studies screen (separate, after testing starts).
 - Separate PDF slots, any change to the upload pages.
 - R, SAS, Stata or other languages. Python only.
-- Any new transformation operators (no `%`, `**`, functions, conditionals).
+- Any new transformation operators (no `%`, `**`, functions, conditionals), and the rule types listed as later work: dates, "treat 999 as empty" codes, combining columns, a dry-run mode.
 - Running the script from inside the app, or uploading full data to the app.
 - Any change to the testing line (`eval/instrumentation-build`). The owner decides later
   whether to copy this over, with `git cherry-pick -x`.
@@ -96,8 +98,14 @@ Work in this order. Commit after each task. Run the checks in section 6 before e
 - T2.3 The script: argument parsing (`--input`, `--output`, optional `--report`), chunked
   read, same cast and convert rules as section 2, same duplicate/missing handling, clear
   exit codes (0 ok, 2 bad arguments or unreadable file, 1 if the output could not be written).
-- T2.4 The script prints (and optionally writes) a validation report matching the in-app
-  `validation_report.txt` wording.
+- T2.4 The results report from D8: printed summary on screen, plus `<output>_report.txt` and
+  `<output>_report.json` next to the output. Keep the in-app `validation_report.txt` wording for the
+  overlapping lines. Unseen lookup values are counted per value (cap the list at the 50 most frequent
+  per variable and say how many more there were). Put a warning at the top that the report can
+  contain participant values.
+- T2.5 Separator and encoding detection (D9): try UTF-8 (with BOM), then fall back to latin-1
+  with a printed notice; detect the separator from the first lines (comma, semicolon, tab, pipe);
+  `--sep` and `--encoding` override. Stop with a clear message if the result is one column or garbled.
 
 ### Phase 3: endpoint
 - T3.1 New route in `backend/routers/download.py`: returns the script as a file download.
@@ -135,8 +143,12 @@ Work in this order. Commit after each task. Run the checks in section 6 before e
 - **P3 big file:** a generated CSV of at least 200,000 rows runs in chunks without loading
   everything at once (assert on the chunk setting, and that memory use stays flat enough
   to finish; do not make the test slow, under 30 seconds).
-- **P4 edge cases:** empty file, header only, missing source column, non-UTF-8 file
-  (report a clear error), output path not writable (exit code 1).
+- **P4 edge cases:** empty file, header only, missing source column, output path not writable
+  (exit code 1), semicolon-separated file, tab-separated file, latin-1 file with accents,
+  UTF-8 file with a BOM, a wrong guess recovered with `--sep` or `--encoding`.
+- **P7 report:** a file with values the lookup never saw (`X` 42 times, `Y` once) produces a
+  report listing both with the right counts; empty output cells match the report's empty count;
+  a variable skipped for a missing column appears in the report; the JSON and text reports agree.
 - **P5 endpoint:** 200 with a script body; 422 for no mappings; 400 for a bad study name;
   403 for foreign Origin or Host.
 - **P6 frontend:** type-check and production build pass.

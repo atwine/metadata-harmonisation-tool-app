@@ -12,16 +12,18 @@ You are building one feature for the Metadata Harmonisation Tool (FastAPI backen
 - Work only inside that folder. Do not touch other worktrees or branches.
 
 ## The feature
+This is a deliberately rough first version. The point is to prove the whole path works end to end so the owner can poke holes in it later. Do not add features beyond the plan; do make what is there correct and tested.
+
 Let a researcher download a small Python script from the Download Results page. They run it on their own machine against their own full dataset, and it applies the study's confirmed mappings and transformations, producing the same output the app produces for the sample data. The full data never goes through the app.
 
 ## Read first, in this order
 1. `docs/plans/script-export/PLAN.md` (scope, tasks, tests, risks). This is your spec.
-2. `docs/plans/script-export/DECISIONS.md` (owner decisions D1 to D6).
+2. `docs/plans/script-export/DECISIONS.md` (owner decisions D1 to D9). Pay special attention to D8: the results report is the heart of this version.
 3. `backend/core/transform_engine.py` and `backend/core/transformation_utils.py` (the behaviour to copy exactly).
 4. `ACCESS.md` and `SECURITY.md`.
 
 ## Hard rules
-1. **Decisions.** Do Phase 0 now. If any of D1 to D5 has no answer in `DECISIONS.md`, stop after Phase 0, write what you found in `NOTES.md`, and report. Do not pick an option yourself. If the owner answered "recommended", use the option marked Recommended.
+1. **Decisions.** D1 to D9 are answered in `DECISIONS.md`; where the owner wrote "recommended", use the option marked Recommended. Do not change an answer. If you hit a new choice the plan does not cover, write it in `NOTES.md` with the options and your reasoning, pick the smallest and most reversible one so work can continue, and flag it clearly in your final report so the owner can overrule it.
 2. **Scope.** Build only what `PLAN.md` lists under "In scope". Anything in "Out of scope" stays out. If you think scope should change, say so in your report and do not do it.
 3. **No code injection.** Study names, variable names and transformation instructions are user-controlled. Never paste them into script source text. Store them as JSON data and parse expressions with the same restricted AST evaluator. No `eval`, no `exec`. Test P2 in the plan proves this.
 4. **Branches.** Commit locally. Do not push. Do not open a pull request. Do not merge. Never touch `main`, `staging`, or `eval/instrumentation-build`. The owner decides about those.
