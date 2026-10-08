@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
+from core.errors import server_error
 from models.schemas import InitialiseRequest, InitialiseStatusResponse, StudyInitStatus
 from storage import db
 from storage.files import list_studies
@@ -167,14 +168,22 @@ async def clear_workspace():
     project_root = Path(".").resolve()
     cleared: list[str] = []
 
-    for d in ["input", "results", "logs"]:
-        path = Path(d).resolve()
-        # Safety: must be a direct child of project root
-        if path.parent == project_root and path.exists():
-            shutil.rmtree(path)
-            path.mkdir(exist_ok=True)
-            cleared.append(d)
+    try:
+        for d in ["input", "results", "logs"]:
+            path = Path(d).resolve()
+            # Safety: must be a direct child of project root
+            if path.parent == project_root and path.exists():
+                # Empty the folder but keep it: in Docker these are mounted
+                # folders, and removing the mount point itself fails ("Device or resource busy").
+                for child in path.iterdir():
+                    if child.is_dir() and not child.is_symlink():
+                        shutil.rmtree(child)
+                    else:
+                        child.unlink()
+                cleared.append(d)
 
-    db.clear_all()
+        db.clear_all()
+    except Exception as e:
+        raise server_error("/api/initialise/clear-workspace", e)
 
     return {"status": "cleared", "directories": cleared}
