@@ -48,9 +48,6 @@ KNOWN_FAILURES = {
     'test_access_rule[rebinding GET /api/afpo/ontology-status -> deny (DNS-rebinding sites get nothing)]': 'F3',
     'test_website_cannot_wipe_the_workspace': 'F2',
     'test_rebinding_site_cannot_read_studies': 'F3',
-    'test_run_backend_listens_on_localhost_by_default': 'F1',
-    'test_compose_publishes_on_localhost_by_default[docker-compose.yml]': 'F1',
-    'test_compose_publishes_on_localhost_by_default[docker-compose.hub.yml]': 'F1',
 }
 
 

@@ -285,6 +285,7 @@ See `docs/docker.md` for how the AfPO ontology itself stays up to date.
 - The `logs/`, `input/`, `results/`, `db/`, and `ontology_cache/` directories are excluded from git — all runtime-generated, not source.
 - AfPO GitHub issue submission is always a manual click — the app never submits on the user's behalf. A local flag prevents this installation from re-filing a term it already submitted, and a live GitHub issue search (`GET /api/afpo/check-github`) catches duplicates across installations too, since every installation of this app points at the same shared AfPO repo.
 - Both destructive actions in the app (Clear Workspace, deleting a study) require an explicit confirmation dialog rather than a single click — a deliberate defense against accidental data loss.
+- The app listens on `127.0.0.1` only by default (Docker ports and `run_backend.py`), so other devices on your network cannot reach it. Setting `MHT_BIND_ADDRESS=0.0.0.0` opens it to the network on purpose; do that only on a trusted network (see [docs/docker.md](docs/docker.md)).
 - ⚠️ A known gap (tracked in [issue #4](../../issues/4)): the API currently has no authentication — don't expose the backend beyond localhost/trusted networks as-is.
 
 ## License

@@ -29,7 +29,7 @@ services:
       # file before `docker compose up` — leave unset to run without one.
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     ports:
-      - "8000:8000"
+      - "${MHT_BIND_ADDRESS:-127.0.0.1}:8000:8000"
     volumes:
       # Bind mounts, not named volumes — deliberately, so this is a normal
       # host folder the org's technical person can see and back up, and so
@@ -54,7 +54,7 @@ services:
       VITE_OLLAMA_CHAT_MODEL: llama3.2:3b
       VITE_OLLAMA_EMBEDDING_MODEL: nomic-embed-text
     ports:
-      - "8080:8080"
+      - "${MHT_BIND_ADDRESS:-127.0.0.1}:8080:8080"
     depends_on:
       - backend
     restart: unless-stopped

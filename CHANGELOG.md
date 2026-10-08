@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.12] — 2026-10-08
+
+### Security
+- **The app now listens on your own computer only.** Before, both Docker setups published ports 8080 and 8000 on every network card, and `python run_backend.py` listened on `0.0.0.0`, so anyone on the same Wi-Fi or lab network could open the API and download or delete participant data (finding F1 in `ACCESS-AUDIT.md`). Ports are now published on `127.0.0.1`, and `run_backend.py` defaults to `127.0.0.1`. To open the app to a network on purpose, set `MHT_BIND_ADDRESS=0.0.0.0` (documented in `docs/docker.md` and the README); only do that on a trusted network. The three F1 tests in `tests/test_access.py` now pass and are off the expected-failure list.
+
 ## [0.8.11] — 2026-10-08
 
 ### Added
