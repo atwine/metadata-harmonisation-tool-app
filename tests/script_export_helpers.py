@@ -80,10 +80,21 @@ def make_script(tmp_path, study):
     return path
 
 
+def _isolation_flag():
+    """-I (isolated mode) is the plan's choice. It also hides pandas when pandas is
+    installed in the user's own site-packages (as on some Windows setups), so fall
+    back to -E (ignore PYTHON* environment variables) in that case."""
+    probe = subprocess.run([sys.executable, "-I", "-c", "import pandas"], capture_output=True)
+    return "-I" if probe.returncode == 0 else "-E"
+
+
+ISOLATION_FLAG = _isolation_flag()
+
+
 def run_script(script, *args, cwd=None):
     """The script as the researcher runs it: a separate isolated Python process."""
     return subprocess.run(
-        [sys.executable, "-I", str(script), *map(str, args)],
+        [sys.executable, ISOLATION_FLAG, str(script), *map(str, args)],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
         cwd=cwd, timeout=120,
     )

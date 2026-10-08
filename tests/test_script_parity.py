@@ -19,8 +19,8 @@ FIXTURE_DATA = (
     "pid,sex,wt_lb,age,visit,grade,height,flag,bad_expr,evil,note,smk,dupe_a,dupe_b,weird,spaced,todo_col\n"
     "P1,F,150.5,34,1,1,1.80,1,5,6,hello,N,a,b,w,7,x\n"
     "P2,M,abc,,2,2,1.65,0,6,7,,S,c,d,v,8,y\n"
-    "P3,X,200,51,1,3,,1,7,8,tab\tbed,F,e,f,u,9,z\n"
-    "P4,,,abc,,,1.75,,8,9,\"quo,te\",N,g,h,t,,w\n"
+    "P3,X,200,51,2,3,,1,7,8,tab\tbed,F,e,f,u,9,z\n"
+    "P4,,,abc,1,,1.75,,8,9,\"quo,te\",N,g,h,t,,w\n"
     "P5,F,99.9,40,2,1,1.50,0,9,1,plain,S,i,j,s,10,v\n"
 )
 
@@ -30,7 +30,7 @@ FIXTURE_MAPPINGS = [
     m("wt_lb", "Weight kg", "Direct", "x * 0.4536", "float", "float"),
     m("age", "Age years", None, None, "string", "integer"),
     m("visit", "Visit code", "Categorical", "{'1': 10, '2': 20}", "string", "integer"),
-    m("grade", "Grade", "Categorical", "{'1': 10, '2': 20, '3': 30}", "string", "integer"),
+    m("grade", "Grade", "Categorical", "{'1.0': 10, '2.0': 20, '3.0': 30}", "string", "integer"),
     m("height", "Height cm", "Direct", "x * 100", "float", "integer"),
     m("flag", "Flag", None, None, "string", "boolean"),
     m("bad_expr", "Bad expression", "Direct", "x +", "float", "float"),
