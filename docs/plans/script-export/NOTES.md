@@ -115,3 +115,13 @@ Item 6 makes the report explain them without changing any result.
   fails for another reason now prints the real error; "not installed" is kept only for a truly missing pandas.
 - Tests (tests/test_script_round2.py), run without `-I`/`-E`, seen failing first (6 failures): each fake module alone, all four together,
   and a pandas that fails on a missing dependency.
+
+### 2. Decimal commas (fixed)
+- New option `--decimal "."` (default) or `--decimal ","`. It is passed to pandas' reader, so `78,6` becomes 78.6 for float and integer columns.
+  `--thousands` was skipped (the plan allowed it). `--decimal` equal to the column separator is refused (exit 2).
+- Report: when a numeric variable (source or target float/integer, no lookup rule) has unconverted values and more than half look like
+  `digits,digits`, both reports say `these look like decimal commas: re-run with --decimal ","`. Text: a `note:` line under the variable;
+  JSON: a new per-variable `notes` list (always present, empty when nothing to say).
+- Difference from the app: `--decimal` only changes how the script reads text. The app has no such option, so with `--decimal ","`
+  the script converts values the app would leave empty. With the default `.` the results are identical to the app.
+- Tests: 6 in tests/test_script_round2.py, 4 seen failing first.

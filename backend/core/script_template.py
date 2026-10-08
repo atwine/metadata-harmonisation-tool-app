@@ -13,6 +13,7 @@ Usage:
 Options:
     --sep ","          column separator (default: guessed)
     --encoding utf-8   text encoding (default: guessed)
+    --decimal ","      read 78,6 as 78.6 (default "."); only changes how the text is read
     --report BASE      report files are BASE.txt and BASE.json (default: <output>_report)
 
 Exit codes: 0 done, 1 the output or report could not be written, 2 bad arguments or unreadable input.
@@ -45,6 +46,7 @@ import json
 import math
 import operator as op
 import os
+import re
 import tempfile
 
 CHUNK_ROWS = 50000
@@ -54,6 +56,8 @@ MAX_EXAMPLES = 5
 MAX_LOOKUP_RULE_CHARS = 10000
 SEP_CANDIDATES = [",", ";", "\t", "|"]
 NAN = float("nan")
+DECIMAL_COMMA_LOOKS_LIKE = re.compile(r"^\s*[-+]?\d+,\d+\s*$")
+DECIMAL_COMMA_HINT = 'these look like decimal commas: re-run with --decimal ","'
 REPORT_WARNING_LINES = [
     "this report names raw values from your data and may contain participant",
     "information. It is saved only on this computer; the app never receives it.",
@@ -134,6 +138,7 @@ class Variable:
         self.mapping = None
         self.compile_error = None
         self.too_long = False
+        self.numeric = self.src_dtype in ("float", "integer") or self.tgt_dtype in ("float", "integer")
         if self.has_instr and self.t_type == "Direct":
             self.rule = "math"
             try:
@@ -189,6 +194,7 @@ class Stats:
         self.examples = []
         self.unseen = collections.Counter()
         self.unseen_untracked_rows = 0
+        self.comma_like = 0
 
     def add_unseen(self, key):
         if key in self.unseen or len(self.unseen) < MAX_UNSEEN_TRACKED:
@@ -289,9 +295,9 @@ def read_header(pd, path, sep, encoding):
         fail(2, "The input file could not be read (%s). Check --sep and --encoding." % type(e).__name__)
 
 
-def read_chunks(pd, path, sep, encoding, usecols, dtype=None):
+def read_chunks(pd, path, sep, encoding, usecols, dtype=None, decimal="."):
     try:
-        reader = pd.read_csv(path, sep=sep, encoding=encoding, usecols=usecols, dtype=dtype, chunksize=CHUNK_ROWS)
+        reader = pd.read_csv(path, sep=sep, encoding=encoding, usecols=usecols, dtype=dtype, decimal=decimal, chunksize=CHUNK_ROWS)
         for chunk in reader:
             yield chunk
     except UnicodeDecodeError:
@@ -311,12 +317,12 @@ def _chunk_label(series):
     return kind
 
 
-def infer_column_dtypes(pd, path, sep, encoding, usecols):
+def infer_column_dtypes(pd, path, sep, encoding, usecols, decimal="."):
     """Same column types the app gets from reading the whole file at once.
     Columns left out of the result keep pandas' own guess for each chunk, which
     is right for True/False columns (booleans stay booleans, empties stay empty)."""
     seen = {}
-    for chunk in read_chunks(pd, path, sep, encoding, usecols):
+    for chunk in read_chunks(pd, path, sep, encoding, usecols, decimal=decimal):
         for col in chunk.columns:
             seen.setdefault(col, set()).add(_chunk_label(chunk[col]))
     dtypes = {}
@@ -356,8 +362,11 @@ def transform_chunk(pd, chunk, variables, stats_by_var, kinds_by_col):
             if is_empty(result):
                 stats.empty_out += 1
                 stats.not_converted += 1
-                if var.rule != "lookup" and len(stats.examples) < MAX_EXAMPLES:
-                    stats.examples.append(str(val)[:100])
+                if var.rule != "lookup":
+                    if len(stats.examples) < MAX_EXAMPLES:
+                        stats.examples.append(str(val)[:100])
+                    if var.numeric and DECIMAL_COMMA_LOOKS_LIKE.match(str(val)):
+                        stats.comma_like += 1
             tracker.add(result)
             values.append(result)
         out[var.col_name] = values
@@ -407,6 +416,14 @@ def plan_variables(config, header):
     return variables, warnings, metrics
 
 
+def variable_notes(var, s, args):
+    notes = []
+    if (var.rule != "lookup" and var.numeric and args.decimal == "." and s.not_converted
+            and s.comma_like * 2 > s.not_converted):
+        notes.append(DECIMAL_COMMA_HINT)
+    return notes
+
+
 def build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, skipped_metrics, total_rows):
     per_var = []
     metrics = list(skipped_metrics)
@@ -426,6 +443,7 @@ def build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, 
             "empty_because_source_empty": s.source_empty,
             "empty_not_converted": s.not_converted,
             "errors": s.errors,
+            "notes": variable_notes(var, s, args),
         }
         if var.rule == "lookup":
             entry["unseen_values"] = [{"value": k, "rows": n} for k, n in listed]
@@ -482,6 +500,8 @@ def report_text(report):
         L.append("  rows: %d, converted: %d, empty: %d, errors: %d" % (v["rows"], v["converted"], v["empty"], v["errors"]))
         L.append("  empty because the source cell was empty: %d; empty because it could not be converted: %d"
                  % (v["empty_because_source_empty"], v["empty_not_converted"]))
+        for note in v["notes"]:
+            L.append("  note: " + note)
         if v["rule"] == "lookup":
             if v["unseen_values"]:
                 L.append("  values not in the rule (left empty), %d rows in total:" % v["unseen_total_rows"])
@@ -567,6 +587,8 @@ def main(argv=None):
     parser.add_argument("--report", help="base name for the report files (default: <output>_report)")
     parser.add_argument("--sep", help="column separator (default: guessed)")
     parser.add_argument("--encoding", help="text encoding (default: guessed)")
+    parser.add_argument("--decimal", choices=[".", ","], default=".",
+                        help='decimal mark in the numbers of your file (default: "."); only changes how the text is read')
     args = parser.parse_args(argv)
 
     try:
@@ -625,6 +647,8 @@ def run(args, config, pd, report_base, staging):
         if sep is None:
             sep = ","
         print("Using separator %s and encoding %s." % (quote(sep), encoding))
+    if sep == args.decimal:
+        fail(2, "--decimal %s is the same character as the column separator. Use --sep with a different character." % quote(args.decimal))
     sample_head = "".join(sample_text(args.input, encoding)[:5])
     if "\x00" in sample_head or "\ufffd" in sample_head:
         fail(2, "The text looks garbled with encoding %s. Try --encoding utf-16 or cp1252." % encoding)
@@ -644,12 +668,12 @@ def run(args, config, pd, report_base, staging):
         fail(2, "None of the mapped columns were found in the input file, so nothing was written. See %s.txt" % report_base)
 
     usecols = [v.study_var for v in variables]
-    dtypes = infer_column_dtypes(pd, args.input, sep, encoding, usecols)
+    dtypes = infer_column_dtypes(pd, args.input, sep, encoding, usecols, args.decimal)
 
     stats_by_var = {v.study_var: Stats() for v in variables}
     kinds_by_col = {v.col_name: KindTracker() for v in variables}
     total_rows = 0
-    for chunk in read_chunks(pd, args.input, sep, encoding, usecols, dtypes):
+    for chunk in read_chunks(pd, args.input, sep, encoding, usecols, dtypes, args.decimal):
         total_rows += len(chunk)
         transform_chunk(pd, chunk, variables, stats_by_var, kinds_by_col)
 
@@ -659,7 +683,7 @@ def run(args, config, pd, report_base, staging):
     temp_out = staging.temp_of[out_final]
     try:
         pd.DataFrame(columns=columns).to_csv(temp_out, index=False, encoding="utf-8")
-        for chunk in read_chunks(pd, args.input, sep, encoding, usecols, dtypes):
+        for chunk in read_chunks(pd, args.input, sep, encoding, usecols, dtypes, args.decimal):
             out = transform_chunk(pd, chunk, variables, scratch_stats, scratch_kinds)
             to_frame(pd, out, kinds_by_col).to_csv(temp_out, mode="a", header=False, index=False, encoding="utf-8")
         report = build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, skipped_metrics, total_rows)
