@@ -5,6 +5,7 @@ from typing import Optional
 import pandas as pd
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
+from core.errors import CSV_UNREADABLE, log_failure
 from models.schemas import Study, StudyUploadResponse
 from storage import db
 from storage.files import (
@@ -42,7 +43,8 @@ async def upload_study(
     try:
         vars_df = read_csv_robust(text)
     except Exception as e:
-        raise HTTPException(400, f"Could not parse variables CSV: {e}")
+        log_failure("study variables CSV parse", e)
+        raise HTTPException(400, CSV_UNREADABLE)
 
     errors, warnings = validate_study_variables_df(vars_df)
     if errors:
