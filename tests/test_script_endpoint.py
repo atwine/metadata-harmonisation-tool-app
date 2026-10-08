@@ -44,7 +44,7 @@ def test_script_download_returns_a_python_file(client):
     store("Successfully mapped")
     r = client.get(f"/api/download/{STUDY}/script", headers={"Origin": LOCAL_ORIGIN})
     assert r.status_code == 200
-    assert r.headers["content-disposition"] == f"attachment; filename=transform_{STUDY}.py"
+    assert r.headers["content-disposition"] .startswith(f'attachment; filename="transform_{STUDY}.py"')
     compile(r.text, "downloaded.py", "exec")
     assert "--input" in r.text and "--output" in r.text
 
@@ -95,3 +95,18 @@ def test_unexpected_failure_hides_the_error_text(client, monkeypatch):
     r = client.get(f"/api/download/{STUDY}/script")
     assert r.status_code == 500
     assert "secret" not in r.text and "participant" not in r.text
+
+
+def test_non_latin_study_name_gets_an_rfc6266_header(client, tmp_path):
+    from urllib.parse import quote
+
+    name = "Исследование_1"
+    (tmp_path / "input" / name).mkdir()
+    store("Successfully mapped", study=name)
+    r = client.get(f"/api/download/{quote(name)}/script")
+    assert r.status_code == 200
+    header = r.headers["content-disposition"]
+    assert header.startswith("attachment; filename=")
+    assert header.encode("ascii")
+    assert f"filename*=UTF-8''transform_{quote(name)}.py" in header
+    compile(r.text, "downloaded.py", "exec")

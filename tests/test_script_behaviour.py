@@ -356,3 +356,13 @@ def test_p7_report_path_can_be_chosen(tmp_path):
     assert result.returncode == 0
     assert (tmp_path / "my_report.txt").exists() and (tmp_path / "my_report.json").exists()
     assert not re.search(r"o_report", " ".join(p.name for p in tmp_path.iterdir()))
+
+
+def test_json_report_carries_the_participant_data_warning(tmp_path):
+    source = tmp_path / "d.csv"
+    source.write_text("name,code\nAnn,a\n", encoding="utf-8")
+    assert run_script(simple_script(tmp_path), "--input", source, "--output", tmp_path / "o.csv").returncode == 0
+    report = json.loads((tmp_path / "o_report.json").read_text(encoding="utf-8"))
+    assert report["contains_participant_values"] is True
+    assert "may contain participant information" in report["warning"]
+    assert report["warning"] in (tmp_path / "o_report.txt").read_text(encoding="utf-8").replace("\n", " ")

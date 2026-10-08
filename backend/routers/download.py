@@ -1,5 +1,6 @@
 import io
 import json
+from urllib.parse import quote
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
@@ -50,6 +51,16 @@ async def download_mapping_csv(study_name: str):
     )
 
 
+def _script_disposition(study_name: str) -> str:
+    """RFC 6266: plain ASCII name for old clients plus filename* with the real UTF-8 name,
+    because study names may use non-Latin scripts and headers must be ASCII."""
+    ascii_name = "".join(c if c.isascii() else "_" for c in study_name)
+    return (
+        f'attachment; filename="transform_{ascii_name}.py"; '
+        f"filename*=UTF-8''transform_{quote(study_name)}.py"
+    )
+
+
 @router.get("/{study_name}/script")
 async def download_transform_script(study_name: str):
     """A standalone Python script holding this study's confirmed mappings (no participant data)."""
@@ -71,7 +82,7 @@ async def download_transform_script(study_name: str):
     return StreamingResponse(
         io.BytesIO(script.encode("utf-8")),
         media_type="text/x-python",
-        headers={"Content-Disposition": f"attachment; filename=transform_{study_name}.py"},
+        headers={"Content-Disposition": _script_disposition(study_name)},
     )
 
 

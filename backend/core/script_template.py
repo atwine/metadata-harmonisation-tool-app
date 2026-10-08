@@ -38,6 +38,11 @@ MAX_EXAMPLES = 5
 MAX_LOOKUP_RULE_CHARS = 10000
 SEP_CANDIDATES = [",", ";", "\t", "|"]
 NAN = float("nan")
+REPORT_WARNING_LINES = [
+    "this report names raw values from your data and may contain participant",
+    "information. It is saved only on this computer; the app never receives it.",
+    "Do not share it unless your data agreement allows it.",
+]
 
 _CONFIG_JSON = "\n".join((
 # __CONFIG_LINES__
@@ -424,6 +429,7 @@ def build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, 
         "input_file": os.path.basename(args.input),
         "output_file": os.path.basename(args.output),
         "contains_participant_values": True,
+        "warning": "WARNING: " + " ".join(REPORT_WARNING_LINES),
         "variables": per_var,
         "skipped": skipped,
         "metrics": metrics,
@@ -435,9 +441,8 @@ def build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, 
 
 def report_text(report):
     L = []
-    L.append("WARNING: this report names raw values from your data and may contain participant")
-    L.append("information. It is saved only on this computer; the app never receives it.")
-    L.append("Do not share it unless your data agreement allows it.")
+    L.append("WARNING: " + REPORT_WARNING_LINES[0])
+    L += REPORT_WARNING_LINES[1:]
     L.append("")
     L.append("Results report for study: %s" % report["study"])
     L.append("Input file: %s (%d rows)" % (report["input_file"], report["input_rows"]))

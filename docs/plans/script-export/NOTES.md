@@ -91,3 +91,9 @@ Each one below is the smallest, easiest to undo option. Overrule any of them.
 - Tests (tests/test_script_no_leftovers.py), seen failing first: garbled text, unknown encoding, one-column guess, empty input,
   input changing between passes (exit 2 in the second pass), existing output kept untouched on failure. Also: output is a folder
   gives exit 1 with nothing left, and a good run leaves exactly the output and two reports.
+
+### Small things (done)
+- JSON report now has a `warning` field with the same sentence as the text report (one shared constant).
+- Script route sends an RFC 6266 header (ASCII fallback `filename=` plus `filename*=UTF-8''...`), so Cyrillic study names work.
+  Not changed: the existing mapping-csv route still builds its header from the raw name, so it will fail the same way for
+  non-Latin study names (generic 500). Left alone as asked; worth a separate fix.
