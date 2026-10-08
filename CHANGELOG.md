@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.15] — 2026-10-08
+
+### Changed
+- **Access audit closed out.** `pytest tests` is fully green (103 passed, no expected failures left), every one of the 28 API routes has a row in `ACCESS.md`, and the three findings in `ACCESS-AUDIT.md` are marked fixed. The output after the fixes is saved in `docs/access-audit-after.txt`. `ACCESS.md` now says both request checks answer 403 and that PATCH is covered like the other write methods. No app behaviour changes.
+
+## [0.8.14] — 2026-10-08
+
+### Security
+- **A malicious website can no longer read your data through DNS rebinding.** A website could point its own domain name at your computer, and your browser would then let that page call the API and read the replies, including participant data (finding F3 in `ACCESS-AUDIT.md`). The backend now refuses (403) any request whose `Host` is not `localhost`, `127.0.0.1` or `::1`. Extra names for the opt-in network mode go in the new `MHT_ALLOWED_HOSTS` setting (documented in `docs/docker.md`, passed through both compose files). Starlette's stock host check cannot read IPv6 addresses like `[::1]:8000`, so the app uses a thin wrapper around it. All access tests are now green with no expected failures left; `tests/test_host_check.py` adds checks for IPv6, look-alike names and the setting.
+
+## [0.8.13] — 2026-10-08
+
+### Security
+- **Other websites can no longer send hidden writes to the app.** A web page open in your browser could send a background form post to `localhost:8000` that wiped the workspace, replaced the codebook or planted a study (finding F2 in `ACCESS-AUDIT.md`). Browsers always label such requests with the page they came from (the `Origin` header). The backend now answers `403` to any POST, PUT, PATCH or DELETE whose `Origin` is not one of the tool's own localhost addresses, using the same list as the CORS settings. Requests with no `Origin` (curl, scripts) are still allowed, because only browsers can be tricked this way. The F2 tests, plus 14 DNS-rebinding write tests that the same check also closes, are off the expected-failure list; only the F3 read tests remain.
+
+## [0.8.12] — 2026-10-08
+
+### Security
+- **The app now listens on your own computer only.** Before, both Docker setups published ports 8080 and 8000 on every network card, and `python run_backend.py` listened on `0.0.0.0`, so anyone on the same Wi-Fi or lab network could open the API and download or delete participant data (finding F1 in `ACCESS-AUDIT.md`). Ports are now published on `127.0.0.1`, and `run_backend.py` defaults to `127.0.0.1`. To open the app to a network on purpose, set `MHT_BIND_ADDRESS=0.0.0.0` (documented in `docs/docker.md` and the README); only do that on a trusted network. The three F1 tests in `tests/test_access.py` now pass and are off the expected-failure list.
+
+## [0.8.11] — 2026-10-08
+
+### Added
+- **Access rules and the tests that prove them.** `ACCESS.md` says who may do what (only the researcher on the computer running the tool), `ACCESS-AUDIT.md` lists the three critical gaps found on 2026-10-07 (the API listens on the whole network, any website can send hidden writes, DNS rebinding), and `LAUNCH-CHECK.md` records the launch-readiness check. `tests/test_access.py` proves each rule; run it with `pytest tests/test_access.py`. The 36 tests that fail today because of those gaps are marked as expected failures in `tests/conftest.py`, so the build stays green, and each fix removes its own entries. The output before any fix is saved in `docs/access-audit-before.txt`. No app behaviour changes in this release.
+
 ## [0.8.10] — 2026-09-21
 
 ### Fixed
