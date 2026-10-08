@@ -54,8 +54,8 @@ def test_script_download_name_is_sanitised(client):
     (_Path("input") / "ACE_Test_2").mkdir(parents=True)
     store("Successfully mapped", study="ACE_Test_2")
     r = client.get("/api/download/ACE%20Test%202!/script")
-    assert r.status_code == 422 or r.status_code == 200
-    assert "\n" not in r.headers.get("content-disposition", "")
+    assert r.status_code == 200
+    assert 'filename="transform_ACE_Test_2.py"' in r.headers["content-disposition"]
 
 
 def test_no_mapped_variables_gives_422(client):

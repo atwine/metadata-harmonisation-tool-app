@@ -669,6 +669,8 @@ class Staging:
         self.temp_of = {}
 
     def add(self, final):
+        if final in self.temp_of:
+            fail(2, "%s was given twice (the output and a report cannot share a name)." % final)
         if os.path.isdir(final):
             fail(1, "Cannot write %s (it is a folder)." % final)
         try:
@@ -711,7 +713,7 @@ def main(argv=None):
             import traceback
             traceback.print_exc()
             sys.exit(1)
-        print("ERROR: Something unexpected went wrong (%s). Nothing was written. Re-run with --debug and send us the details."
+        print("ERROR: Something unexpected went wrong (%s). Nothing was written. Re-run with --debug and, after checking them for participant data, send us the details."
               % type(e).__name__, file=sys.stderr)
         sys.exit(1)
 
@@ -766,6 +768,12 @@ def _main(argv=None):
         for what, existing in protected:
             if same_file(target, existing):
                 fail(2, "%s (%s) is the same file as %s. Nothing was written. Choose a different name." % (label, target, what))
+    targets = [("--output", args.output), ("the .txt report", report_base + ".txt"), ("the .json report", report_base + ".json")]
+    for i, (label_a, a) in enumerate(targets):
+        for label_b, b in targets[i + 1:]:
+            if same_file(a, b):
+                fail(2, "%s (%s) and %s (%s) are the same file, so one would replace the other. Nothing was written. "
+                        "Choose a different --output or --report name." % (label_a, a, label_b, b))
     if not args.overwrite:
         for target in (args.output, report_base + ".txt", report_base + ".json"):
             if os.path.lexists(target) and not os.path.isdir(target):

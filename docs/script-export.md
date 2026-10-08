@@ -36,7 +36,7 @@ python transform_CH_SIB.py --input my_full_data.csv --output out.csv
 | `--decimal ","` | Read `78,6` as 78.6 (default `"."`). Only changes how the text is read; the app has no such option. |
 | `--ignore-case-and-spaces` | Match a mapped column to a file column that differs only in letter case or surrounding spaces. Off by default; the report lists what was matched. |
 | `--overwrite` | Replace the output and report files if they exist. By default the script refuses and changes nothing. |
-| `--debug` | If something unexpected goes wrong, print the full error details instead of one plain line. Send these to us. |
+| `--debug` | If something unexpected goes wrong, print the full error details instead of one plain line. The details can quote a value from your data, so read them before you send or post them anywhere. |
 
 A run that is force-closed (closing the window, killing the process, power loss) can leave a file named `.tmp_<random>.part` next to the output. It is safe to delete.
 
@@ -85,14 +85,14 @@ It is saved only on your computer and the app never receives it. Keep it as priv
 | Message or exit code | Meaning |
 |---|---|
 | exit 0 | Done. Check the report for empty cells. |
-| exit 1 | The output or report could not be written (folder missing, no permission, file open elsewhere). |
+| exit 1 | The output or report could not be written (folder missing, no permission, file open elsewhere), or something unexpected went wrong (the message says so; re-run with `--debug` for details). |
 | exit 2, "Input file not found" or "empty" | Wrong path, or an empty file. |
 | exit 2, "Only one column was found" | The separator guess was wrong. Re-run with `--sep ";"` (or the separator your file uses). |
 | exit 2, "text looks garbled" or "could not be decoded" | Re-run with `--encoding cp1252`, `latin-1` or `utf-16`. |
 | exit 2, "None of the mapped columns were found" | The file is not the study's data, or the column names differ. Nothing is written except the report. |
 | `Source column missing: <name>` (warning) | That variable is skipped. The rest still runs. |
 
-If a run fails, nothing is left behind: the output and reports are written under temporary names and moved into place only when the whole run succeeded, and an existing output file is never half replaced. (When none of the mapped columns are found, only the report is written.) The script also refuses to run if `--output` or a report file is the input file or the script itself.
+If a run fails, nothing is left behind: the output and reports are written under temporary names and moved into place only when the whole run succeeded, and an existing output file is never half replaced. (When none of the mapped columns are found, only the report is written.) The script also refuses to run if `--output` or a report file is the input file or the script itself, or if `--output` and a report file would be the same file (for example `--output x.txt --report x`).
 
 A variable whose transformation instruction is invalid does not stop the run: each of its cells is counted as an error and left empty, as in the app.
 

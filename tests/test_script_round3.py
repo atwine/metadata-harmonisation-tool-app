@@ -119,7 +119,7 @@ def test_unexpected_error_is_one_plain_line(tmp_path, monkeypatch, capsys):
         module.main(["--input", str(good_input(tmp_path)), "--output", str(tmp_path / "o.csv")])
     assert stopped.value.code == 1
     err = capsys.readouterr().err
-    assert "Something unexpected went wrong (RuntimeError). Nothing was written. Re-run with --debug and send us the details." in err
+    assert "Something unexpected went wrong (RuntimeError). Nothing was written. Re-run with --debug and, after checking them for participant data, send us the details." in err
     assert "Traceback" not in err
     assert only(tmp_path, "d.csv", "tool.py")
 
