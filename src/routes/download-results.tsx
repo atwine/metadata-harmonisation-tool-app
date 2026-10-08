@@ -1,6 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { FileSpreadsheet, Archive, ChevronDown, ChevronRight, ClipboardList } from "lucide-react";
+import {
+  FileSpreadsheet,
+  Archive,
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  FileCode,
+} from "lucide-react";
 import type { Step } from "react-joyride";
 import { PageHeader } from "@/components/Sidebar";
 import { ProductTour, TourReplayButton } from "@/components/ProductTour";
@@ -45,6 +52,8 @@ function DownloadResultsPage() {
   const [reportOpen, setReportOpen] = useState(true);
   const [downloading, setDownloading] = useState<Record<string, boolean>>({});
   const [zipError, setZipError] = useState<Record<string, string>>({});
+  const [scriptBusy, setScriptBusy] = useState<Record<string, boolean>>({});
+  const [scriptError, setScriptError] = useState<Record<string, string>>({});
   const [auditLogAvailable, setAuditLogAvailable] = useState(false);
 
   useEffect(() => {
@@ -67,6 +76,19 @@ function DownloadResultsPage() {
       setZipError((e) => ({ ...e, [name]: String(err) }));
     } finally {
       setDownloading((d) => ({ ...d, [name]: false }));
+    }
+  };
+
+  const handleScript = async (name: string) => {
+    setScriptBusy((d) => ({ ...d, [name]: true }));
+    setScriptError((e) => ({ ...e, [name]: "" }));
+    try {
+      const blob = await api.downloadScript(name);
+      triggerDownload(blob, `transform_${name}.py`);
+    } catch (err) {
+      setScriptError((e) => ({ ...e, [name]: String(err) }));
+    } finally {
+      setScriptBusy((d) => ({ ...d, [name]: false }));
     }
   };
 
@@ -183,6 +205,40 @@ function DownloadResultsPage() {
                   </div>
                   {zipError[s.name] && (
                     <div className="text-sm text-danger mt-1">{zipError[s.name]}</div>
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-base">Transform script</span>
+                    <button
+                      onClick={() => void handleScript(s.name)}
+                      disabled={scriptBusy[s.name] || !s.has_mapped_variable}
+                      title={
+                        !s.has_mapped_variable
+                          ? 'No variables marked "Successfully mapped" yet — nothing to put in a script'
+                          : undefined
+                      }
+                      className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-primary text-primary hover:bg-primary-light text-base font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    >
+                      <FileCode className="size-4" />
+                      {scriptBusy[s.name] ? "Preparing…" : "Download script"}
+                    </button>
+                  </div>
+                  <div className="text-sm text-text-secondary mt-1">
+                    {!s.has_mapped_variable ? (
+                      'No variables marked "Successfully mapped" yet — nothing to put in a script.'
+                    ) : (
+                      <>
+                        Run this on your own computer to apply these mappings to your full dataset.
+                        Your data never goes through this app. Needs Python and pandas. Example:
+                        <code className="block mt-1 px-2 py-1 bg-[#F5F2EF] rounded font-mono text-xs break-words">
+                          python transform_{s.name}.py --input my_full_data.csv --output out.csv
+                        </code>
+                      </>
+                    )}
+                  </div>
+                  {scriptError[s.name] && (
+                    <div className="text-sm text-danger mt-1">{scriptError[s.name]}</div>
                   )}
                 </div>
               </div>
