@@ -17,6 +17,7 @@ is logged in.
 | workspace | running Initialise, its status, and wiping all studies and results | internal |
 | ai_config | AI provider list, connection tests and model lists; API keys pass through but are not stored | internal |
 | afpo | AfPO ontology lookups and the local record of submitted term requests | public |
+| eval_report | testing build only: the tester's own check-in and questionnaire answers, plus a summary of the local performance log (timings, hardware, no study data), turned into a pre-filled GitHub link | internal |
 
 ## 2. Roles
 
@@ -38,11 +39,11 @@ How the app tells them apart:
 
 ## 3. Permission grid
 
-| Role | studies | exports | mappings | codebook | workspace | ai_config | afpo |
-|---|---|---|---|---|---|---|---|
-| local | view(all), create(all), delete(all) | view(all) | view(all), edit(all) | view(all), create(all) | view(all), create(all), delete(all) | view(all) | view(all), edit(all) |
-| website | - | - | - | - | - | - | - |
-| network | - | - | - | - | - | - | - |
+| Role | studies | exports | mappings | codebook | workspace | ai_config | afpo | eval_report |
+|---|---|---|---|---|---|---|---|---|
+| local | view(all), create(all), delete(all) | view(all) | view(all), edit(all) | view(all), create(all) | view(all), create(all), delete(all) | view(all) | view(all), edit(all) | view(all) |
+| website | - | - | - | - | - | - | - | - |
+| network | - | - | - | - | - | - | - | - |
 
 ## 4. Route map
 
@@ -76,6 +77,7 @@ How the app tells them apart:
 | POST | /api/afpo/gaps/unsubmitted | afpo | edit |
 | GET | /api/afpo/check-github | afpo | view |
 | GET | /api/afpo/ontology-status | afpo | view |
+| POST | /api/eval/report-url | eval_report | view |
 
 No route is public: every route belongs to the local researcher only.
 
