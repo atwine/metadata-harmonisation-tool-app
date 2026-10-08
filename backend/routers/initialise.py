@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
-from core.errors import log_failure, server_error
+from core.errors import ai_error_message, log_failure, server_error
 from models.schemas import InitialiseRequest, InitialiseStatusResponse, StudyInitStatus
 from storage import db
 from storage.files import list_studies
@@ -41,7 +41,7 @@ async def run_initialise(body: InitialiseRequest):
             yield emit("descriptions", "done", "Descriptions generated.")
         except Exception as e:
             log_failure("initialise/descriptions", e)
-            yield emit("descriptions", "error", "Description generation failed. Check the AI connection (Test Connection) and that the chat model is running.")
+            yield emit("descriptions", "error", f"Description generation failed. {ai_error_message(e)}")
             return  # Fatal — embeddings depend on descriptions
 
         # Phase 3 — Embeddings
@@ -51,7 +51,7 @@ async def run_initialise(body: InitialiseRequest):
             yield emit("embeddings", "done", "Embeddings complete.")
         except Exception as e:
             log_failure("initialise/embeddings", e)
-            yield emit("embeddings", "error", "Embedding failed. Check the AI connection (Test Connection) and that the embedding model is running.")
+            yield emit("embeddings", "error", f"Embedding failed. {ai_error_message(e)}")
             return
 
         # Phase 4 — Semantic recommendations

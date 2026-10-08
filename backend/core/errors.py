@@ -35,6 +35,10 @@ def ai_error_message(exc: Exception) -> str:
     carry URLs, key fragments or file paths, so only the exception class is used."""
     if isinstance(exc, ConfigError):
         return str(exc)
+    if type(exc).__name__ == "AIProviderError" and exc.__cause__ is not None:
+        exc = exc.__cause__  # the retry wrapper hides the real reason; look at that instead
+        if isinstance(exc, ConfigError):
+            return str(exc)
     name = type(exc).__name__.lower()
     if "auth" in name or "permission" in name:
         return "The AI service rejected the API key. Check the key and try again."
@@ -46,4 +50,4 @@ def ai_error_message(exc: Exception) -> str:
         return "The AI service could not find that model or address. Check the model name."
     if "ratelimit" in name:
         return "The AI service is limiting requests. Wait a moment and try again."
-    return "The AI connection test failed. Check the provider, address, model and key."
+    return "The AI service returned an error. Check the provider, address, model and key."

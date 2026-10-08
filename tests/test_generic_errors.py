@@ -131,7 +131,42 @@ def test_ai_error_message_uses_class_not_text():
     assert "Check the provider" in ai_error_message(ValueError("whatever"))
 
 
+def test_ai_error_message_unwraps_retry_wrapper():
+    class AIProviderError(Exception):
+        pass
+
+    try:
+        try:
+            raise ConnectionError("http://secret-host:1234")
+        except ConnectionError as inner:
+            raise AIProviderError("Failed after 3 attempts: http://secret-host:1234") from inner
+    except AIProviderError as wrapped:
+        msg = ai_error_message(wrapped)
+    assert "Could not reach the AI service" in msg
+    assert "secret-host" not in msg
+
+
 def test_app_written_config_messages_are_kept():
     from core.errors import ConfigError
 
     assert ai_error_message(ConfigError("Invalid OpenAI API key format")) == "Invalid OpenAI API key format"
+
+
+def test_preview_failure_is_generic(client, monkeypatch):
+    from routers import mappings
+
+    monkeypatch.setattr(mappings, "TransformationPreviewItem", _boom)
+    r = client.post(
+        "/api/mappings/preview-transformation",
+        json={
+            "example_data": ["1"],
+            "transformation_type": "Direct",
+            "transformation_instructions": "x*2",
+            "source_dtype": "float",
+            "target_dtype": "float",
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["valid"] is False
+    assert SECRET not in r.text
