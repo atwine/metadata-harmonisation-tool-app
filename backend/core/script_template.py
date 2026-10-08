@@ -288,7 +288,12 @@ def guess_encoding(path):
 def sample_text(path, encoding):
     with open(path, "rb") as f:
         raw = f.read(65536)
-    text = codecs.getincrementaldecoder(encoding)(errors="replace").decode(raw, final=False)
+    try:
+        text = codecs.getincrementaldecoder(encoding)(errors="replace").decode(raw, final=False)
+    except UnicodeError:
+        name = codecs.lookup(encoding).name
+        fail(2, "The file could not be read as %s (it has no byte-order mark). Try --encoding %s-le or --encoding %s-be."
+                % (name, name, name))
     lines = text.splitlines()
     if len(raw) == 65536 and len(lines) > 1:
         lines = lines[:-1]
@@ -781,7 +786,7 @@ def run(args, config, pd, report_base, staging):
         fail(2, "--decimal %s is the same character as the column separator. Use --sep with a different character." % quote(args.decimal))
     sample_head = "".join(sample_text(args.input, encoding)[:5])
     if "\x00" in sample_head or "\ufffd" in sample_head:
-        fail(2, "The text looks garbled with encoding %s. Try --encoding utf-16 or cp1252." % encoding)
+        fail(2, "The text looks garbled with encoding %s. Try --encoding utf-16-le or utf-16-be, or cp1252." % encoding)
 
     header = read_header(pd, args.input, sep, encoding)
     mapped_cols = [spec["study_var"] for spec in config["variables"]]

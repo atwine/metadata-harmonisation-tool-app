@@ -64,3 +64,35 @@ def test_close_matches_keep_did_you_mean_and_skip_the_list(tmp_path):
     assert result.returncode == 2
     assert "did you mean" in result.stderr
     assert "Columns the script found" not in result.stderr
+
+
+# ---- 2. utf-16 without a byte-order mark ----
+
+def utf16_file(tmp_path):
+    source = tmp_path / "u.csv"
+    source.write_bytes("sbsmk,wt\n1,70\n".encode("utf-16-le"))
+    return source
+
+
+@pytest.mark.parametrize("name", ["utf-16", "utf-32"])
+def test_bare_utf16_without_mark_exits_2_with_advice(tmp_path, name):
+    source = utf16_file(tmp_path)
+    result = run_script(make(tmp_path), "--input", source, "--output", tmp_path / "o.csv", "--encoding", name)
+    assert result.returncode == 2
+    assert "Traceback" not in result.stderr
+    assert "could not be read as %s (it has no byte-order mark)" % name in result.stderr
+    assert "--encoding %s-le or --encoding %s-be" % (name, name) in result.stderr
+    assert only(tmp_path, "u.csv", "tool.py")
+
+
+def test_utf16_le_works(tmp_path):
+    source = utf16_file(tmp_path)
+    result = run_script(make(tmp_path), "--input", source, "--output", tmp_path / "o.csv", "--encoding", "utf-16-le")
+    assert result.returncode == 0, result.stderr
+
+
+def test_garbled_message_suggests_le_and_be(tmp_path):
+    source = utf16_file(tmp_path)
+    result = run_script(make(tmp_path), "--input", source, "--output", tmp_path / "o.csv")
+    assert result.returncode == 2
+    assert "--encoding utf-16-le or utf-16-be" in result.stderr

@@ -193,3 +193,9 @@ Item 6 makes the report explain them without changing any result.
   columns the script read (first 30, then "and N more") with the separator and encoding used. JSON: `columns_found`, `columns_found_not_listed`,
   `separator` (`encoding` was already there). With any close match the "did you mean" lines stay and the list is not added.
 - Tests: 4 in tests/test_script_round3.py (unrelated names, 100 columns, semicolon file read with `--sep ","`, close match unchanged); 3 seen failing first.
+
+### 2. `--encoding utf-16` / `utf-32` on a file without a byte-order mark
+- Before: Python's own "UTF-16 stream does not start with BOM" error ended in a traceback (exit 1). Now exit 2 with
+  "The file could not be read as utf-16 (it has no byte-order mark). Try --encoding utf-16-le or --encoding utf-16-be." (same for utf-32). Nothing is left behind.
+- The garbled-text message now says "Try --encoding utf-16-le or utf-16-be, or cp1252." instead of bare `utf-16`.
+- Tests: 4 in tests/test_script_round3.py (utf-16 and utf-32 without mark, `utf-16-le` still works, garbled wording); 3 seen failing first.
