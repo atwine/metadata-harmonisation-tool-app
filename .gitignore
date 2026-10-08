@@ -29,6 +29,11 @@ dist-ssr
 .nitro
 *.local
 
+# Secrets: docs/docker.md tells people to put GITHUB_TOKEN in a plain .env
+.env
+.env.*
+!.env.example
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

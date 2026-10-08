@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.16] — 2026-10-08
+
+### Security
+- **A plain `.env` file can no longer be committed by accident.** `docs/docker.md` tells people to put `GITHUB_TOKEN` in a `.env` file next to `docker-compose.yml`, but `.gitignore` did not list it, so a careless `git add .` would have committed the token. `.gitignore` now ignores `.env` and `.env.*`, and still allows a future `.env.example`.
+
 ## [0.8.15] — 2026-10-08
 
 ### Changed

@@ -127,7 +127,7 @@ the same shared repo. GitHub's search API is capped at 10 requests/minute
 without a token; set a `GITHUB_TOKEN` environment variable (in your shell,
 or a `.env` file next to `docker-compose.yml`) to raise that to 30/minute if
 you're mapping large datasets with many ethnicity gaps at once. No token is
-required to use the feature.
+required to use the feature. The `.env` file is ignored by git, so it won't be committed by accident; keep it that way and never paste a token into a tracked file.
 
 ## Using a different AI provider
 
