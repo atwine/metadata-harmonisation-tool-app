@@ -85,11 +85,18 @@ jobs:
     # PENDING OWNER DECISION (item 6 triage, 2026-10-08): the first run found 6
     # items. Fixed: 3 unpinned actions in publish-main-images.yml (now pinned to
     # commit hashes) and 1 false alarm in backend/storage/db.py (nosemgrep, with
-    # reason). Still open, owner to decide, and the reason this job does not fail
-    # the run: (1) backend/Dockerfile has no USER, so the API runs as root inside
-    # the container (dockerfile.security.missing-user); (2) bunfig.toml
-    # minimumReleaseAge is 1 day, the rule wants 7 days (a security policy the
-    # owner must change, not Devin). Remove "continue-on-error" once both are decided.
+    # reason). Decided by the owner on 2026-10-08: (1) backend/Dockerfile has no
+    # USER line, so Semgrep reports dockerfile.security.missing-user and
+    # missing-user-entrypoint (two findings). ACCEPTED AS A FALSE ALARM: the
+    # container starts as root only to fix the ownership of the mounted data
+    # folders, then docker/backend-entrypoint.sh runs the app through gosu as an
+    # ordinary user (the folder owner, or 10001). Tested with real containers: the
+    # app process ran as 10001 or 1000, never root. A plain USER line would break
+    # Linux installs, because Docker creates the data folders owned by root.
+    # Still open, owner to decide, and the reason this job does not fail the run:
+    # (2) bunfig.toml minimumReleaseAge is 1 day, the rule wants 7 days (a security
+    # policy the owner must change, not Devin). Remove "continue-on-error" once
+    # (2) is decided.
     continue-on-error: true
     container:
       image: semgrep/semgrep:1.179.0

@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.23] — 2026-10-08
+
+### Security
+- **The backend app no longer runs as root.** The container still starts as root for a moment, only to make the data folders (`harmonisation-data/...`) writable, then hands over to an ordinary user. A folder you already own keeps its owner and the app runs as you, so files stay editable on your computer; a root-owned folder (Docker creates these on Linux) is given to a new user, id 10001. No extra setup for researchers. Checked with real containers in both cases: the app process ran as the expected user and a real upload wrote its files.
+- **Raw error text is replaced with fixed messages in more places.** CSV upload failures, Initialise step failures, the AI connection test, the transformation preview and the download step's "could not read data" reason no longer repeat the library's error text, which can hold file paths, URLs, key fragments or participant values. The server log records only the kind of error. AI failures now say the real reason in plain words (server unreachable, key rejected, timed out, model not found).
+- **`.env` files and keys can no longer be copied into an image.** `.dockerignore` now excludes `.env`, `.env.*`, `*.pem` and `*.key`.
+
 ## [0.8.22] — 2026-10-08
 
 ### Fixed
