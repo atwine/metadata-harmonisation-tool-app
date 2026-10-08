@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from core.errors import server_error
+from core.script_export import NoMappedVariables, generate_script
 from core.transform_engine import apply_transformations
 from models.schemas import TransformedDataRequest
 from storage import db
@@ -46,6 +47,31 @@ async def download_mapping_csv(study_name: str):
         io.BytesIO(csv_bytes),
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={study_name}_mapping_results.csv"},
+    )
+
+
+@router.get("/{study_name}/script")
+async def download_transform_script(study_name: str):
+    """A standalone Python script holding this study's confirmed mappings (no participant data)."""
+    try:
+        study_name = sanitise_study_name(study_name)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    try:
+        script = generate_script(study_name)
+    except NoMappedVariables:
+        raise HTTPException(
+            422,
+            'No variables marked "Successfully mapped" yet - nothing to put in a script.',
+        )
+    except Exception as e:
+        raise server_error("/api/download/{study_name}/script", e)
+
+    return StreamingResponse(
+        io.BytesIO(script.encode("utf-8")),
+        media_type="text/x-python",
+        headers={"Content-Disposition": f"attachment; filename=transform_{study_name}.py"},
     )
 
 
