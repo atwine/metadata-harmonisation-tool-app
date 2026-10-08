@@ -339,6 +339,11 @@ export const api = {
     if (!r.ok) throw new Error(await extractErrorMessage(r));
     return r.blob();
   },
+  downloadScript: async (study: string): Promise<Blob> => {
+    const r = await fetch(`${BASE}/api/download/${encodeURIComponent(study)}/script`);
+    if (!r.ok) throw new Error(await extractErrorMessage(r));
+    return r.blob();
+  },
   checkAuditLogExists: async (): Promise<boolean> => {
     const r = await fetch(`${BASE}/api/download/audit-log`, { method: "HEAD" });
     return r.ok;
