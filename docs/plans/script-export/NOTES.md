@@ -72,3 +72,10 @@ Each one below is the smallest, easiest to undo option. Overrule any of them.
   in one column (all text) also match. Not matchable: a very large file where pandas itself splits the read into internal
   blocks and mixes Python ints and strings inside one column. The script cannot reproduce that, and the app's own result there
   depends on file size. Stated in `docs/script-export.md`.
+
+### 2. Input overwritten (fixed)
+- Cause: the same-file check used abspath. Now `same_file` uses `os.path.samefile` when both exist, else normcase(realpath).
+  Output, .txt report and .json report are each checked against the input and the script itself, before anything is written (exit 2).
+- Tests (tests/test_script_file_safety.py), seen failing first: different letter case, hard link, report aimed at the input
+  (.txt and .json), output is the script, report is the script. Symbolic-link test is skipped on this machine (needs admin rights
+  on Windows); the hard-link test covers the same `samefile` path.

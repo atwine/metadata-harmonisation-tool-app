@@ -482,6 +482,16 @@ def report_text(report):
     return "\n".join(L) + "\n"
 
 
+def same_file(a, b):
+    """True when both names point at one file: letter case, links and relative paths are looked through."""
+    try:
+        if os.path.exists(a) and os.path.exists(b):
+            return os.path.samefile(a, b)
+    except OSError:
+        pass
+    return os.path.normcase(os.path.realpath(a)) == os.path.normcase(os.path.realpath(b))
+
+
 def write_text(path, text):
     with open(path, "w", encoding="utf-8", newline="") as f:
         f.write(text)
@@ -516,9 +526,15 @@ def main(argv=None):
 
     if not os.path.isfile(args.input):
         fail(2, "Input file not found: %s" % args.input)
-    if os.path.abspath(args.input) == os.path.abspath(args.output):
-        fail(2, "--output must not be the same file as --input.")
     report_base = args.report or (os.path.splitext(args.output)[0] + "_report")
+    protected = [("the input file", args.input)]
+    if globals().get("__file__"):
+        protected.append(("this script", __file__))
+    for label, target in (("--output", args.output), ("the .txt report", report_base + ".txt"),
+                          ("the .json report", report_base + ".json")):
+        for what, existing in protected:
+            if same_file(target, existing):
+                fail(2, "%s (%s) is the same file as %s. Nothing was written. Choose a different name." % (label, target, what))
     for target in (args.output, report_base + ".txt", report_base + ".json"):
         try:
             open(target, "a").close()
