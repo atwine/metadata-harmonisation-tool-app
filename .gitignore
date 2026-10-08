@@ -53,3 +53,7 @@ dist-ssr
 # .impeccable/config.json IS tracked, since it records real suppression
 # decisions worth sharing with the team.
 .impeccable/hook.cache.json
+
+# Backups made by scripts/backup.sh hold participant data; never commit them
+harmonisation-backups/
+harmonisation-data.before-restore-*/

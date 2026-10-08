@@ -90,8 +90,9 @@ If you open network mode on purpose, list the names or addresses people will use
 
 Uploaded studies, mapping results, the audit trail, and the AfPO gap log are stored in
 `./harmonisation-data/` next to `docker-compose.yml` — a normal folder on your machine,
-not something hidden inside Docker. Back it up by copying it, the same way you'd back up
-any other folder.
+not something hidden inside Docker. See "Backup and restore" below for the safe way to
+back it up; copying the folder by hand while the app is running can give a broken copy of
+the database.
 
 This is a deliberate choice: `docker compose down -v` (which deletes Docker-managed
 volumes) does **not** touch this folder, because it isn't a Docker volume. Your work is
@@ -100,6 +101,42 @@ safe even if someone runs that command to "reset" the app.
 The only thing that *does* live in a Docker-managed volume is the Ollama model cache
 (`ollama_data`) — losing that just means re-downloading the models on the next `up`, not
 losing any of your work.
+
+## Backup and restore
+
+The database (`harmonisation-data/db/app.db`) is in SQLite WAL mode, so copying the folder
+while the app is running can produce an inconsistent copy. The scripts in `scripts/` stop
+the backend, make the copy, and start the backend again. Run them from the folder that holds
+your compose file.
+
+**Back up** (writes `harmonisation-backups/mht-backup-<date>.tar.gz`):
+
+```bash
+./scripts/backup.sh                              # Mac / Linux / Git Bash
+./scripts/backup.sh docker-compose.hub.yml       # if you use the prebuilt file
+```
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\backup.ps1                                  # Windows
+powershell -ExecutionPolicy Bypass -File .\scripts\backup.ps1 -ComposeFile docker-compose.hub.yml
+```
+
+**Restore** (the current data folder is renamed to `harmonisation-data.before-restore-<date>`,
+never deleted, so you can undo it):
+
+```bash
+./scripts/restore.sh harmonisation-backups/mht-backup-<date>.tar.gz
+```
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\restore.ps1 -Archive harmonisation-backups\mht-backup-<date>.tar.gz
+```
+
+The Windows `-ExecutionPolicy Bypass` part applies to that one command only; Windows blocks
+unsigned `.ps1` files by default. The two script pairs make and read the same archive format.
+
+A backup holds participant data: store it somewhere private and never commit or share it
+(`harmonisation-backups/` is already ignored by git). Try a restore once before you need one.
+The scripts only cover the Docker folder `./harmonisation-data/`; for a manual install, stop
+the backend and copy `input/`, `results/`, `logs/` and `db/` yourself.
 
 ## Stopping / restarting
 
