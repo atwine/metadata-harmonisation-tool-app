@@ -152,3 +152,15 @@ Item 6 makes the report explain them without changing any result.
   which still cannot be detected.
 - Found, not changed: `--encoding utf-16` on a UTF-16 file with no mark ends in a Python traceback (exit 1, "UTF-16 stream does not start with BOM").
   `--encoding utf-16-le` works. Not part of this item.
+
+### 6. The report explains the app-level traps (no change to any result)
+- Lookup rules: an unseen value that equals a rule key after trimming spaces and/or ignoring letter case is explained in the text report
+  (`" F " appeared 12 times, not in the rule; it matches "F" if spaces are trimmed`) and in the JSON (`unseen_values[].would_match`).
+  The value is still left empty, as in the app.
+- NA-like text: the script cannot tell `NA` text from a truly empty cell, because pandas has already turned both into empty by the time the
+  script sees them, and a separate raw read would add a fourth pass over the file. So it takes the "at minimum" route: any variable with
+  empty cells gets a note saying that text such as NA, N/A, n/a, NaN, null and None is read as empty. Not counted separately.
+- Boolean and integer targets: a per-variable note when `source_dtype` is string and `target_dtype` is boolean, or float and integer.
+  Deliberately not shown for lookup rules: a lookup returns the rule's value without casting, so the sentence would be false there.
+- Notes are in the per-variable `notes` list (JSON) and `note:` lines (text). Tests: 11 in tests/test_script_round2.py, 5 seen failing first
+  (the other 6 check that nothing changes or no sentence appears where it should not).

@@ -469,7 +469,26 @@ def variable_notes(var, s, args):
     if (var.rule != "lookup" and var.numeric and args.decimal == "." and s.not_converted
             and s.comma_like * 2 > s.not_converted):
         notes.append(DECIMAL_COMMA_HINT)
+    if s.source_empty:
+        notes.append("This variable has empty cells. Remember that text such as NA, N/A, n/a, NaN, null and None is read as empty "
+                     "(the app does the same), so a rule for those words never applies.")
+    if var.rule != "lookup" and var.src_dtype == "string" and var.tgt_dtype == "boolean":
+        notes.append('Target type is boolean and the source is text: any non-empty text becomes True, including "No" and "False".')
+    if var.rule != "lookup" and var.src_dtype == "float" and var.tgt_dtype == "integer":
+        notes.append("Target type is integer and the source has decimals: decimals are cut off, not rounded (78.6 becomes 78).")
     return notes
+
+
+def near_rule_match(var, value):
+    """Why an unseen value was not found in a lookup rule, if only spaces or letter case differ."""
+    for key in sorted(var.mapping):
+        if value.strip() == key:
+            return {"rule_key": key, "if": ["spaces are trimmed"]}
+        if value.casefold() == key.casefold():
+            return {"rule_key": key, "if": ["letter case is ignored"]}
+        if value.strip().casefold() == key.strip().casefold():
+            return {"rule_key": key, "if": ["spaces are trimmed", "letter case is ignored"]}
+    return None
 
 
 def build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, skipped_metrics, total_rows, matched=()):
@@ -494,7 +513,13 @@ def build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, 
             "notes": variable_notes(var, s, args),
         }
         if var.rule == "lookup":
-            entry["unseen_values"] = [{"value": k, "rows": n} for k, n in listed]
+            entry["unseen_values"] = []
+            for k, n in listed:
+                item = {"value": k, "rows": n}
+                near = near_rule_match(var, k)
+                if near:
+                    item["would_match"] = near
+                entry["unseen_values"].append(item)
             entry["unseen_values_not_listed"] = len(more)
             entry["unseen_rows_not_listed"] = sum(n for _, n in more) + s.unseen_untracked_rows
             entry["unseen_total_rows"] = sum(s.unseen.values()) + s.unseen_untracked_rows
@@ -563,7 +588,10 @@ def report_text(report):
             if v["unseen_values"]:
                 L.append("  values not in the rule (left empty), %d rows in total:" % v["unseen_total_rows"])
                 for u in v["unseen_values"]:
-                    L.append("    %s appeared %d times, not in the rule" % (json.dumps(u["value"]), u["rows"]))
+                    line = "    %s appeared %d times, not in the rule" % (json.dumps(u["value"]), u["rows"])
+                    if "would_match" in u:
+                        line += "; it matches %s if %s" % (json.dumps(u["would_match"]["rule_key"]), " and ".join(u["would_match"]["if"]))
+                    L.append(line)
                 if v["unseen_values_not_listed"] or v["unseen_rows_not_listed"]:
                     L.append("    ... and %d more distinct values (%d rows) not listed"
                              % (v["unseen_values_not_listed"], v["unseen_rows_not_listed"]))

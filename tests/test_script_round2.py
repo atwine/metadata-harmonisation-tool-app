@@ -302,3 +302,101 @@ def test_utf16_without_a_mark_is_still_refused_clearly(tmp_path):
     result = run_bytes(tmp_path, TEXT_CRLF.encode("utf-16-le"))
     assert result.returncode == 2
     assert "utf-16" in result.stderr
+
+
+# ---- 6. the report explains the app-level traps (results unchanged) ----
+
+import json as _json
+
+
+def reports_for(tmp_path, rows, text):
+    script = make(tmp_path, rows=rows)
+    source = write_input(tmp_path, text)
+    result = run_script(script, "--input", source, "--output", tmp_path / "o.csv")
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = _json.loads((tmp_path / "o_report.json").read_text(encoding="utf-8"))
+    return (tmp_path / "o_report.txt").read_text(encoding="utf-8"), report
+
+
+def variable(report, name):
+    return [v for v in report["variables"] if v["variable"] == name][0]
+
+
+SEX_ROWS = [m("id", "Id"), m("sex", "Sex", "Categorical", "{'F': 'Female', 'M': 'Male'}")]
+SEX_CSV = "id,sex\n" + "".join(f"{i}, F \n" for i in range(3)) + "7,f\n8,f\n9, m \n10,F\n11,Z\n"
+
+
+def test_unseen_value_that_matches_after_trimming_is_explained(tmp_path):
+    text, report = reports_for(tmp_path, SEX_ROWS, SEX_CSV)
+    assert '" F " appeared 3 times, not in the rule; it matches "F" if spaces are trimmed' in text
+    entry = [u for u in variable(report, "sex")["unseen_values"] if u["value"] == " F "][0]
+    assert entry["would_match"] == {"rule_key": "F", "if": ["spaces are trimmed"]}
+
+
+def test_unseen_value_that_matches_ignoring_case_is_explained(tmp_path):
+    text, report = reports_for(tmp_path, SEX_ROWS, SEX_CSV)
+    assert '"f" appeared 2 times, not in the rule; it matches "F" if letter case is ignored' in text
+    assert '" m " appeared 1 times, not in the rule; it matches "M" if spaces are trimmed and letter case is ignored' in text
+    entry = [u for u in variable(report, "sex")["unseen_values"] if u["value"] == " m "][0]
+    assert entry["would_match"]["if"] == ["spaces are trimmed", "letter case is ignored"]
+
+
+def test_unseen_value_with_no_near_match_gets_no_extra_words(tmp_path):
+    text, report = reports_for(tmp_path, SEX_ROWS, SEX_CSV)
+    assert '"Z" appeared 1 times, not in the rule\n' in text
+    entry = [u for u in variable(report, "sex")["unseen_values"] if u["value"] == "Z"][0]
+    assert "would_match" not in entry
+
+
+def test_results_are_unchanged_by_the_explanations(tmp_path):
+    reports_for(tmp_path, SEX_ROWS, SEX_CSV)
+    assert read_cells(tmp_path / "o.csv")["Sex"].tolist() == [""] * 3 + [""] * 3 + ["Female", ""]
+
+
+NA_ROWS = [m("id", "Id"), m("v", "V")]
+
+
+def test_na_like_text_read_as_empty_is_explained(tmp_path):
+    text, report = reports_for(tmp_path, NA_ROWS, "id,v\n1,NA\n2,N/A\n3,null\n4,x\n")
+    sentence = "text such as NA, N/A, n/a, NaN, null and None is read as empty"
+    assert sentence in text
+    assert any(sentence in n for n in variable(report, "v")["notes"])
+    assert read_cells(tmp_path / "o.csv")["V"].tolist() == ["", "", "", "x"]
+
+
+def test_no_na_sentence_when_nothing_is_empty(tmp_path):
+    text, report = reports_for(tmp_path, NA_ROWS, "id,v\n1,a\n2,b\n")
+    assert "read as empty" not in text
+    assert variable(report, "v")["notes"] == []
+
+
+BOOL = "any non-empty text becomes True, including \"No\" and \"False\""
+INT = "decimals are cut off, not rounded (78.6 becomes 78)"
+
+
+def test_boolean_target_on_text_is_explained(tmp_path):
+    rows = [m("id", "Id"), m("smoker", "Smoker", src="string", tgt="boolean")]
+    text, report = reports_for(tmp_path, rows, "id,smoker\n1,Yes\n2,No\n")
+    assert BOOL in text
+    assert any(BOOL in n for n in variable(report, "smoker")["notes"])
+    assert read_cells(tmp_path / "o.csv")["Smoker"].tolist() == ["True", "True"]
+
+
+def test_integer_target_on_decimals_is_explained(tmp_path):
+    rows = [m("id", "Id"), m("wt", "Weight", src="float", tgt="integer")]
+    text, report = reports_for(tmp_path, rows, "id,wt\n1,78.6\n2,80.1\n")
+    assert INT in text
+    assert any(INT in n for n in variable(report, "wt")["notes"])
+    assert read_cells(tmp_path / "o.csv")["Weight"].tolist() == ["78", "80"]
+
+
+def test_no_conversion_sentences_for_other_type_pairs(tmp_path):
+    rows = [m("id", "Id"), m("wt", "Weight", src="float", tgt="float"), m("s", "S", src="string", tgt="string")]
+    text, _ = reports_for(tmp_path, rows, "id,wt,s\n1,78.6,a\n")
+    assert BOOL not in text and INT not in text
+
+
+def test_lookup_rule_gets_no_boolean_sentence(tmp_path):
+    rows = [m("id", "Id"), m("s", "S", "Categorical", "{'Yes': True}", src="string", tgt="boolean")]
+    text, _ = reports_for(tmp_path, rows, "id,s\n1,Yes\n")
+    assert BOOL not in text
