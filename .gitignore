@@ -57,3 +57,4 @@ dist-ssr
 # Backups made by scripts/backup.sh hold participant data; never commit them
 harmonisation-backups/
 harmonisation-data.before-restore-*/
+harmonisation-data.restore-tmp.*/

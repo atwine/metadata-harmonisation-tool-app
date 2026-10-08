@@ -14,13 +14,14 @@ $wasRunning = $false
 if (Get-Command docker -ErrorAction SilentlyContinue) {
   $wasRunning = [bool](docker compose -f $ComposeFile ps --status running -q backend 2>$null)
 }
-if ($wasRunning) {
-  Write-Host "Stopping the backend for a consistent copy..."
-  docker compose -f $ComposeFile stop backend | Out-Null
-} else {
-  Write-Host "Backend not running (or Docker not found): copying as is. Make sure the app is not in use."
-}
 try {
+  if ($wasRunning) {
+    Write-Host "Stopping the backend for a consistent copy..."
+    docker compose -f $ComposeFile stop backend | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Could not stop the backend, so no backup was made (copying a running database is not safe)." }
+  } else {
+    Write-Host "Backend not running (or Docker not found): copying as is. Make sure the app is not in use."
+  }
   New-Item -ItemType Directory -Force $OutDir | Out-Null
   $archive = Join-Path $OutDir ("mht-backup-{0}.tar.gz" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
   tar -czf $archive $Data
@@ -30,5 +31,9 @@ try {
   Write-Host ("Backup written: {0} ({1:N1} MB)" -f $archive, ((Get-Item $archive).Length / 1MB))
   Write-Host "It contains participant data. Keep it somewhere private; never commit or share it."
 } finally {
-  if ($wasRunning) { Write-Host "Starting the backend again..."; docker compose -f $ComposeFile up -d --no-deps backend | Out-Null }
+  if ($wasRunning) {
+    Write-Host "Starting the backend again..."
+    docker compose -f $ComposeFile up -d --no-deps backend | Out-Null
+    if ($LASTEXITCODE -ne 0) { Write-Warning "The backend did not start. Run: docker compose -f $ComposeFile up -d backend" }
+  }
 }
