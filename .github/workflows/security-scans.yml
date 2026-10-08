@@ -82,6 +82,15 @@ jobs:
     name: Risky code patterns (Semgrep)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # OWNER-APPROVED EXCEPTION (item 6 triage, 2026-10-08): the first run found 6
+    # items. Fixed: 3 unpinned actions in publish-main-images.yml (now pinned to
+    # commit hashes) and 1 false alarm in backend/storage/db.py (nosemgrep, with
+    # reason). Still open, owner to decide, and the reason this job does not fail
+    # the run: (1) backend/Dockerfile has no USER, so the API runs as root inside
+    # the container (dockerfile.security.missing-user); (2) bunfig.toml
+    # minimumReleaseAge is 1 day, the rule wants 7 days (a security policy the
+    # owner must change, not Devin). Remove "continue-on-error" once both are decided.
+    continue-on-error: true
     container:
       image: semgrep/semgrep:1.179.0
     steps:
