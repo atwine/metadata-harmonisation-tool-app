@@ -209,7 +209,13 @@ function DownloadResultsPage() {
                 </div>
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="text-base">Transform script</span>
+                    <div className="flex flex-wrap items-center gap-x-2">
+                      <span className="text-base">Transform script</span>
+                      <span className="px-1.5 py-0.5 rounded border border-primary text-primary bg-primary-light text-xs font-semibold">
+                        Beta
+                      </span>
+                      <span className="text-sm text-text-secondary">New: tell us what breaks</span>
+                    </div>
                     <button
                       onClick={() => void handleScript(s.name)}
                       disabled={scriptBusy[s.name] || !s.has_mapped_variable}

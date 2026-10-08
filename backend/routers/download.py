@@ -11,7 +11,7 @@ from core.script_export import NoMappedVariables, generate_script
 from core.transform_engine import apply_transformations
 from models.schemas import TransformedDataRequest
 from storage import db
-from storage.files import sanitise_study_name
+from storage.files import list_studies, sanitise_study_name
 
 router = APIRouter()
 
@@ -62,12 +62,18 @@ def _script_disposition(study_name: str) -> str:
 
 
 @router.get("/{study_name}/script")
-async def download_transform_script(study_name: str):
-    """A standalone Python script holding this study's confirmed mappings (no participant data)."""
+def download_transform_script(study_name: str):
+    """A standalone Python script holding this study's confirmed mappings (no participant data).
+
+    A plain def, not async: FastAPI runs it in a worker thread, so building the script for a very
+    large study does not freeze every other request."""
     try:
         study_name = sanitise_study_name(study_name)
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+    if study_name not in list_studies():
+        raise HTTPException(404, "Study not found")
 
     try:
         script = generate_script(study_name)

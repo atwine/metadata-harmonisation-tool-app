@@ -32,7 +32,10 @@ python transform_CH_SIB.py --input my_full_data.csv --output out.csv
 | `--output` | Where the transformed CSV is written. Required. |
 | `--report BASE` | Writes the report to `BASE.txt` and `BASE.json`. Default: the output name plus `_report` (`out_report.txt`). |
 | `--sep` | Column separator. By default the script guesses between comma, semicolon, tab and pipe. |
-| `--encoding` | Text encoding. By default it tries UTF-8 (a BOM is fine) and falls back to latin-1 with a printed notice. |
+| `--encoding` | Text encoding. By default the script reads a byte-order mark (UTF-8, UTF-16, UTF-32; Excel's "Unicode Text" is UTF-16), else tries UTF-8 and falls back to latin-1 with a printed notice. The chosen encoding is shown in the report. |
+| `--decimal ","` | Read `78,6` as 78.6 (default `"."`). Only changes how the text is read; the app has no such option. |
+| `--ignore-case-and-spaces` | Match a mapped column to a file column that differs only in letter case or surrounding spaces. Off by default; the report lists what was matched. |
+| `--overwrite` | Replace the output and report files if they exist. By default the script refuses and changes nothing. |
 
 Large files are read in chunks of 50,000 rows, so memory use stays flat. The file is read three times (work out column types, count results, write the output), so very large files take a few times longer than a single read.
 

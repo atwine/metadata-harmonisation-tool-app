@@ -173,3 +173,15 @@ Item 6 makes the report explain them without changing any result.
 - **This makes the script safer than the app in this one case.** The app's engine still builds the huge string (not changed: out of scope).
   For a rule like this the script and app now differ on purpose; the parity tests do not cover it.
 - Tests: 5 in tests/test_script_round2.py, 4 seen failing first (the "exactly one million" boundary and one-over cases were added after that run).
+
+### 8. Small things (fixed)
+- **Beta label**: a "Beta" badge (same primary border and light background as the page's buttons) and the line "New: tell us what breaks" now sit next to
+  the "Transform script" title. There is no browser test runner in this repo, so the test reads the page source (the badge and line are in the
+  title row, before the button). eslint, prettier and `tsc --noEmit` pass. Not looked at in a browser here.
+- **Not found**: `GET /api/download/<study>/script` now answers 404 "Study not found" when the study folder does not exist (same test the app's study
+  list uses). 422 stays for a study that exists with nothing mapped. Two round-1 endpoint tests changed: `test_unknown_study_gives_422` is now
+  `..._gives_404`, and `test_script_download_name_is_sanitised` now creates the study folder first.
+- **Event loop**: the route is now a plain `def`, so FastAPI runs it in a worker thread. Test: while a (2 second) script build runs, `GET /api/studies/`
+  answers in under a second; on the old route it waited 1.6 seconds. Not measured on a 2,000-variable study.
+- Also updated docs/script-export.md with the new options.
+- Tests: 4 new, 3 seen failing first (the 422-for-existing-study test passed before and after on purpose).

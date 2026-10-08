@@ -456,3 +456,66 @@ def test_numeric_rules_are_not_affected(tmp_path):
     assert read_cells(tmp_path / "o.csv")["T"].tolist() == ["500000000.0", "700000000.0"]
     report = _json.loads((tmp_path / "o_report.json").read_text(encoding="utf-8"))
     assert variable(report, "t")["results_too_long"] == 0
+
+
+# ---- 8. small things ----
+
+import re as _re
+import threading
+from pathlib import Path as _Path
+
+from test_script_endpoint import STUDY, client, store  # noqa: F401  (fixture reused)
+
+REPO_ROOT = _Path(__file__).resolve().parent.parent
+
+
+def test_download_page_shows_a_beta_label_next_to_the_script_title():
+    """No browser test runner in this repo, so this checks the page source: badge and line sit in the
+    'Transform script' row, before its button."""
+    source = (REPO_ROOT / "src" / "routes" / "download-results.tsx").read_text(encoding="utf-8")
+    row = source[source.index("Transform script"):source.index("Download script")]
+    assert _re.search(r">\s*Beta\s*<", row)
+    assert "New: tell us what breaks" in row
+
+
+def test_script_for_a_study_that_does_not_exist_gives_404(client):
+    r = client.get("/api/download/Nobody/script")
+    assert r.status_code == 404
+    assert r.json()["detail"] == "Study not found"
+
+
+def test_script_for_a_study_with_nothing_mapped_still_gives_422(client):
+    store("To do")
+    r = client.get(f"/api/download/{STUDY}/script")
+    assert r.status_code == 422
+    assert "Successfully mapped" in r.json()["detail"]
+
+
+def test_a_slow_script_build_does_not_block_other_requests(client, monkeypatch):
+    from routers import download
+
+    store("Successfully mapped")
+
+    def slow(study):
+        time.sleep(2.0)
+        return "print('x')\n"
+
+    monkeypatch.setattr(download, "generate_script", slow)
+    started = threading.Event()
+    answers = {}
+
+    def ask_for_the_script():
+        started.set()
+        answers["script"] = client.get(f"/api/download/{STUDY}/script").status_code
+
+    worker = threading.Thread(target=ask_for_the_script)
+    worker.start()
+    started.wait()
+    time.sleep(0.4)
+    began = time.time()
+    other = client.get("/api/studies/")
+    waited = time.time() - began
+    worker.join()
+    assert other.status_code == 200
+    assert answers["script"] == 200
+    assert waited < 1.0, f"another request waited {waited:.1f}s behind the script build"

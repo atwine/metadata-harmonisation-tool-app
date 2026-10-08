@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+from pathlib import Path as _Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -50,6 +51,7 @@ def test_script_download_returns_a_python_file(client):
 
 
 def test_script_download_name_is_sanitised(client):
+    (_Path("input") / "ACE_Test_2").mkdir(parents=True)
     store("Successfully mapped", study="ACE_Test_2")
     r = client.get("/api/download/ACE%20Test%202!/script")
     assert r.status_code == 422 or r.status_code == 200
@@ -63,8 +65,8 @@ def test_no_mapped_variables_gives_422(client):
     assert "Successfully mapped" in r.json()["detail"]
 
 
-def test_unknown_study_gives_422(client):
-    assert client.get("/api/download/Nobody/script").status_code == 422
+def test_unknown_study_gives_404(client):
+    assert client.get("/api/download/Nobody/script").status_code == 404
 
 
 def test_empty_study_name_gives_400(client):
