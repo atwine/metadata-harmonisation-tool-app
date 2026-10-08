@@ -287,6 +287,7 @@ See `docs/docker.md` for how the AfPO ontology itself stays up to date.
 - Both destructive actions in the app (Clear Workspace, deleting a study) require an explicit confirmation dialog rather than a single click — a deliberate defense against accidental data loss.
 - The app listens on `127.0.0.1` only by default (Docker ports and `run_backend.py`), so other devices on your network cannot reach it. Setting `MHT_BIND_ADDRESS=0.0.0.0` opens it to the network on purpose; do that only on a trusted network (see [docs/docker.md](docs/docker.md)).
 - State-changing requests (POST, PUT, PATCH, DELETE) that carry a browser `Origin` other than the tool's own `localhost` pages are refused with 403, so another website open in your browser cannot upload, overwrite or wipe data. Requests with no `Origin` (curl, scripts) are allowed.
+- The API only answers requests addressed to `localhost`, `127.0.0.1` or `::1` (the `Host` header); anything else gets 403. This blocks DNS-rebinding attacks. `MHT_ALLOWED_HOSTS` (comma-separated) adds names for the opt-in network mode.
 - ⚠️ A known gap (tracked in [issue #4](../../issues/4)): the API currently has no authentication — don't expose the backend beyond localhost/trusted networks as-is.
 
 ## License

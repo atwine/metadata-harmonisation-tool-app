@@ -15,21 +15,6 @@ REASONS = {
 
 # test name (as pytest reports it, without the file) -> finding
 KNOWN_FAILURES = {
-    'test_access_rule[rebinding GET /api/codebook/meta -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_access_rule[rebinding GET /api/codebook/ -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_access_rule[rebinding GET /api/studies/ -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_access_rule[rebinding GET /api/initialise/status -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_access_rule[rebinding GET /api/mappings/ACE_Test -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_access_rule[rebinding GET /api/mappings/ACE_Test/variable/age -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_access_rule[rebinding GET /api/mappings/ACE_Test/audit -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_access_rule[rebinding GET /api/download/ACE_Test/mapping-csv -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_access_rule[rebinding GET /api/download/audit-log -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_access_rule[rebinding GET /api/ai-config/providers -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_access_rule[rebinding GET /api/ai-config/models -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_access_rule[rebinding GET /api/afpo/issue-url -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_access_rule[rebinding GET /api/afpo/check-github -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_access_rule[rebinding GET /api/afpo/ontology-status -> deny (DNS-rebinding sites get nothing)]': 'F3',
-    'test_rebinding_site_cannot_read_studies': 'F3',
 }
 
 

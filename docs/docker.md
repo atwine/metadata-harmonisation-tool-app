@@ -79,6 +79,13 @@ Everyone on that network then has full access, including downloading and deletin
 participant data. Only do this on a network you trust. For a manual (non-Docker)
 install, `python run_backend.py` reads the same `MHT_BIND_ADDRESS` setting.
 
+The API also refuses any request addressed to a host name other than `localhost`,
+`127.0.0.1` or `::1` (answer 403, "Invalid host header"). This stops a malicious website
+from reaching your data by pointing its own domain at your computer ("DNS rebinding").
+If you open network mode on purpose, list the names or addresses people will use in
+`MHT_ALLOWED_HOSTS` (comma-separated), for example
+`MHT_ALLOWED_HOSTS=192.168.1.20,lab-pc.local`.
+
 ## Your data
 
 Uploaded studies, mapping results, the audit trail, and the AfPO gap log are stored in
