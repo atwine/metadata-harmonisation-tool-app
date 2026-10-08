@@ -12,7 +12,9 @@ three are critical under the skill's scale.
 
 ## Findings
 
-### F1 (critical): anyone on the same network can download participant data and delete studies
+All three are fixed; output after the fixes is in [`docs/access-audit-after.txt`](docs/access-audit-after.txt).
+
+### F1 (critical, FIXED in 0.8.12): anyone on the same network can download participant data and delete studies
 - Route: all 28, through port 8000
 - Who gets in who shouldn't: any device on the same Wi-Fi or LAN as the
   researcher (a café, a conference, a university network)
@@ -32,7 +34,7 @@ three are critical under the skill's scale.
   `test_compose_publishes_on_localhost_by_default[docker-compose.yml]`,
   `test_compose_publishes_on_localhost_by_default[docker-compose.hub.yml]`
 
-### F2 (critical): any website the researcher visits can wipe the workspace, overwrite the codebook and plant studies
+### F2 (critical, FIXED in 0.8.13): any website the researcher visits can wipe the workspace, overwrite the codebook and plant studies
 - Routes: POST /api/initialise/clear-workspace, POST /api/codebook/upload,
   POST /api/studies/upload
 - Who gets in who shouldn't: any web page open in the researcher's browser,
@@ -54,7 +56,7 @@ three are critical under the skill's scale.
   `test_access_rule[website POST /api/studies/upload -> deny ...]`,
   `test_website_cannot_wipe_the_workspace`
 
-### F3 (critical): a website can read participant data through DNS rebinding
+### F3 (critical, FIXED in 0.8.14): a website can read participant data through DNS rebinding
 - Route: all 28
 - Who gets in who shouldn't: a malicious website that points its own domain
   at 127.0.0.1 (DNS rebinding). The browser then treats the API as part of
