@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.11] — 2026-10-08
+
+### Added
+- **Access rules and the tests that prove them.** `ACCESS.md` says who may do what (only the researcher on the computer running the tool), `ACCESS-AUDIT.md` lists the three critical gaps found on 2026-10-07 (the API listens on the whole network, any website can send hidden writes, DNS rebinding), and `LAUNCH-CHECK.md` records the launch-readiness check. `tests/test_access.py` proves each rule; run it with `pytest tests/test_access.py`. The 36 tests that fail today because of those gaps are marked as expected failures in `tests/conftest.py`, so the build stays green, and each fix removes its own entries. The output before any fix is saved in `docs/access-audit-before.txt`. No app behaviour changes in this release.
+
 ## [0.8.10] — 2026-09-21
 
 ### Fixed

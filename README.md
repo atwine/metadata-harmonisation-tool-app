@@ -86,6 +86,8 @@ A first-time visitor to any page gets a short guided tour (spotlight + tooltip) 
 │   │   └── wizardStore.ts     # afpoMappingEnabled, relationalModeEnabled — session-only toggles
 │   ├── styles.css             # Design tokens (colors, the text-xs..xl type scale)
 │   └── types.ts
+├── tests/                     # Access tests (test_access.py) + known-failure list (conftest.py)
+├── ACCESS.md                  # Who may do what; ACCESS-AUDIT.md / LAUNCH-CHECK.md hold the audit findings
 ├── docker-compose.yml         # Full-stack local packaging — builds the app from source
 ├── docker-compose.hub.yml     # Same stack from prebuilt images (download this one file and run)
 ├── Dockerfile.frontend
