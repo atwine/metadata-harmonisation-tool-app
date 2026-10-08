@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.17] — 2026-10-08
+
+### Added
+- **Automatic security scanners.** Every `git commit` is checked for leaked keys and tokens (gitleaks, via `.pre-commit-config.yaml`; run `python -m pip install pre-commit` then `python -m pre_commit install` once per clone). GitHub runs `.github/workflows/security-scans.yml` on every push and pull request, and every Monday: gitleaks over the whole history, `pip-audit` on `backend/requirements.txt`, `npm audit --omit=dev` on the JavaScript libraries, and Semgrep on the code. Actions are pinned to exact commits. The first local run found no leaked secrets and no vulnerable Python libraries, but 22 JavaScript findings (1 critical, 16 high) in build tooling (vite, TanStack Start, wrangler, undici, ws). By the owner's decision the npm job reports them without failing the run, and the exception is written in the workflow file; updating those packages is a separate follow-up.
+
+## [0.8.16] — 2026-10-08
+
+### Security
+- **A plain `.env` file can no longer be committed by accident.** `docs/docker.md` tells people to put `GITHUB_TOKEN` in a `.env` file next to `docker-compose.yml`, but `.gitignore` did not list it, so a careless `git add .` would have committed the token. `.gitignore` now ignores `.env` and `.env.*`, and still allows a future `.env.example`.
+
 ## [0.8.15] — 2026-10-08
 
 ### Changed

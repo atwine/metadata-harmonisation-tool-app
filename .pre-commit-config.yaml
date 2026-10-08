@@ -1,0 +1,9 @@
+# Checks that run on every `git commit`, on this computer and in CI.
+# Installed by the security-scans skill. Update pinned versions with:
+#   pre-commit autoupdate
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      # Refuses a commit that adds an API key, token, password or private key.
+      - id: gitleaks
