@@ -248,14 +248,24 @@ def fail(code, message):
     sys.exit(code)
 
 
+BYTE_ORDER_MARKS = [  # longest first: the UTF-32 LE mark starts with the UTF-16 LE mark
+    (b"\xff\xfe\x00\x00", "utf-32"), (b"\x00\x00\xfe\xff", "utf-32"),
+    (b"\xef\xbb\xbf", "utf-8-sig"), (b"\xff\xfe", "utf-16"), (b"\xfe\xff", "utf-16"),
+]
+
+
 def guess_encoding(path):
+    """Returns (encoding, is_fallback, found_byte_order_mark)."""
     with open(path, "rb") as f:
         head = f.read(1024 * 1024)
+    for mark, name in BYTE_ORDER_MARKS:
+        if head.startswith(mark):
+            return name, False, True
     try:
         codecs.getincrementaldecoder("utf-8-sig")().decode(head, final=False)
-        return "utf-8-sig", False
+        return "utf-8-sig", False, False
     except UnicodeDecodeError:
-        return "latin-1", True
+        return "latin-1", True, False
 
 
 def sample_text(path, encoding):
@@ -501,6 +511,7 @@ def build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, 
         "input_rows": total_rows,
         "input_file": os.path.basename(args.input),
         "output_file": os.path.basename(args.output),
+        "encoding": getattr(args, "encoding_used", None),
         "contains_participant_values": True,
         "warning": "WARNING: " + " ".join(REPORT_WARNING_LINES),
         "variables": per_var,
@@ -522,6 +533,8 @@ def report_text(report):
     L.append("Results report for study: %s" % report["study"])
     L.append("Input file: %s (%d rows)" % (report["input_file"], report["input_rows"]))
     L.append("Output file: %s" % report["output_file"])
+    if report["encoding"]:
+        L.append("Encoding: %s" % report["encoding"])
     L.append("")
     L.append("Validation Report")
     L.append("=================")
@@ -682,9 +695,11 @@ def run(args, config, pd, report_base, staging):
     encoding = args.encoding
     if not encoding:
         try:
-            encoding, guessed_fallback = guess_encoding(args.input)
+            encoding, guessed_fallback, from_mark = guess_encoding(args.input)
         except OSError as e:
             fail(2, "The input file could not be read (%s)." % (e.strerror or type(e).__name__))
+        if from_mark and encoding != "utf-8-sig":
+            print("Notice: the file starts with a byte-order mark, so it is read as %s." % encoding)
         if guessed_fallback:
             print("Notice: the file is not UTF-8, so it is being read as latin-1. If accents look wrong, "
                   "re-run with --encoding cp1252 (or another encoding).")
@@ -692,6 +707,7 @@ def run(args, config, pd, report_base, staging):
         codecs.lookup(encoding)
     except LookupError:
         fail(2, "Unknown encoding: %s" % encoding)
+    args.encoding_used = encoding
     sep = args.sep
     if not sep:
         sep = guess_sep(sample_text(args.input, encoding))

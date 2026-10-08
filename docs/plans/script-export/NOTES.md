@@ -140,3 +140,15 @@ Item 6 makes the report explain them without changing any result.
   surrounding spaces. Two candidates are listed and none is guessed. When used, both reports say so (`matched_columns`, `ignore_case_and_spaces_used`).
   Output column names still come from the codebook, so results are the same as if the header had matched.
 - Tests: 9 new cases in tests/test_script_round2.py, 8 seen failing first.
+
+### 5. UTF-16 and other byte-order marks (fixed)
+- The script now looks at the first bytes of the file before the garbled-text check: `FF FE` or `FE FF` gives `utf-16`, `FF FE 00 00` or
+  `00 00 FE FF` gives `utf-32`, `EF BB BF` gives `utf-8-sig`. The console prints a notice for UTF-16 and UTF-32 and both reports say
+  `Encoding: ...` (JSON field `encoding`). An explicit `--encoding` still wins.
+- Tests: 8 new in tests/test_script_round2.py (UTF-16 LE and BE, UTF-32 LE and BE, UTF-8 with mark, all with CRLF and a trailing blank line;
+  semicolons plus accents; explicit encoding wins; no mark is still refused), 6 seen failing first.
+- Three round-1 tests used UTF-16 *with* a mark as their "garbled" file (test_p4_utf16_is_reported_as_garbled, test_garbled_text_leaves_nothing,
+  test_failure_keeps_an_existing_output_untouched). That file is now read correctly, so they use UTF-16 *without* a mark (`utf-16-le`),
+  which still cannot be detected.
+- Found, not changed: `--encoding utf-16` on a UTF-16 file with no mark ends in a Python traceback (exit 1, "UTF-16 stream does not start with BOM").
+  `--encoding utf-16-le` works. Not part of this item.

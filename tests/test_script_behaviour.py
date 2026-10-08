@@ -241,11 +241,11 @@ def test_p4_wrong_encoding_guess_recovered_with_flag(tmp_path):
 
 def test_p4_utf16_is_reported_as_garbled(tmp_path):
     source = tmp_path / "u.csv"
-    source.write_bytes("name,code\nAnn,a\n".encode("utf-16"))
+    source.write_bytes("name,code\nAnn,a\n".encode("utf-16-le"))
     script = simple_script(tmp_path)
     result = run_script(script, "--input", source, "--output", tmp_path / "o.csv")
     assert result.returncode == 2 and "--encoding" in result.stderr
-    assert run_script(script, "--input", source, "--output", tmp_path / "o.csv", "--encoding", "utf-16").returncode == 0
+    assert run_script(script, "--input", source, "--output", tmp_path / "o.csv", "--encoding", "utf-16-le").returncode == 0
 
 
 def test_p4_wrong_separator_guess_recovered_with_flag(tmp_path):

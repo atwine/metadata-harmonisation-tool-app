@@ -13,7 +13,7 @@ def only(folder, *names):
 
 def test_garbled_text_leaves_nothing(tmp_path):
     source = tmp_path / "u.csv"
-    source.write_bytes("name,code\nAnn,a\n".encode("utf-16"))
+    source.write_bytes("name,code\nAnn,a\n".encode("utf-16-le"))
     script = make(tmp_path)
     result = run_script(script, "--input", source, "--output", tmp_path / "o.csv")
     assert result.returncode == 2
@@ -67,7 +67,7 @@ def test_failure_in_the_second_pass_leaves_nothing(tmp_path):
 
 def test_failure_keeps_an_existing_output_untouched(tmp_path):
     source = tmp_path / "u.csv"
-    source.write_bytes("name,code\nAnn,a\n".encode("utf-16"))
+    source.write_bytes("name,code\nAnn,a\n".encode("utf-16-le"))
     old = tmp_path / "o.csv"
     old.write_text("previous good output\n", encoding="utf-8")
     assert run_script(make(tmp_path), "--input", source, "--output", old, "--overwrite").returncode == 2

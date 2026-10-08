@@ -255,3 +255,50 @@ def test_flag_not_needed_when_names_agree_so_nothing_is_said(tmp_path):
     result = run_header(tmp_path, "SBSMK", "--ignore-case-and-spaces")
     assert result.returncode == 0, result.stderr
     assert "was used" not in both_reports(tmp_path)[0]
+
+
+# ---- 5. byte-order marks (Excel "Unicode Text") ----
+
+def run_bytes(tmp_path, raw, *extra):
+    script = make(tmp_path)
+    source = tmp_path / "in.csv"
+    source.write_bytes(raw)
+    return run_script(script, "--input", source, "--output", tmp_path / "o.csv", *extra)
+
+
+TEXT_CRLF = "name,code\r\nAnn,a\r\nBo,b\r\n\r\n"
+
+
+@pytest.mark.parametrize("raw,chosen", [
+    (TEXT_CRLF.encode("utf-16"), "utf-16"),
+    (b"\xfe\xff" + TEXT_CRLF.encode("utf-16-be"), "utf-16"),
+    (TEXT_CRLF.encode("utf-32"), "utf-32"),
+    (b"\x00\x00\xfe\xff" + TEXT_CRLF.encode("utf-32-be"), "utf-32"),
+    (b"\xef\xbb\xbf" + TEXT_CRLF.encode("utf-8"), "utf-8-sig"),
+])
+def test_byte_order_mark_picks_the_encoding(tmp_path, raw, chosen):
+    result = run_bytes(tmp_path, raw)
+    assert result.returncode == 0, result.stdout + result.stderr
+    cells = read_cells(tmp_path / "o.csv")
+    assert cells["Code"].tolist() == ["A", "B"] and cells["Name"].tolist() == ["Ann", "Bo"]
+    assert chosen in result.stdout
+    assert f"Encoding: {chosen}" in (tmp_path / "o_report.txt").read_text(encoding="utf-8")
+
+
+def test_utf16_with_semicolons_and_accents(tmp_path):
+    raw = "name;code\r\nÉlodie;a\r\n".encode("utf-16")
+    result = run_bytes(tmp_path, raw)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert read_cells(tmp_path / "o.csv")["Name"].tolist() == ["Élodie"]
+
+
+def test_explicit_encoding_beats_the_byte_order_mark(tmp_path):
+    result = run_bytes(tmp_path, TEXT_CRLF.encode("utf-16"), "--encoding", "utf-8")
+    assert result.returncode == 2
+    assert not (tmp_path / "o.csv").exists()
+
+
+def test_utf16_without_a_mark_is_still_refused_clearly(tmp_path):
+    result = run_bytes(tmp_path, TEXT_CRLF.encode("utf-16-le"))
+    assert result.returncode == 2
+    assert "utf-16" in result.stderr
