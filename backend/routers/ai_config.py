@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Header, Query
 
 from core.ai_provider import extract_ollama_names
 from core.config import OLLAMA_BASE_URL, OLLAMA_DEFAULT_CHAT_MODEL, OLLAMA_DEFAULT_EMBEDDING_MODEL
@@ -92,7 +92,7 @@ async def test_connection(config: AIConfig):
 async def list_models(
     provider: str = Query(...),
     base_url: str = Query(""),
-    api_key: str = Query(""),
+    api_key: str = Header("", alias="X-Api-Key"),
 ):
     """Lists available models for a live-fetchable provider (Ollama, vLLM)."""
     try:
