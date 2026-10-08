@@ -95,3 +95,62 @@ def test_ch_sib_parity(tmp_path, monkeypatch):
     assert result.returncode == 0, result.stderr
     script_json = json.loads((tmp_path / "ch_out_report.json").read_text(encoding="utf-8"))
     compare(app_frame, app_counts, read_cells(out), script_json)
+
+
+# ---- True/False columns and mixed-type columns, with and without chunking ----------
+
+
+def run_in_process(script, source, out, chunk_rows):
+    """The script run in this process so the chunk size can be made tiny."""
+    from test_script_behaviour import load_script_module
+
+    module = load_script_module(script)
+    module.CHUNK_ROWS = chunk_rows
+    assert module.main(["--input", str(source), "--output", str(out)]) == 0
+    return json.loads(out.with_name(out.stem + "_report.json").read_text(encoding="utf-8"))
+
+
+def check_against_app(tmp_path, monkeypatch, data, mappings, chunk_rows):
+    setup_study(tmp_path, monkeypatch, STUDY, data, mappings)
+    app_frame, app_counts = app_output(STUDY)
+    out = tmp_path / "chunk_out.csv"
+    report = run_in_process(
+        make_script(tmp_path, STUDY), tmp_path / "input" / STUDY / "example_data.csv", out, chunk_rows
+    )
+    compare(app_frame, app_counts, read_cells(out), report)
+    return read_cells(out)
+
+
+BOOL_DATA = {
+    "no_empty": "b,k\nTrue,a\nFalse,a\nTrue,a\nFalse,a\nFalse,a\n",
+    "one_empty": "b,k\nTrue,a\nFalse,a\nTrue,a\n,a\nFalse,a\n",
+    "empty_only_in_second_chunk": "b,k\nTrue,a\nFalse,a\nTrue,a\n,a\nFalse,a\n",
+}
+
+
+@pytest.mark.parametrize("target", ["boolean", "integer", "string"])
+@pytest.mark.parametrize("chunk_rows", [1000, 2])
+@pytest.mark.parametrize("case", list(BOOL_DATA))
+def test_true_false_columns_match_the_app(tmp_path, monkeypatch, case, chunk_rows, target):
+    if case == "empty_only_in_second_chunk" and chunk_rows != 2:
+        pytest.skip("needs small chunks")
+    mappings = [m("b", "Flag", None, None, "string", target), m("k", "K")]
+    out = check_against_app(tmp_path, monkeypatch, BOOL_DATA[case], mappings, chunk_rows)
+    if case != "no_empty" and target == "boolean":
+        assert out["Flag"].tolist() == ["True", "False", "True", "", "False"]
+
+
+@pytest.mark.parametrize("chunk_rows", [1000, 1, 2])
+def test_whole_and_decimal_numbers_in_one_column_match_the_app(tmp_path, monkeypatch, chunk_rows):
+    """5 in one row and 5.0 in another: the app reads the column as decimals, so lookup keys are '5.0'."""
+    data = "v,k\n5,a\n5.0,a\n6,a\n"
+    mappings = [m("v", "V", "Categorical", "{'5.0': 'five', '6.0': 'six'}"), m("k", "K")]
+    out = check_against_app(tmp_path, monkeypatch, data, mappings, chunk_rows)
+    assert out["V"].tolist() == ["five", "five", "six"]
+
+
+@pytest.mark.parametrize("chunk_rows", [1000, 2])
+def test_numbers_and_words_in_one_column_match_the_app(tmp_path, monkeypatch, chunk_rows):
+    data = "v,k\n5,a\nabc,a\n7,a\n,a\n"
+    mappings = [m("v", "V", "Categorical", "{'5': 'five', 'abc': 'word'}"), m("k", "K")]
+    check_against_app(tmp_path, monkeypatch, data, mappings, chunk_rows)

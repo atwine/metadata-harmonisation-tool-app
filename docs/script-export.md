@@ -100,7 +100,6 @@ name or instruction cannot run anything (`tests/test_script_behaviour.py`).
 Known small differences:
 
 - If a variable has an unknown transformation type, the app repeats its warning once per row; the script says it once.
-- A true/false column that also has empty cells may be read differently from the app (the app keeps Python booleans, the script reads text).
 - On a very large file the app reads everything at once, and pandas may then mix types within one column; the script reads in chunks but fixes each column's type first, so results can differ for such mixed columns.
 
 ## Not in this version

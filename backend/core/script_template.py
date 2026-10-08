@@ -278,20 +278,33 @@ def read_chunks(pd, path, sep, encoding, usecols, dtype=None):
         fail(2, "The input file could not be read (%s: %s). Check --sep and --encoding." % (type(e).__name__, str(e)[:200]))
 
 
+def _chunk_label(series):
+    """Type of one chunk's column. 'B' is True/False values with empty cells, which
+    pandas stores as Python booleans plus NaN (dtype object)."""
+    kind = series.dtype.kind
+    if kind == "O":
+        values = series.dropna()
+        if len(values) and all(isinstance(v, bool) for v in values):
+            return "B"
+    return kind
+
+
 def infer_column_dtypes(pd, path, sep, encoding, usecols):
-    """Same column types the app gets from reading the whole file at once."""
+    """Same column types the app gets from reading the whole file at once.
+    Columns left out of the result keep pandas' own guess for each chunk, which
+    is right for True/False columns (booleans stay booleans, empties stay empty)."""
     seen = {}
     for chunk in read_chunks(pd, path, sep, encoding, usecols):
         for col in chunk.columns:
-            seen.setdefault(col, set()).add(chunk[col].dtype.kind)
+            seen.setdefault(col, set()).add(_chunk_label(chunk[col]))
     dtypes = {}
     for col, kinds in seen.items():
         if kinds == {"i"}:
             dtypes[col] = "int64"
         elif kinds <= {"i", "f"}:
             dtypes[col] = "float64"
-        elif kinds == {"b"}:
-            dtypes[col] = "bool"
+        elif kinds <= {"b", "B", "f"} and kinds & {"b", "B"}:
+            continue
         else:
             dtypes[col] = str
     return dtypes

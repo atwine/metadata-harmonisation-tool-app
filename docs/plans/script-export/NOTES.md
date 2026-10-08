@@ -61,3 +61,14 @@ Each one below is the smallest, easiest to undo option. Overrule any of them.
   were not run.
 - Chrome extension was not connected; the browser check used headless Chrome through Playwright.
 - A script that exits with code 2 or 1 after the writability pre-check can leave an empty output file behind.
+
+## Follow-up round
+### 1. True/False columns (fixed)
+- Cause: a True/False column with an empty cell is stored by pandas as Python booleans plus NaN (dtype object); the script
+  treated every object column as text, so `"False"` became True under `bool()`. Fix: such columns are now left to pandas'
+  own reading, per chunk, which gives the same booleans. Tests: 22 parity cases (no empty, one empty, empty only in the second
+  chunk; targets boolean, integer, string; one chunk and tiny chunks), written first and seen failing (6 failures).
+- Mixed `5` and `5.0` in one column: matches the app (decimals, lookup keys `5.0`), including across chunks. Numbers and words
+  in one column (all text) also match. Not matchable: a very large file where pandas itself splits the read into internal
+  blocks and mixes Python ints and strings inside one column. The script cannot reproduce that, and the app's own result there
+  depends on file size. Stated in `docs/script-export.md`.
