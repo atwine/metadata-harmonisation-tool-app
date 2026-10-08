@@ -56,6 +56,7 @@ CHUNK_ROWS = 50000
 MAX_UNSEEN_LISTED = 50
 MAX_UNSEEN_TRACKED = 10000
 MAX_EXAMPLES = 5
+MAX_COLUMNS_LISTED = 30
 MAX_LOOKUP_RULE_CHARS = 10000
 MAX_RESULT_CHARS = 1000000
 SEP_CANDIDATES = [",", ";", "\t", "|"]
@@ -574,6 +575,14 @@ def build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, 
     }
 
 
+def columns_found_line(report):
+    line = "Columns the script found (separator %s, encoding %s): %s" % (
+        quote(report["separator"]), report["encoding"], ", ".join(quote(c) for c in report["columns_found"]))
+    if report["columns_found_not_listed"]:
+        line += " and %d more" % report["columns_found_not_listed"]
+    return line
+
+
 def report_text(report):
     L = []
     L.append("WARNING: " + REPORT_WARNING_LINES[0])
@@ -595,6 +604,8 @@ def report_text(report):
     L.append("Total errors: %d" % report["total_errors"])
     if report["warnings"]:
         L += ["", "Warnings:"] + ["- %s" % w for w in report["warnings"]]
+    if "columns_found" in report:
+        L += ["", columns_found_line(report)]
     if report["matched_columns"]:
         L += ["", "--ignore-case-and-spaces was used; these columns were matched:"]
         L += ["- mapped %s -> column in the file %s" % (quote(c["mapped"]), quote(c["found"])) for c in report["matched_columns"]]
@@ -780,13 +791,20 @@ def run(args, config, pd, report_base, staging):
 
     variables, warnings, skipped_metrics, matched = plan_variables(config, header, args.ignore_case_and_spaces)
     if not variables:
+        hints = [m["hint"] for m in skipped_metrics if m.get("hint")]
         report = build_report(config, args, [], {}, {}, warnings, skipped_metrics, 0, matched)
+        found_line = None
+        if not hints:
+            # no close match for any mapped column: show what the script read
+            report["separator"] = sep
+            report["columns_found"] = list(header[:MAX_COLUMNS_LISTED])
+            report["columns_found_not_listed"] = max(len(header) - MAX_COLUMNS_LISTED, 0)
+            found_line = columns_found_line(report)
         staging.write_text(txt_final, report_text(report))
         staging.write_text(json_final, json.dumps(report, indent=2))
         staging.commit([txt_final, json_final])
-        hints = [m["hint"] for m in skipped_metrics if m.get("hint")]
-        fail(2, "None of the mapped columns were found in the input file, so nothing was written. See %s.txt%s"
-                % (report_base, "".join("\n  " + h for h in hints[:10])))
+        fail(2, "None of the mapped columns were found in the input file, so nothing was written. See %s.txt%s%s"
+                % (report_base, "".join("\n  " + h for h in hints[:10]), "\n  " + found_line if found_line else ""))
 
     usecols = [v.source_col for v in variables]
     dtypes = infer_column_dtypes(pd, args.input, sep, encoding, usecols, args.decimal)

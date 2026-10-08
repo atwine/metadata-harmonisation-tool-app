@@ -185,3 +185,11 @@ Item 6 makes the report explain them without changing any result.
   answers in under a second; on the old route it waited 1.6 seconds. Not measured on a 2,000-variable study.
 - Also updated docs/script-export.md with the new options.
 - Tests: 4 new, 3 seen failing first (the 422-for-existing-study test passed before and after on purpose).
+
+## Round 3
+
+### 1. When no column looks similar, show what the script saw
+- When every mapped column is missing and none has a close match, the console message, the text report and the JSON report now list the
+  columns the script read (first 30, then "and N more") with the separator and encoding used. JSON: `columns_found`, `columns_found_not_listed`,
+  `separator` (`encoding` was already there). With any close match the "did you mean" lines stay and the list is not added.
+- Tests: 4 in tests/test_script_round3.py (unrelated names, 100 columns, semicolon file read with `--sep ","`, close match unchanged); 3 seen failing first.
