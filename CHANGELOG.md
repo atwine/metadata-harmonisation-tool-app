@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.24] — 2026-10-08
+
+### Security
+- **Updating the app now tells you to download the compose file again.** The "listen on your own computer only" setting (0.8.12) lives in `docker-compose.hub.yml`, not in the images. Someone who only ran `pull` and `up` kept their old file, which still opens ports 8000 and 8080 to the whole network, even with the newest images. The README's update steps now include re-downloading the file, with a one-line check (`docker compose config` should show `host_ip: 127.0.0.1`). Checked against the real old and new files.
+- **Only `main` can publish the public images.** Running the publish workflow by hand from another branch could have tagged that branch's build as `:latest`. It is now refused.
+
+### Fixed
+- **Rootless Docker and Podman keep your file ownership.** There, "root" inside the container is you, so the startup script now detects that setup and leaves ownership alone instead of handing your files to a stranger user id.
+- **Upgrading from the old root image no longer leaves unwritable files.** After the earlier versions, files created by root could sit inside folders you own. The startup script now hands those over (and only those: files owned by anyone else are left alone), so rewriting a study, deleting a study or Clear Workspace no longer hit "permission denied". Checked with real containers: a fresh start, a restart, and root-owned files inside user-owned folders.
+- **A failed restore can no longer leave you without data.** `restore.sh` and `restore.ps1` now unpack the backup into a temporary folder first and only swap it in when that worked. A damaged or truncated archive is refused with your current data untouched. They also refuse archives that hold files outside `harmonisation-data/` (or paths that climb out of it), so a wrong or edited archive cannot overwrite your compose file or scripts. Tested with a good, a foreign, a path-climbing and a truncated archive, in both bash and PowerShell.
+- **The backup and restore scripts stop cleanly when Docker fails.** The PowerShell versions now check whether stopping and restarting the backend worked, instead of carrying on, and the bash versions set up the restart before stopping the backend.
+
 ## [0.8.23] — 2026-10-08
 
 ### Security
