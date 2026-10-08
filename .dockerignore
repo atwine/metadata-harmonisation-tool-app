@@ -1,6 +1,12 @@
 .git
 .claude
 
+# Secrets: a local .env must never be baked into an image
+.env
+.env.*
+*.pem
+*.key
+
 # Python
 .venv/
 __pycache__/
