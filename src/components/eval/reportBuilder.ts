@@ -1,6 +1,6 @@
 import type { StepAnswer } from "@/stores/evalStore";
 import { questionsForStep, STEP_TITLES } from "./checkInQuestions";
-import { SUS_STATEMENTS, OPEN_ENDED, BACKGROUND, computeSusScore } from "./questionnaireContent";
+import { RATING_QUESTIONS, OPEN_ENDED, BACKGROUND } from "./questionnaireContent";
 
 /** Turns one step's recorded answer into a Markdown block using the same
  * question wording shown in the popup, so the GitHub issue reads like a
@@ -24,9 +24,9 @@ function formatStepSection(step: string, answer: StepAnswer): string {
   return `### ${title}\n${lines.join("\n") || "_No answers recorded._"}`;
 }
 
-/** The final questionnaire's flat answer record (keys like sus_0, open_3,
+/** The final questionnaire's flat answer record (keys like rating_0, open_3,
  * background_role — see eval-questionnaire.tsx) formatted back into a
- * readable block, with the computed SUS score up top. */
+ * readable block, with the average rating up top. */
 function formatQuestionnaireSection(
   answers: Record<string, string | number> | null,
   skipped: boolean,
@@ -35,24 +35,21 @@ function formatQuestionnaireSection(
     return "### Evaluation Report (questionnaire)\n_Skipped by the participant._";
   }
 
-  const susAnswers: Record<number, number> = {};
-  SUS_STATEMENTS.forEach((_, i) => {
-    const v = answers[`sus_${i}`];
-    if (typeof v === "number") susAnswers[i] = v;
-  });
-  const susScore = computeSusScore(susAnswers);
+  const ratings = RATING_QUESTIONS.map((_, i) => answers[`rating_${i}`]).filter(
+    (v): v is number => typeof v === "number",
+  );
 
   const lines: string[] = ["### Evaluation Report (questionnaire)"];
   lines.push(
-    susScore !== null
-      ? `**SUS score: ${susScore.toFixed(1)} / 100**`
-      : "_SUS score not computed — not every statement was answered._",
+    ratings.length === RATING_QUESTIONS.length
+      ? `**Average rating: ${(ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)} / 5**`
+      : "_Average not computed — not every rating was answered._",
   );
 
-  lines.push("", "**Part A — quick reactions**");
-  SUS_STATEMENTS.forEach((statement, i) => {
-    const v = answers[`sus_${i}`];
-    if (v !== undefined) lines.push(`- ${statement} → ${v}/5`);
+  lines.push("", "**Part A — quick ratings**");
+  RATING_QUESTIONS.forEach((q, i) => {
+    const v = answers[`rating_${i}`];
+    if (v !== undefined) lines.push(`- ${q.label} → ${v}/5 (1 = ${q.lowLabel}, 5 = ${q.highLabel})`);
   });
 
   lines.push("", "**Part B — in their own words**");
@@ -66,10 +63,6 @@ function formatQuestionnaireSection(
     const v = answers[`background_${q.id}`];
     if (v) lines.push(`- **${q.label}** ${v}`);
   });
-
-  if (answers.other_comments) {
-    lines.push("", "**Part D — anything else**", String(answers.other_comments));
-  }
 
   return lines.join("\n");
 }

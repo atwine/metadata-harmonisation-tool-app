@@ -42,12 +42,6 @@ export const REQUIRED_STEPS = [
 export const CHECK_IN_QUESTIONS: Record<string, CheckInQuestion[]> = {
   install: [
     {
-      id: "started_ok",
-      type: "yes_no",
-      label: "Did the app start successfully after running the pull/run command?",
-      followUpLabel: "What happened instead?",
-    },
-    {
       id: "ease",
       type: "scale",
       label: "How easy was getting it running?",
@@ -58,8 +52,20 @@ export const CHECK_IN_QUESTIONS: Record<string, CheckInQuestion[]> = {
       id: "errors",
       type: "yes_no",
       label: "Did you hit any errors?",
-      followUpLabel: "Paste the exact error text",
-      followUpOn: "Yes",
+    },
+    {
+      id: "error_where",
+      type: "multi",
+      label: "Where did the problem happen? Tick all that apply.",
+      hint: "No need to paste the error text. If you remember details, add them in the final report.",
+      options: [
+        "Installing Docker",
+        "Downloading the files or images",
+        "Running the commands in the terminal",
+        "Starting the app or opening it in the browser",
+        "Something else",
+      ],
+      showIf: { id: "errors", equals: "Yes" },
     },
     {
       id: "outside_help",
@@ -67,11 +73,6 @@ export const CHECK_IN_QUESTIONS: Record<string, CheckInQuestion[]> = {
       label: "Did you need to search online or ask someone for help beyond our instructions?",
       followUpLabel: "What for?",
       followUpOn: "Yes",
-    },
-    {
-      id: "startup_minutes",
-      type: "text",
-      label: 'Roughly how long from running the command to seeing the homepage? (e.g. "2 minutes")',
     },
   ],
   upload_codebook: [
@@ -150,7 +151,8 @@ export const CHECK_IN_QUESTIONS: Record<string, CheckInQuestion[]> = {
     {
       id: "confidence_match",
       type: "choice",
-      label: "Did the confidence labels (Strong/Review/Verify) match your own sense of certainty?",
+      label:
+        "Did the \"Codebook Confidence Match\" score and its Strong / Moderate / Weak label match your own sense of certainty?",
       options: ["Yes, mostly", "Somewhat", "No"],
     },
     {
@@ -165,9 +167,15 @@ export const CHECK_IN_QUESTIONS: Record<string, CheckInQuestion[]> = {
   ],
   download_results: [
     {
+      id: "what_downloaded",
+      type: "choice",
+      label: "What did you download?",
+      options: ["The transformed data ZIP", "Only the mapping CSV (I had no example data)"],
+    },
+    {
       id: "complete",
       type: "yes_no",
-      label: "Did the downloaded file look complete and correct?",
+      label: "Did what you downloaded look complete and correct?",
       followUpLabel: "Describe what looked wrong",
     },
     {
