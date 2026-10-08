@@ -29,4 +29,35 @@ Each one below is the smallest, easiest to undo option. Overrule any of them.
    Default base is the output path without extension plus `_report`.
 
 ## Log
-(filled in as work proceeds)
+- Phase 1: parity harness and fixture study (17 mapped variables covering direct, lookup, no instruction, missing column,
+  duplicate target, unknown type, bad expression, injection string, empty cells). Failed with NotImplementedError until the generator existed.
+- Phase 2: generator `backend/core/script_export.py` plus fixed template `backend/core/script_template.py`.
+  The mappings go in as JSON lines, each written with `repr()` as a quoted string. Parity passed on the first run
+  against the fixture and `example_data/CH_SIB`.
+- Phase 3: `GET /api/download/{study_name}/script`, `ACCESS.md` rows (classified under `exports`), endpoint tests.
+- Phase 4: button added to `download-results.tsx` and `downloadScript` in `client.ts`. Checked in headless Chrome
+  against a scratch workspace (backend on 127.0.0.1:8011, vite on 127.0.0.1:5188; both stopped, scratch folder deleted).
+  Screenshot: `screenshots/download-script-button.png`. The file the browser downloaded was run on `example_data/CH_SIB`
+  and matched the app's output cell for cell.
+- Phase 5: `docs/script-export.md`, README link and route row, CHANGELOG entry under `[Unreleased]`.
+
+## Test counts
+- Before: 113 passed. After: see the final report (40 new tests in parity 2, behaviour 30, endpoint 8, plus 3 new access-grid cases for the new route = 43 more, 156 total).
+
+## Surprises
+- pandas is installed in the user site-packages on this machine, and `python -I` hides user site-packages, so the plan's
+  `python -I script.py` could not import pandas. The test helper probes for this and falls back to `python -E`
+  (still ignores `PYTHON*` environment variables). On a normal virtualenv it uses `-I`.
+- The app turns a whole-number column into decimals as soon as one cell is empty (34 becomes 34.0), and compares lookup
+  keys against `str(value)` of a column pandas has read as decimals (a column with empty cells has keys `1.0`, not `1`).
+  The script copies both on purpose so the outputs match. The lookup one is an app quirk worth a look: a rule written
+  as `{'1': ...}` never matches a numeric column that has any empty cell. Not changed here (out of scope).
+- A one-column file cannot hold an empty cell (the blank line is skipped on re-read). Same as the app.
+- A single-column input is valid when its column is a mapped one, so the "only one column found" stop applies only
+  when none of the mapped columns are in the header.
+
+## Could not do / not verified
+- Only tested on pandas 2.2.3 and Python 3.12.6. The script declares pandas 1.5 and Python 3.8 as minimums but these
+  were not run.
+- Chrome extension was not connected; the browser check used headless Chrome through Playwright.
+- A script that exits with code 2 or 1 after the writability pre-check can leave an empty output file behind.

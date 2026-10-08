@@ -19,7 +19,7 @@ A first-time visitor to any page gets a short guided tour (spotlight + tooltip) 
 2. **Upload Studies** — one or more study variable CSVs, with optional example-data CSV and context PDF
 3. **Initialise** — AI generates descriptions → embeddings → semantic recommendations (streamed live); also where the AfPO opt-in toggle lives
 4. **Map Studies** — operator reviews each variable, picks a codebook match, sets a transformation, marks it done; population/ethnicity variables get an AfPO ontology lookup sub-section when AfPO mapping is enabled
-5. **Download Results** — export the mapping table (CSV) or the transformed dataset (ZIP), plus the audit log
+5. **Download Results** — export the mapping table (CSV) or the transformed dataset (ZIP), plus the audit log, or a Python script that applies your mappings to your own full dataset on your own computer (see [Transform your full dataset with a script](docs/script-export.md))
 
 ## Tech stack
 
@@ -249,6 +249,7 @@ duplicate-check's GitHub search rate limit from 10 requests/minute (unauthentica
 | GET | `/api/afpo/issue-url` | Build the pre-filled AfPO GitHub issue URL |
 | GET | `/api/afpo/ontology-status` | Current AfPO ontology version and last-sync time |
 | GET | `/api/download/{study}/mapping-csv` | Download mapping table |
+| GET | `/api/download/{study}/script` | Download a standalone Python script that applies the study's confirmed mappings to a full dataset |
 | POST | `/api/download/transformed-data` | Download transformed dataset ZIP |
 | GET | `/api/download/audit-log` | Download the append-only mapping audit trail |
 
