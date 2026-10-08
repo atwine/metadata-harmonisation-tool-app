@@ -13,6 +13,7 @@ Usage:
 Options:
     --sep ","          column separator (default: guessed)
     --encoding utf-8   text encoding (default: guessed)
+    --overwrite        replace the output and report files if they already exist (default: refuse)
     --decimal ","      read 78,6 as 78.6 (default "."); only changes how the text is read
     --report BASE      report files are BASE.txt and BASE.json (default: <output>_report)
 
@@ -587,6 +588,7 @@ def main(argv=None):
     parser.add_argument("--report", help="base name for the report files (default: <output>_report)")
     parser.add_argument("--sep", help="column separator (default: guessed)")
     parser.add_argument("--encoding", help="text encoding (default: guessed)")
+    parser.add_argument("--overwrite", action="store_true", help="replace the output and report files if they already exist")
     parser.add_argument("--decimal", choices=[".", ","], default=".",
                         help='decimal mark in the numbers of your file (default: "."); only changes how the text is read')
     args = parser.parse_args(argv)
@@ -617,6 +619,10 @@ def main(argv=None):
         for what, existing in protected:
             if same_file(target, existing):
                 fail(2, "%s (%s) is the same file as %s. Nothing was written. Choose a different name." % (label, target, what))
+    if not args.overwrite:
+        for target in (args.output, report_base + ".txt", report_base + ".json"):
+            if os.path.lexists(target) and not os.path.isdir(target):
+                fail(2, "%s already exists. Nothing was changed. Choose a different name, or add --overwrite to replace it." % target)
     staging = Staging()
     try:
         return run(args, config, pd, report_base, staging)

@@ -70,7 +70,7 @@ def test_failure_keeps_an_existing_output_untouched(tmp_path):
     source.write_bytes("name,code\nAnn,a\n".encode("utf-16"))
     old = tmp_path / "o.csv"
     old.write_text("previous good output\n", encoding="utf-8")
-    assert run_script(make(tmp_path), "--input", source, "--output", old).returncode == 2
+    assert run_script(make(tmp_path), "--input", source, "--output", old, "--overwrite").returncode == 2
     assert old.read_text(encoding="utf-8") == "previous good output\n"
     assert only(tmp_path, "u.csv", "tool.py", "o.csv")
 

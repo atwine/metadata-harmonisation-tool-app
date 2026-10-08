@@ -125,3 +125,9 @@ Item 6 makes the report explain them without changing any result.
 - Difference from the app: `--decimal` only changes how the script reads text. The app has no such option, so with `--decimal ","`
   the script converts values the app would leave empty. With the default `.` the results are identical to the app.
 - Tests: 6 in tests/test_script_round2.py, 4 seen failing first.
+
+### 3. Existing files are no longer overwritten (fixed)
+- The script now refuses (exit 2, message names the file, nothing changed) when the output, the .txt report or the .json report already exists,
+  unless `--overwrite` is given. The same-file checks from round 1 run first and still apply with `--overwrite`.
+- One round-1 test (`test_failure_keeps_an_existing_output_untouched`) now passes `--overwrite`; without it the new check would stop the run
+  before the failure it wants to provoke. Tests: 5 new in tests/test_script_round2.py, all seen failing first (the same-file one already passed).

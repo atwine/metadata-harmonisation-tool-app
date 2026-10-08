@@ -128,3 +128,54 @@ def test_no_hint_when_failures_are_not_decimal_commas(tmp_path):
     result = run_comma(tmp_path, text="id;wt\n1;abc\n2;def\n")
     assert result.returncode == 0, result.stderr
     assert HINT not in (tmp_path / "o_report.txt").read_text(encoding="utf-8")
+
+
+# ---- 3. existing files are not overwritten ----
+
+def run_plain(tmp_path, *extra):
+    script = make(tmp_path)
+    source = write_input(tmp_path)
+    return run_script(script, "--input", source, "--output", tmp_path / "o.csv", *extra)
+
+
+def test_existing_output_is_refused(tmp_path):
+    (tmp_path / "o.csv").write_text("keep me", encoding="utf-8")
+    result = run_plain(tmp_path)
+    assert result.returncode == 2
+    assert "o.csv" in result.stderr and "--overwrite" in result.stderr
+    assert (tmp_path / "o.csv").read_text(encoding="utf-8") == "keep me"
+    assert not (tmp_path / "o_report.txt").exists() and not (tmp_path / "o_report.json").exists()
+
+
+@pytest.mark.parametrize("report_name", ["o_report.txt", "o_report.json"])
+def test_existing_report_alone_is_refused(tmp_path, report_name):
+    (tmp_path / report_name).write_text("keep me", encoding="utf-8")
+    result = run_plain(tmp_path)
+    assert result.returncode == 2
+    assert report_name in result.stderr
+    assert (tmp_path / report_name).read_text(encoding="utf-8") == "keep me"
+    assert not (tmp_path / "o.csv").exists()
+
+
+def test_overwrite_replaces_existing_files(tmp_path):
+    for name in ("o.csv", "o_report.txt", "o_report.json"):
+        (tmp_path / name).write_text("old", encoding="utf-8")
+    result = run_plain(tmp_path, "--overwrite")
+    assert result.returncode == 0, result.stderr
+    assert read_cells(tmp_path / "o.csv")["Code"].tolist() == ["A", "B"]
+    assert "Results report" in (tmp_path / "o_report.txt").read_text(encoding="utf-8")
+
+
+def test_second_run_without_overwrite_is_refused(tmp_path):
+    assert run_plain(tmp_path).returncode == 0
+    again = run_plain(tmp_path)
+    assert again.returncode == 2
+    assert "already exists" in again.stderr
+
+
+def test_same_file_protection_still_wins_with_overwrite(tmp_path):
+    source = write_input(tmp_path)
+    script = make(tmp_path)
+    result = run_script(script, "--input", source, "--output", source, "--overwrite")
+    assert result.returncode == 2
+    assert source.read_text(encoding="utf-8") == CSV
