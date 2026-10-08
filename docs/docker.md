@@ -177,7 +177,8 @@ rather not use the bundled Ollama.
 - **"AI not connected yet" / connection fails right after `up`**: the model pull can take
   several minutes on first run. Check `docker compose logs ollama` — wait for
   "models ready — serving."
-- **Permission errors writing to `./harmonisation-data/` on Linux**: Docker auto-creates
-  bind-mount folders as `root`. If you hit this, either run
-  `sudo chown -R $(id -u):$(id -g) ./harmonisation-data` once, or open an issue — this
-  hasn't been hit in testing yet and may need a container-side fix.
+- **Permission errors writing to `./harmonisation-data/` on Linux**: the backend container
+  starts as root only to fix the ownership of these folders, then runs the app as an
+  ordinary user (a folder you already own keeps its owner, and the app runs as that same
+  user). You should not need `chown`. If you still see permission errors, run
+  `docker compose logs backend` and open an issue with what it says.
