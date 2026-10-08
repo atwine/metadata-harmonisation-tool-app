@@ -400,3 +400,59 @@ def test_lookup_rule_gets_no_boolean_sentence(tmp_path):
     rows = [m("id", "Id"), m("s", "S", "Categorical", "{'Yes': True}", src="string", tgt="boolean")]
     text, _ = reports_for(tmp_path, rows, "id,s\n1,Yes\n")
     assert BOOL not in text
+
+
+# ---- 7. runaway rule results (script only) ----
+
+import time
+
+
+def run_math(tmp_path, instr, values, src="string", tgt="string"):
+    rows = [m("id", "Id"), m("t", "T", "Direct", instr, src=src, tgt=tgt)]
+    script = make(tmp_path, rows=rows)
+    source = write_input(tmp_path, "id,t\n" + "".join(f"{i},{v}\n" for i, v in enumerate(values)))
+    started = time.time()
+    result = run_script(script, "--input", source, "--output", tmp_path / "o.csv")
+    return result, time.time() - started
+
+
+def test_huge_text_multiplication_is_counted_as_errors_and_fast(tmp_path):
+    result, seconds = run_math(tmp_path, "x * 999999999", ["abc"] * 20)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert seconds < 10
+    report = _json.loads((tmp_path / "o_report.json").read_text(encoding="utf-8"))
+    entry = variable(report, "t")
+    assert entry["errors"] == 20 and entry["results_too_long"] == 20
+    text = (tmp_path / "o_report.txt").read_text(encoding="utf-8")
+    assert "longer than 1000000 characters" in text
+    assert read_cells(tmp_path / "o.csv")["T"].tolist() == [""] * 20
+
+
+def test_chained_multiplications_are_caught_too(tmp_path):
+    result, seconds = run_math(tmp_path, "x * 1000 * 1000 * 1000", ["abc"] * 5)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert seconds < 10
+    report = _json.loads((tmp_path / "o_report.json").read_text(encoding="utf-8"))
+    assert variable(report, "t")["results_too_long"] == 5
+
+
+def test_a_result_of_exactly_one_million_characters_is_allowed(tmp_path):
+    result, _ = run_math(tmp_path, "x * 500000", ["ab"])
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert len(read_cells(tmp_path / "o.csv")["T"][0]) == 1000000
+
+
+def test_a_result_one_character_over_the_limit_is_an_error(tmp_path):
+    result, _ = run_math(tmp_path, "x * 1000001", ["a"])
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = _json.loads((tmp_path / "o_report.json").read_text(encoding="utf-8"))
+    assert variable(report, "t")["results_too_long"] == 1
+    assert read_cells(tmp_path / "o.csv")["T"].tolist() == [""]
+
+
+def test_numeric_rules_are_not_affected(tmp_path):
+    result, _ = run_math(tmp_path, "x * 100000000", ["5", "7"], src="float", tgt="float")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert read_cells(tmp_path / "o.csv")["T"].tolist() == ["500000000.0", "700000000.0"]
+    report = _json.loads((tmp_path / "o_report.json").read_text(encoding="utf-8"))
+    assert variable(report, "t")["results_too_long"] == 0

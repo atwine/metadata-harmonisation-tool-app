@@ -57,6 +57,7 @@ MAX_UNSEEN_LISTED = 50
 MAX_UNSEEN_TRACKED = 10000
 MAX_EXAMPLES = 5
 MAX_LOOKUP_RULE_CHARS = 10000
+MAX_RESULT_CHARS = 1000000
 SEP_CANDIDATES = [",", ";", "\t", "|"]
 NAN = float("nan")
 DECIMAL_COMMA_LOOKS_LIKE = re.compile(r"^\s*[-+]?\d+,\d+\s*$")
@@ -74,8 +75,20 @@ _CONFIG_JSON = "\n".join((
 
 # ---- conversion rules (copied from backend/core/transformation_utils.py) ----
 
+class ResultTooLong(ValueError):
+    """A rule produced a result longer than MAX_RESULT_CHARS. Script only: the app has no such limit."""
+
+
+def checked_mul(a, b):
+    """a * b, but refuses text repeated to more than MAX_RESULT_CHARS before building it."""
+    for text, count in ((a, b), (b, a)):
+        if isinstance(text, str) and isinstance(count, int) and len(text) * max(count, 0) > MAX_RESULT_CHARS:
+            raise ResultTooLong("result longer than %d characters" % MAX_RESULT_CHARS)
+    return op.mul(a, b)
+
+
 class SafeEvaluator:
-    _BINOPS = {ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul, ast.Div: op.truediv}
+    _BINOPS = {ast.Add: op.add, ast.Sub: op.sub, ast.Mult: checked_mul, ast.Div: op.truediv}
     _UNARYOPS = {ast.USub: op.neg}
     _ALLOWED_NAMES = {"x"}
 
@@ -174,6 +187,8 @@ class Variable:
             if self.compile_error is not None:
                 raise self.compile_error
             x = SafeEvaluator().eval_node(self.tree.body, {"x": x})
+            if isinstance(x, str) and len(x) > MAX_RESULT_CHARS:
+                raise ResultTooLong("result longer than %d characters" % MAX_RESULT_CHARS)
             return dtype_cast(x, self.tgt_dtype)
         if self.rule == "lookup":
             if self.too_long:
@@ -199,6 +214,7 @@ class Stats:
         self.unseen = collections.Counter()
         self.unseen_untracked_rows = 0
         self.comma_like = 0
+        self.too_long = 0
 
     def add_unseen(self, key):
         if key in self.unseen or len(self.unseen) < MAX_UNSEEN_TRACKED:
@@ -370,6 +386,10 @@ def transform_chunk(pd, chunk, variables, stats_by_var, kinds_by_col):
                 continue
             try:
                 result = var.convert(val, stats)
+            except ResultTooLong:
+                stats.errors += 1
+                stats.too_long += 1
+                result = NAN
             except Exception:
                 stats.errors += 1
                 result = NAN
@@ -469,6 +489,9 @@ def variable_notes(var, s, args):
     if (var.rule != "lookup" and var.numeric and args.decimal == "." and s.not_converted
             and s.comma_like * 2 > s.not_converted):
         notes.append(DECIMAL_COMMA_HINT)
+    if s.too_long:
+        notes.append("%d cells gave a result longer than %d characters and were counted as errors and left empty "
+                     "(the script stops these; the app would try to build them)." % (s.too_long, MAX_RESULT_CHARS))
     if s.source_empty:
         notes.append("This variable has empty cells. Remember that text such as NA, N/A, n/a, NaN, null and None is read as empty "
                      "(the app does the same), so a rule for those words never applies.")
@@ -510,6 +533,7 @@ def build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, 
             "empty_because_source_empty": s.source_empty,
             "empty_not_converted": s.not_converted,
             "errors": s.errors,
+            "results_too_long": s.too_long,
             "notes": variable_notes(var, s, args),
         }
         if var.rule == "lookup":

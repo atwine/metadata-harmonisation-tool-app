@@ -164,3 +164,12 @@ Item 6 makes the report explain them without changing any result.
   Deliberately not shown for lookup rules: a lookup returns the rule's value without casting, so the sentence would be false there.
 - Notes are in the per-variable `notes` list (JSON) and `note:` lines (text). Tests: 11 in tests/test_script_round2.py, 5 seen failing first
   (the other 6 check that nothing changes or no sentence appears where it should not).
+
+### 7. Runaway rule results (fixed in the script only)
+- Before: `x * 999999999` on text builds a 3 GB string per cell; the 4 new tests took 169 seconds to fail (memory and time) on the old script.
+- Fix: the script's `*` refuses to repeat text into more than 1,000,000 characters (checked before building it, also at each step of a chain such as
+  `x * 1000 * 1000 * 1000`), and any text result longer than 1,000,000 is refused too. The cell is counted as an error, left empty, and the
+  report says so (JSON `results_too_long`, plus a per-variable note). Exactly 1,000,000 characters is still allowed. Numeric rules are unaffected.
+- **This makes the script safer than the app in this one case.** The app's engine still builds the huge string (not changed: out of scope).
+  For a rule like this the script and app now differ on purpose; the parity tests do not cover it.
+- Tests: 5 in tests/test_script_round2.py, 4 seen failing first (the "exactly one million" boundary and one-over cases were added after that run).
