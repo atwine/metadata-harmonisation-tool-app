@@ -86,6 +86,8 @@ It is saved only on your computer and the app never receives it. Keep it as priv
 | exit 2, "None of the mapped columns were found" | The file is not the study's data, or the column names differ. Nothing is written except the report. |
 | `Source column missing: <name>` (warning) | That variable is skipped. The rest still runs. |
 
+If a run fails, nothing is left behind: the output and reports are written under temporary names and moved into place only when the whole run succeeded, and an existing output file is never half replaced. (When none of the mapped columns are found, only the report is written.) The script also refuses to run if `--output` or a report file is the input file or the script itself.
+
 A variable whose transformation instruction is invalid does not stop the run: each of its cells is counted as an error and left empty, as in the app.
 
 ## How it matches the app

@@ -29,6 +29,7 @@ import math
 import operator as op
 import os
 import sys
+import tempfile
 
 CHUNK_ROWS = 50000
 MAX_UNSEEN_LISTED = 50
@@ -492,9 +493,43 @@ def same_file(a, b):
     return os.path.normcase(os.path.realpath(a)) == os.path.normcase(os.path.realpath(b))
 
 
-def write_text(path, text):
-    with open(path, "w", encoding="utf-8", newline="") as f:
-        f.write(text)
+class Staging:
+    """Files are written under temporary names in the destination folder and moved to
+    their real names only after the whole run worked, so a failed run leaves nothing
+    behind and an existing output file is never half replaced."""
+
+    def __init__(self):
+        self.temp_of = {}
+
+    def add(self, final):
+        if os.path.isdir(final):
+            fail(1, "Cannot write %s (it is a folder)." % final)
+        try:
+            fd, temp = tempfile.mkstemp(prefix=".tmp_", suffix=".part", dir=os.path.dirname(os.path.abspath(final)))
+            os.close(fd)
+        except OSError as e:
+            fail(1, "Cannot write %s (%s)." % (final, e.strerror or type(e).__name__))
+        self.temp_of[final] = temp
+        return temp
+
+    def write_text(self, final, text):
+        with open(self.temp_of[final], "w", encoding="utf-8", newline="") as f:
+            f.write(text)
+
+    def commit(self, finals):
+        try:
+            for final in finals:
+                os.replace(self.temp_of.pop(final), final)
+        except OSError as e:
+            fail(1, "Could not write %s (%s)." % (final, e.strerror or type(e).__name__))
+
+    def discard(self):
+        for temp in self.temp_of.values():
+            try:
+                os.remove(temp)
+            except OSError:
+                pass
+        self.temp_of = {}
 
 
 def main(argv=None):
@@ -535,12 +570,17 @@ def main(argv=None):
         for what, existing in protected:
             if same_file(target, existing):
                 fail(2, "%s (%s) is the same file as %s. Nothing was written. Choose a different name." % (label, target, what))
-    for target in (args.output, report_base + ".txt", report_base + ".json"):
-        try:
-            open(target, "a").close()
-        except OSError as e:
-            fail(1, "Cannot write %s (%s)." % (target, e.strerror or type(e).__name__))
+    staging = Staging()
+    try:
+        return run(args, config, pd, report_base, staging)
+    finally:
+        staging.discard()
 
+
+def run(args, config, pd, report_base, staging):
+    out_final, txt_final, json_final = args.output, report_base + ".txt", report_base + ".json"
+    for target in (out_final, txt_final, json_final):
+        staging.add(target)
     encoding = args.encoding
     if not encoding:
         try:
@@ -573,8 +613,9 @@ def main(argv=None):
     variables, warnings, skipped_metrics = plan_variables(config, header)
     if not variables:
         report = build_report(config, args, [], {}, {}, warnings, skipped_metrics, 0)
-        write_text(report_base + ".txt", report_text(report))
-        write_text(report_base + ".json", json.dumps(report, indent=2))
+        staging.write_text(txt_final, report_text(report))
+        staging.write_text(json_final, json.dumps(report, indent=2))
+        staging.commit([txt_final, json_final])
         fail(2, "None of the mapped columns were found in the input file, so nothing was written. See %s.txt" % report_base)
 
     usecols = [v.study_var for v in variables]
@@ -587,19 +628,21 @@ def main(argv=None):
         total_rows += len(chunk)
         transform_chunk(pd, chunk, variables, stats_by_var, kinds_by_col)
 
+    scratch_stats = {v.study_var: Stats() for v in variables}
+    scratch_kinds = {v.col_name: KindTracker() for v in variables}
+    columns = [v.col_name for v in variables]
+    temp_out = staging.temp_of[out_final]
     try:
-        scratch_stats = {v.study_var: Stats() for v in variables}
-        scratch_kinds = {v.col_name: KindTracker() for v in variables}
-        columns = [v.col_name for v in variables]
-        pd.DataFrame(columns=columns).to_csv(args.output, index=False, encoding="utf-8")
+        pd.DataFrame(columns=columns).to_csv(temp_out, index=False, encoding="utf-8")
         for chunk in read_chunks(pd, args.input, sep, encoding, usecols, dtypes):
             out = transform_chunk(pd, chunk, variables, scratch_stats, scratch_kinds)
-            to_frame(pd, out, kinds_by_col).to_csv(args.output, mode="a", header=False, index=False, encoding="utf-8")
+            to_frame(pd, out, kinds_by_col).to_csv(temp_out, mode="a", header=False, index=False, encoding="utf-8")
         report = build_report(config, args, variables, stats_by_var, kinds_by_col, warnings, skipped_metrics, total_rows)
-        write_text(report_base + ".txt", report_text(report))
-        write_text(report_base + ".json", json.dumps(report, indent=2))
+        staging.write_text(txt_final, report_text(report))
+        staging.write_text(json_final, json.dumps(report, indent=2))
     except OSError as e:
         fail(1, "Could not write the output or report (%s)." % (e.strerror or type(e).__name__))
+    staging.commit([out_final, txt_final, json_final])
 
     n_not = sum(v["empty_not_converted"] for v in report["variables"])
     print("Study %s: %d rows, %d variables written to %s" % (config["study"], total_rows, len(variables), args.output))

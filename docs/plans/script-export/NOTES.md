@@ -79,3 +79,15 @@ Each one below is the smallest, easiest to undo option. Overrule any of them.
 - Tests (tests/test_script_file_safety.py), seen failing first: different letter case, hard link, report aimed at the input
   (.txt and .json), output is the script, report is the script. Symbolic-link test is skipped on this machine (needs admin rights
   on Windows); the hard-link test covers the same `samefile` path.
+
+### 3. Half-written or empty files (fixed)
+- Cause: the pre-flight `open(target, 'a')` created empty files, and a failure in a later pass left a partial output.
+- Fix: new `Staging` class. The output and both reports are written to `.tmp_*.part` files in the destination folder and moved
+  into place (`os.replace`) only after everything worked; any exit deletes leftover temp files. The pre-flight check is gone: creating
+  the temp files is the writability check (exit 1; an output path that is a folder is also exit 1).
+- Kept on purpose: when none of the mapped columns exist in the input, the report files are still written (that is the only
+  place the reason is listed), but no output file is.
+- If moving the three files into place fails part way (very unlikely), files already moved stay. Documented here only.
+- Tests (tests/test_script_no_leftovers.py), seen failing first: garbled text, unknown encoding, one-column guess, empty input,
+  input changing between passes (exit 2 in the second pass), existing output kept untouched on failure. Also: output is a folder
+  gives exit 1 with nothing left, and a good run leaves exactly the output and two reports.
