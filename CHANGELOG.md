@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.19] — 2026-10-08
+
+### Security
+- **Server errors no longer show raw Python error text.** When reading the codebook or building the transformed-data download failed, the API sent the exception text back to the caller (for example `Could not read codebook: <file path or data fragment>`). Both now answer a fixed message, "Something went wrong. Check the server log.", and the server log records only the route and the exception class (never the message text or request data, which can hold file paths or participant values). Helpful validation messages (400 errors such as "No studies specified", file-size and column-name problems) are unchanged.
+
 ## [0.8.18] — 2026-10-08
 
 ### Security
