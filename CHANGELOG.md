@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.13] — 2026-10-08
+
+### Security
+- **Other websites can no longer send hidden writes to the app.** A web page open in your browser could send a background form post to `localhost:8000` that wiped the workspace, replaced the codebook or planted a study (finding F2 in `ACCESS-AUDIT.md`). Browsers always label such requests with the page they came from (the `Origin` header). The backend now answers `403` to any POST, PUT, PATCH or DELETE whose `Origin` is not one of the tool's own localhost addresses, using the same list as the CORS settings. Requests with no `Origin` (curl, scripts) are still allowed, because only browsers can be tricked this way. The F2 tests, plus 14 DNS-rebinding write tests that the same check also closes, are off the expected-failure list; only the F3 read tests remain.
+
 ## [0.8.12] — 2026-10-08
 
 ### Security

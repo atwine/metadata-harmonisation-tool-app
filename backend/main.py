@@ -1,7 +1,9 @@
+import re
 from pathlib import Path
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from routers import codebook, studies, initialise, mappings, download, ai_config, afpo, eval_report
 from core.afpo_lookup import refresh_ontology
@@ -25,18 +27,38 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Metadata Harmonisation API", lifespan=lifespan)
 
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:4173",
+    "http://localhost:8788",
+    "http://localhost:8080",
+]
+ALLOWED_ORIGIN_REGEX = re.compile(r"http://localhost:\d+")
+STATE_CHANGING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:4173",
-        "http://localhost:8788",
-        "http://localhost:8080",
-    ],
-    allow_origin_regex=r"http://localhost:\d+",
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=ALLOWED_ORIGIN_REGEX.pattern,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def refuse_cross_site_writes(request: Request, call_next):
+    # Browsers always send Origin on cross-site POSTs, and CORS only stops the
+    # page reading the reply, not the write. Requests with no Origin (curl,
+    # scripts, the test client) are not browser cross-site requests and stay allowed.
+    origin = request.headers.get("origin")
+    if (
+        origin is not None
+        and request.method in STATE_CHANGING_METHODS
+        and origin not in ALLOWED_ORIGINS
+        and not ALLOWED_ORIGIN_REGEX.fullmatch(origin)
+    ):
+        return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
+    return await call_next(request)
 
 app.include_router(codebook.router,   prefix="/api/codebook")
 app.include_router(studies.router,    prefix="/api/studies")
