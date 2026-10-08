@@ -4,32 +4,43 @@
 #
 # Why: the data folders are bind mounts from the researcher's computer. On Linux
 # Docker creates a missing host folder owned by root, which an ordinary user
-# could not write to. Here, a root-owned folder is handed to the app user; a
-# folder the researcher already owns is left alone and the app runs as that
-# same user, so the files stay editable on the host.
+# could not write to. Here, a folder owned by root (or by this image's own app
+# user left over from an earlier run) is handed to the app user. A folder the
+# researcher already owns is left alone and the app runs as that same user, so
+# the files stay editable on the host.
 set -e
 
 if [ "$(id -u)" != "0" ]; then
   exec "$@"
 fi
 
-APP_UID=10001
-APP_GID=10001
+DIRS="db input results logs ontology_cache"
+DEFAULT_UID=10001
+APP_UID=$DEFAULT_UID
+APP_GID=$DEFAULT_UID
 
-# The first folder owned by someone other than root decides who the app runs as.
-for d in db input results logs ontology_cache; do
+for d in $DIRS; do
   mkdir -p "/app/$d"
+done
+
+# The first folder owned by a real person decides who the app runs as.
+for d in $DIRS; do
   owner="$(stat -c %u "/app/$d")"
-  if [ "$owner" != "0" ]; then
+  if [ "$owner" != "0" ] && [ "$owner" != "$DEFAULT_UID" ]; then
     APP_UID="$owner"
     APP_GID="$(stat -c %g "/app/$d")"
     break
   fi
 done
 
-for d in db input results logs ontology_cache; do
-  if [ "$(stat -c %u "/app/$d")" = "0" ]; then
-    chown -R "$APP_UID:$APP_GID" "/app/$d"
+# Hand over only folders nobody real owns. A failure (a read-only mount, or a
+# network drive that refuses root) is a warning, not a crash: if the app user
+# can already write there, the app still works.
+for d in $DIRS; do
+  owner="$(stat -c %u "/app/$d")"
+  if [ "$owner" = "0" ] || { [ "$owner" = "$DEFAULT_UID" ] && [ "$APP_UID" != "$DEFAULT_UID" ]; }; then
+    chown -R "$APP_UID:$APP_GID" "/app/$d" \
+      || echo "warning: could not change the owner of /app/$d; continuing" >&2
   fi
 done
 
