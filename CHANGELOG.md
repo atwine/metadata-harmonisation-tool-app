@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.14] — 2026-10-08
+
+### Security
+- **A malicious website can no longer read your data through DNS rebinding.** A website could point its own domain name at your computer, and your browser would then let that page call the API and read the replies, including participant data (finding F3 in `ACCESS-AUDIT.md`). The backend now refuses (403) any request whose `Host` is not `localhost`, `127.0.0.1` or `::1`. Extra names for the opt-in network mode go in the new `MHT_ALLOWED_HOSTS` setting (documented in `docs/docker.md`, passed through both compose files). Starlette's stock host check cannot read IPv6 addresses like `[::1]:8000`, so the app uses a thin wrapper around it. All access tests are now green with no expected failures left; `tests/test_host_check.py` adds checks for IPv6, look-alike names and the setting.
+
 ## [0.8.13] — 2026-10-08
 
 ### Security
