@@ -1,15 +1,17 @@
 import io
 import json
+from urllib.parse import quote
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from core.errors import server_error
+from core.script_export import NoMappedVariables, generate_script
 from core.transform_engine import apply_transformations
 from models.schemas import TransformedDataRequest
 from storage import db
-from storage.files import sanitise_study_name
+from storage.files import list_studies, sanitise_study_name
 
 router = APIRouter()
 
@@ -46,6 +48,47 @@ async def download_mapping_csv(study_name: str):
         io.BytesIO(csv_bytes),
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={study_name}_mapping_results.csv"},
+    )
+
+
+def _script_disposition(study_name: str) -> str:
+    """RFC 6266: plain ASCII name for old clients plus filename* with the real UTF-8 name,
+    because study names may use non-Latin scripts and headers must be ASCII."""
+    ascii_name = "".join(c if c.isascii() else "_" for c in study_name)
+    return (
+        f'attachment; filename="transform_{ascii_name}.py"; '
+        f"filename*=UTF-8''transform_{quote(study_name)}.py"
+    )
+
+
+@router.get("/{study_name}/script")
+def download_transform_script(study_name: str):
+    """A standalone Python script holding this study's confirmed mappings (no participant data).
+
+    A plain def, not async: FastAPI runs it in a worker thread, so building the script for a very
+    large study does not freeze every other request."""
+    try:
+        study_name = sanitise_study_name(study_name)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    if study_name not in list_studies():
+        raise HTTPException(404, "Study not found")
+
+    try:
+        script = generate_script(study_name)
+    except NoMappedVariables:
+        raise HTTPException(
+            422,
+            'No variables marked "Successfully mapped" yet - nothing to put in a script.',
+        )
+    except Exception as e:
+        raise server_error("/api/download/{study_name}/script", e)
+
+    return StreamingResponse(
+        io.BytesIO(script.encode("utf-8")),
+        media_type="text/x-python",
+        headers={"Content-Disposition": _script_disposition(study_name)},
     )
 
 

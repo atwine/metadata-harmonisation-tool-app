@@ -11,7 +11,7 @@ is logged in.
 | Data | What it holds | Sensitivity |
 |---|---|---|
 | studies | uploaded study variable lists, example data CSVs (real participant-level rows) and context PDFs | sensitive: health |
-| exports | the transformed dataset ZIP (participant-level rows), the mapping CSV, the audit log and the transform script (mappings only, no participant data) | sensitive: health |
+| exports | the transformed dataset ZIP (participant-level rows), the mapping CSV and the audit log | sensitive: health |
 | mappings | each variable's chosen codebook match, transformation, notes and the audit trail | internal |
 | codebook | the target variable list | internal |
 | workspace | running Initialise, its status, and wiping all studies and results | internal |
@@ -32,9 +32,9 @@ How the app tells them apart:
   `127.0.0.1` only, so other devices can't connect at all. Setting
   `MHT_BIND_ADDRESS=0.0.0.0` opens it to the network on purpose.
 - **website** is kept out by checking each request. A state-changing request
-  (POST, PUT, PATCH, DELETE) must come from one of the tool's own `localhost`
+  (POST, PUT, DELETE) must come from one of the tool's own `localhost`
   origins, and every request must be addressed to `localhost` or
-  `127.0.0.1` (the `Host` header), which stops DNS rebinding. Both checks answer 403.
+  `127.0.0.1` (the `Host` header), which stops DNS rebinding.
 
 ## 3. Permission grid
 
@@ -65,7 +65,6 @@ How the app tells them apart:
 | POST | /api/mappings/preview-transformation | mappings | view |
 | POST | /api/mappings/validate-expression | mappings | view |
 | GET | /api/download/{study_name}/mapping-csv | exports | view |
-| GET | /api/download/{study_name}/script | exports | view |
 | POST | /api/download/transformed-data | exports | view |
 | GET | /api/download/audit-log | exports | view |
 | GET | /api/ai-config/providers | ai_config | view |
@@ -94,11 +93,6 @@ No route is public: every route belongs to the local researcher only.
 - A website uses DNS rebinding (its own domain resolving to 127.0.0.1) so
   the browser lets it read API replies, then downloads participant data.
   Covered by: website row, exports = `-` (Host header check).
-- A website the researcher has open fetches
-  `http://localhost:8000/api/download/<study>/script` in the background. The
-  script holds the study's mappings but no participant data, and the site
-  still cannot read the reply. Covered by: website row, exports = `-` (CORS
-  and Host checks).
 - Someone calls the API directly instead of using the app's pages. Covered:
   the same three checks apply to any client.
 

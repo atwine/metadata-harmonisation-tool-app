@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Added
+- **Download a script to transform your full dataset.** The Download Results page has a new "Download script" button for each study. The script (`transform_<study>.py`) applies the study's confirmed mappings and transformations to your own full CSV on your own computer, so the full data never goes through the app. Run `python transform_<study>.py --input my_data.csv --output out.csv` (needs Python and pandas). It reads in chunks, guesses the separator and text encoding (override with `--sep` and `--encoding`), and writes a results report next to the output (`_report.txt` and `_report.json`) listing what was converted, what came out empty, every lookup value the rule had never seen with its row count, and skipped variables. The report may contain participant values, so keep it private. A test requires the script's output to match the app's, cell for cell. New route `GET /api/download/{study}/script` (listed in `ACCESS.md`). See `docs/script-export.md`.
+
 ## [0.8.24] — 2026-10-08
 
 ### Security
