@@ -85,12 +85,13 @@ function DownloadResultsPage() {
       {/* The Map Studies pop-up normally waits for 100% of the variables to be mapped, which almost
           nobody reaches in a short session. Moving on to Download Results with at least one variable
           mapped is the natural "I'm done mapping" moment, so ask it here too (once: StepCheckIn
-          never repeats a step that was answered or skipped). */}
+          never repeats a step that was answered or skipped). It waits until the page tour has ended
+          and never opens together with this page's own check-in (a forced link, or a download). */}
       <StepCheckIn
         step="map_studies"
         title="Quick check-in: Map Studies"
         questions={CHECK_IN_QUESTIONS.map_studies}
-        trigger={studies.some((s) => s.has_mapped_variable)}
+        trigger={studies.some((s) => s.has_mapped_variable) && !tour.run && !forceCheckIn && !downloadedOnce}
       />
       <StepCheckIn
         step="download_results"
