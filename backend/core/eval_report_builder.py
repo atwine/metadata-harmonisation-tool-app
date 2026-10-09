@@ -24,6 +24,11 @@ LOG_PATH = Path("logs") / "benchmark_log.jsonl"
 # the issue as a file by the participant, not embedded in the link.
 _MAX_BODY_CHARS = 6000
 
+# The tester's own operating system as their browser reports it. The hardware line
+# above comes from inside Docker, so on Windows and Mac it says "Linux" (Docker's own
+# virtual machine). Only these short names are accepted; anything else is "not reported".
+_HOST_OS_NAMES = {"Windows", "macOS", "Linux", "Android", "iOS", "Other"}
+
 
 def _read_performance_summary() -> str:
     """Best-effort summary of the automated log: hardware, AI config,
@@ -85,7 +90,7 @@ def _read_performance_summary() -> str:
     return "\n".join(lines)
 
 
-def build_report_issue_url(sections_markdown: list[str], has_skips: bool, session_id: str) -> str:
+def build_report_issue_url(sections_markdown: list[str], has_skips: bool, session_id: str, host_os: str = "") -> str:
     today = datetime.date.today().isoformat()
     title = f"[Eval] Testing report — {today} — {session_id}"
 
@@ -95,6 +100,7 @@ def build_report_issue_url(sections_markdown: list[str], has_skips: bool, sessio
         f"**Anonymous session ID:** `{session_id}` _(random, not linked to any name — lets separate submissions be told apart)_",
         "",
         "### Performance log summary",
+        f"- **Operating system (reported by your browser):** {host_os if host_os in _HOST_OS_NAMES else 'not reported'}",
         _read_performance_summary(),
         "",
         "_The full performance log (`logs/benchmark_log.jsonl`) isn't included above — "

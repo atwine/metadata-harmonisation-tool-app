@@ -370,6 +370,17 @@ function AIConfigPanel() {
                 {testConn.data.embedding && (
                   <SlotFeedback label="Embedding model" result={testConn.data.embedding} />
                 )}
+                {/* Testing build, Docker: the AI models download the first time the app starts, which can
+                    take a long while. "(0 available)" right after starting almost always means "not yet". */}
+                {isEvalBuild() &&
+                  [testConn.data.chat, testConn.data.embedding].some(
+                    (r) => r && !r.connected && /\(0 available\)/.test(r.message),
+                  ) && (
+                    <div className="text-sm text-text-primary">
+                      If you just started the app, the AI models may still be downloading. Wait until
+                      the terminal shows “models ready — serving.”, then click Test Connection again.
+                    </div>
+                  )}
               </div>
             )}
             {testConn.isError && (

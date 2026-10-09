@@ -288,3 +288,7 @@ class EvalReportRequest(BaseModel):
     # session — the only thing distinguishing one participant's issue from
     # another's without collecting any identity.
     session_id: str
+    # The tester's operating system name from their browser ("Windows", "macOS",
+    # "Linux", ...). Optional so older pages keep working; the report builder only
+    # accepts a short fixed set of names and shows anything else as "not reported".
+    host_os: str = Field("", max_length=40)

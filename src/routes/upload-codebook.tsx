@@ -17,6 +17,7 @@ import type { CodebookVariable } from "@/types";
 import { StepCheckIn } from "@/components/eval/StepCheckIn";
 import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
 import { useForceCheckIn } from "@/components/eval/useForceCheckIn";
+import { SampleDataNote } from "@/components/eval/SampleDataNote";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 export const Route = createFileRoute("/upload-codebook")({
@@ -131,6 +132,11 @@ function UploadCodebookPage() {
         />
         <TourReplayButton onClick={tour.start} />
       </div>
+
+      <SampleDataNote>
+        No data of your own? Use the sample codebook <code>target_variables.csv</code> from the
+        project's <code>example_data</code> folder.
+      </SampleDataNote>
 
       {/* ── Last upload banner ─────────────────────────────── */}
       {meta?.exists && meta.filename && (

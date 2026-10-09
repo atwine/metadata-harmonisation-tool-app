@@ -10,6 +10,7 @@ import type { Study } from "@/types";
 import { StepCheckIn } from "@/components/eval/StepCheckIn";
 import { CHECK_IN_QUESTIONS } from "@/components/eval/checkInQuestions";
 import { useForceCheckIn } from "@/components/eval/useForceCheckIn";
+import { SampleDataNote } from "@/components/eval/SampleDataNote";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -195,6 +196,11 @@ function UploadStudiesPage() {
         />
         <TourReplayButton onClick={tour.start} />
       </div>
+
+      <SampleDataNote>
+        No data of your own? Use the sample study in <code>example_data/CH_SIB</code>: the variables
+        file, the example data file and the context PDF.
+      </SampleDataNote>
 
       <div className="grid grid-cols-[400px_1fr] gap-6">
         {/* LEFT: add new study */}
