@@ -345,7 +345,7 @@ export const api = {
   },
 
   // Evaluation report (testing build only)
-  getEvalReportUrl: (body: { sections_markdown: string[]; has_skips: boolean; session_id: string }): Promise<{ url: string }> =>
+  getEvalReportUrl: (body: { sections_markdown: string[]; has_skips: boolean; session_id: string; host_os?: string }): Promise<{ url: string }> =>
     post("/api/eval/report-url", body),
 };
 

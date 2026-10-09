@@ -1,3 +1,4 @@
+import { detectHostOs } from "./hostOs";
 import { useState } from "react";
 import { Github, ExternalLink, AlertTriangle, ArrowRight } from "lucide-react";
 import { api } from "@/api/client";
@@ -34,6 +35,7 @@ export function SubmitReportButton() {
       const payload = {
         ...buildReportSections(stepAnswers, questionnaireAnswers, questionnaireSkipped),
         session_id: sessionId,
+        host_os: detectHostOs(),
       };
       const { url } = await api.getEvalReportUrl(payload);
       window.open(url, "_blank", "noopener,noreferrer");
