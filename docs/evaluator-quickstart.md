@@ -4,7 +4,7 @@ Thanks for helping test this. Once everything is installed, a full harmonisation
 and a short questionnaire at the end take about **20 to 30 minutes**. Everything
 runs on your own machine; nothing about your actual data ever leaves it.
 
-**Read "Before you start" first.** The first-time download is large (about 8 GB), and how
+**Read "Before you start" first.** The first-time download is large (about 7 GB), and how
 long it takes depends on your internet speed. Start it ahead of time, not at the start of your session.
 
 ## What this testing build does differently from the real app
@@ -34,7 +34,7 @@ before anything is collected.
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and
   **running** (open it and wait for "Docker Desktop is running" before continuing).
-- **About 12 GB of free disk space** and about 8 GB of free RAM.
+- **About 15 GB of free disk space** and about 8 GB of free RAM.
 - A GitHub account, to submit your report at the end.
 - Test data (see "Test data" below). If you have your own study data, you can use that instead.
 
@@ -43,14 +43,14 @@ You do **not** need to install Python, Node, or Ollama separately.
 **How big the first download is, and how long it takes**
 
 The first time, your computer downloads the app and a local AI engine from Docker Hub
-(about 5 GB), and then the AI models (about 2.3 GB). That is **about 8 GB in total**, and it
-takes up about 12 GB of disk once unpacked. How long it takes depends only on your internet
+(about 4.4 GB), and then the AI models (about 2.3 GB). That is **about 7 GB in total**, and it
+takes up about 15 GB of disk once unpacked. How long it takes depends only on your internet
 connection:
 
 | Your connection | Rough time for the first download |
 |---|---|
-| Fast (about 100 Mbit/s or more, 10 MB/s or more) | 15 minutes or less |
-| Typical (about 20 Mbit/s, 2.5 MB/s) | about 1 hour |
+| Fast (about 100 Mbit/s or more, 10 MB/s or more) | about 10 to 15 minutes |
+| Typical (about 20 Mbit/s, 2.5 MB/s) | about 45 minutes |
 | Slow (about 8 Mbit/s, 1 MB/s) | 2 hours or more |
 
 Tips:
