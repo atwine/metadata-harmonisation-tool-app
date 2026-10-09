@@ -82,21 +82,27 @@ jobs:
     name: Risky code patterns (Semgrep)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # PENDING OWNER DECISION (item 6 triage, 2026-10-08): the first run found 6
-    # items. Fixed: 3 unpinned actions in publish-main-images.yml (now pinned to
-    # commit hashes) and 1 false alarm in backend/storage/db.py (nosemgrep, with
-    # reason). Decided by the owner on 2026-10-08: (1) backend/Dockerfile has no
-    # USER line, so Semgrep reports dockerfile.security.missing-user and
-    # missing-user-entrypoint (two findings). ACCEPTED AS A FALSE ALARM: the
-    # container starts as root only to fix the ownership of the mounted data
-    # folders, then docker/backend-entrypoint.sh runs the app through gosu as an
-    # ordinary user (the folder owner, or 10001). Tested with real containers: the
-    # app process ran as 10001 or 1000, never root. A plain USER line would break
-    # Linux installs, because Docker creates the data folders owned by root.
-    # Still open, owner to decide, and the reason this job does not fail the run:
-    # (2) bunfig.toml minimumReleaseAge is 1 day, the rule wants 7 days (a security
-    # policy the owner must change, not Devin). Remove "continue-on-error" once
-    # (2) is decided.
+    # OWNER DECISIONS (item 6 triage, 2026-10-08/09): the first run found 6 items.
+    # Fixed: 3 unpinned actions in publish-main-images.yml (now pinned to commit
+    # hashes) and 1 false alarm in backend/storage/db.py (nosemgrep, with reason).
+    # Accepted by the owner, so the job still reports three findings:
+    # (1) backend/Dockerfile has no USER line, so Semgrep reports
+    # dockerfile.security.missing-user and missing-user-entrypoint (two findings).
+    # ACCEPTED AS A FALSE ALARM (2026-10-08): the container starts as root only to fix
+    # the ownership of the mounted data folders, then docker/backend-entrypoint.sh runs
+    # the app through gosu as an ordinary user (the folder owner, or 10001). Tested
+    # with real containers: the app process ran as 10001 or 1000, never root. A plain
+    # USER line would break Linux installs, because Docker creates the data folders
+    # owned by root.
+    # (2) bunfig.toml minimumReleaseAge is 1 day and the rule wants 7 days. ACCEPTED
+    # AS A LOW RISK (2026-10-09): bunfig.toml only affects a developer who installs
+    # packages with bun on their own computer. The Docker images are built with npm,
+    # which ignores this file, so neither testers nor public users are affected. A
+    # 7-day wait would also delay installing a security fix released that week.
+    # continue-on-error stays on because these three accepted findings would
+    # otherwise fail every run, and a new finding would be lost among them. To make
+    # this job strict, add an inline "nosemgrep" note with the reason on each
+    # accepted line, then remove continue-on-error (an owner decision).
     continue-on-error: true
     container:
       image: semgrep/semgrep:1.179.0
